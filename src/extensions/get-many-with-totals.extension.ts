@@ -27,7 +27,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
   paginationFilter: PaginationFilter,
   options?: GetManyWithTotalsOptions & ApplyPaginationOptions
-) {
+): Promise<ListWithTotals<Entity>> {
   const { disableTotalsCalculation = false, loadAll = false } = options || {};
 
   const { limit, offset } = loadAll

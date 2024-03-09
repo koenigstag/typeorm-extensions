@@ -2,6 +2,7 @@ import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import type { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { defaultUseTakeAndSkip } from '../constants';
 import { getLimitAndOffset } from '../utils/pagination.utils';
+import { ObjectLiteral } from 'typeorm';
 
 export type ApplyPaginationOptions = {
   useTakeAndSkip?: boolean;
@@ -12,14 +13,14 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     applyPaginationFilter(
       paginationFilter: PaginationFilter,
       options?: ApplyPaginationOptions
-    ): this;
+    ): SelectQueryBuilder<Entity>;
   }
 }
 
-SelectQueryBuilder.prototype.applyPaginationFilter = function <Entity>(
+SelectQueryBuilder.prototype.applyPaginationFilter = function <Entity extends ObjectLiteral>(
   paginationFilter: PaginationFilter,
   options?: ApplyPaginationOptions
-) {
+): SelectQueryBuilder<Entity> {
   const { useTakeAndSkip = defaultUseTakeAndSkip } = options || {};
 
   const { limit, offset } = getLimitAndOffset(paginationFilter);

@@ -9,6 +9,7 @@ import {
   defaultOrderDirection,
   defaultUseDoubleQuotes,
 } from '../constants';
+import { ObjectLiteral } from 'typeorm';
 
 export type ApplyOrderOptions = {
   useDoubleQuotes?: boolean;
@@ -27,10 +28,10 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
   }
 }
 
-SelectQueryBuilder.prototype.applyOrder = function <OrderEntity>(
+SelectQueryBuilder.prototype.applyOrder = function <Entity extends ObjectLiteral, OrderEntity>(
   orderBy: OrderBy<OrderEntity>,
   options?: ApplyOrderOptions
-) {
+): SelectQueryBuilder<Entity> {
   const { useDoubleQuotes = defaultUseDoubleQuotes } = options ?? {};
 
   const { field, direction, nulls } = orderBy;
@@ -48,10 +49,10 @@ SelectQueryBuilder.prototype.applyOrder = function <OrderEntity>(
   return this.addOrderBy(sort, order, nullsOrder);
 };
 
-SelectQueryBuilder.prototype.applyOrderFilter = function <OrderEntity>(
+SelectQueryBuilder.prototype.applyOrderFilter = function <Entity extends ObjectLiteral, OrderEntity>(
   orderFilter: OrderFilter<OrderEntity>,
   options?: ApplyOrderOptions
-) {
+): SelectQueryBuilder<Entity> {
   if (!orderFilter.orderBy) {
     return this;
   }
