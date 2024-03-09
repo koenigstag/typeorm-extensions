@@ -7,7 +7,14 @@
     "build": "tsc -p .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["typeorm", "extension", "extensions"],
+  "keywords": [
+    "typeorm",
+    "extension",
+    "extensions"
+  ],
   "author": "koenigstag",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "typeorm": "^0.3.20"
+  }
 }

@@ -1,1 +1,3 @@
-console.log(123);
+export * from './extensions';
+
+export * from './types/interfaces';
