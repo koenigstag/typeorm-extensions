@@ -1,39 +1,56 @@
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
-import type { OrderBy, OrderFilter } from '../types/interfaces/ordering.interface';
+import type {
+  OrderBy,
+  OrderFilter,
+} from '../types/interfaces/ordering.interface';
 import { stringToSQLIdentifier } from '../utils/string.utils';
-import { defaultUseDoubleQuotes } from '../constants';
+import {
+  defaultNullsOrder,
+  defaultOrderDirection,
+  defaultUseDoubleQuotes,
+} from '../constants';
+
+export type ApplyOrderOptions = {
+  useDoubleQuotes?: boolean;
+};
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
     applyOrder<OrderEntity>(
       orderBy: OrderBy<OrderEntity>,
-      options?: { useDoubleQuotes?: boolean }
+      options?: ApplyOrderOptions
     ): SelectQueryBuilder<Entity>;
     applyOrderFilter<OrderEntity>(
       orderFilter: OrderFilter<OrderEntity>,
-      options?: { useDoubleQuotes?: boolean }
+      options?: ApplyOrderOptions
     ): SelectQueryBuilder<Entity>;
   }
 }
 
 SelectQueryBuilder.prototype.applyOrder = function <OrderEntity>(
   orderBy: OrderBy<OrderEntity>,
-  options?: { useDoubleQuotes?: boolean }
+  options?: ApplyOrderOptions
 ) {
   const { useDoubleQuotes = defaultUseDoubleQuotes } = options ?? {};
 
-  return this.addOrderBy(
-    useDoubleQuotes
-      ? stringToSQLIdentifier(orderBy.field as string)
-      : (orderBy.field as string),
-    (orderBy.direction ?? 'ASC').toUpperCase() as 'ASC' | 'DESC',
-    `NULLS ${(orderBy.nulls ?? 'LAST').toUpperCase() as 'LAST' | 'FIRST'}`
-  );
+  const { field, direction, nulls } = orderBy;
+
+  const sort = useDoubleQuotes
+    ? stringToSQLIdentifier(field as string)
+    : (field as string);
+  const order = (direction ?? defaultOrderDirection).toUpperCase() as
+    | 'ASC'
+    | 'DESC';
+  const nullsOrder = `NULLS ${(nulls ?? defaultNullsOrder).toUpperCase()}` as
+    | 'NULLS LAST'
+    | 'NULLS FIRST';
+
+  return this.addOrderBy(sort, order, nullsOrder);
 };
 
 SelectQueryBuilder.prototype.applyOrderFilter = function <OrderEntity>(
   orderFilter: OrderFilter<OrderEntity>,
-  options?: { useDoubleQuotes?: boolean }
+  options?: ApplyOrderOptions
 ) {
   if (!orderFilter.orderBy) {
     return this;

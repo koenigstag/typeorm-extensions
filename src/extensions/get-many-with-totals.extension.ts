@@ -1,6 +1,12 @@
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { getLimitAndOffset } from '../utils/pagination.utils';
+import { ApplyPaginationOptions } from './pagination.extension';
+
+export type GetManyWithTotalsOptions = {
+  disableTotalsCalculation?: boolean;
+  loadAll?: boolean;
+};
 
 export interface ListWithTotals<Entity> {
   list: Entity[];
@@ -13,14 +19,14 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
     getManyWithTotals(
       paginationFilter: PaginationFilter,
-      options?: { disableTotalsCalculation?: boolean; loadAll?: boolean }
+      options?: GetManyWithTotalsOptions
     ): Promise<ListWithTotals<Entity>>;
   }
 }
 
 SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
   paginationFilter: PaginationFilter,
-  options?: { disableTotalsCalculation?: boolean; loadAll?: boolean }
+  options?: GetManyWithTotalsOptions & ApplyPaginationOptions
 ) {
   const { disableTotalsCalculation = false, loadAll = false } = options || {};
 
