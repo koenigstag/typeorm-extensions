@@ -6,4 +6,4 @@ export const defaultUseDoubleQuotes = false;
 
 export const defaultOrderDirection = 'ASC';
 
-export const defaultNullsOrder = 'LAST';
+export const defaultNullsOrder = undefined;

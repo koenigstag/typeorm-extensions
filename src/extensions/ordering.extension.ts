@@ -1,24 +1,39 @@
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import type {
-  OrderBy,
+  OrderParam,
   OrderFilter,
+  OrderType,
 } from '../types/interfaces/ordering.interface';
-import { stringToSQLIdentifier } from '../utils/string.utils';
 import {
   defaultNullsOrder,
   defaultOrderDirection,
   defaultUseDoubleQuotes,
 } from '../constants';
 import { ObjectLiteral } from 'typeorm';
+import { isNil } from '../utils/common.utils';
+import { Identifier } from '../utils/identifier.utils';
+
+const alwaysAliasWhiteList = [
+  'id',
+  'createdAt',
+  'created_at',
+  'updatedAt',
+  'updated_at',
+  'deletedAt',
+  'deleted_at',
+];
 
 export type ApplyOrderOptions = {
   useDoubleQuotes?: boolean;
+  alias?: string;
+  alwaysAliasFields?: string[];
+  resetPreviousOrder?: boolean;
 };
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
     applyOrder<OrderEntity>(
-      orderBy: OrderBy<OrderEntity>,
+      orderBy: OrderParam<OrderEntity>,
       options?: ApplyOrderOptions
     ): SelectQueryBuilder<Entity>;
     applyOrderFilter<OrderEntity>(
@@ -28,40 +43,81 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
   }
 }
 
-SelectQueryBuilder.prototype.applyOrder = function <Entity extends ObjectLiteral, OrderEntity>(
-  orderBy: OrderBy<OrderEntity>,
+SelectQueryBuilder.prototype.applyOrder = function <
+  Entity extends ObjectLiteral,
+  OrderEntity
+>(
+  orderBy: OrderParam<OrderEntity>,
   options?: ApplyOrderOptions
 ): SelectQueryBuilder<Entity> {
-  const { useDoubleQuotes = defaultUseDoubleQuotes } = options ?? {};
+  const { resetPreviousOrder = false } = options ?? {};
 
-  const { field, direction, nulls } = orderBy;
+  const orderOption = getOrderOption(orderBy, this.alias, options);
 
-  const sort = useDoubleQuotes
-    ? stringToSQLIdentifier(field as string)
-    : (field as string);
-  const order = (direction ?? defaultOrderDirection).toUpperCase() as
-    | 'ASC'
-    | 'DESC';
-  const nullsOrder = `NULLS ${(nulls ?? defaultNullsOrder).toUpperCase()}` as
-    | 'NULLS LAST'
-    | 'NULLS FIRST';
+  const query = resetPreviousOrder ? this.orderBy() : this;
 
-  return this.addOrderBy(sort, order, nullsOrder);
+  return query.addOrderBy(
+    orderOption.selector,
+    orderOption.order,
+    orderOption.nulls
+  );
 };
 
-SelectQueryBuilder.prototype.applyOrderFilter = function <Entity extends ObjectLiteral, OrderEntity>(
+SelectQueryBuilder.prototype.applyOrderFilter = function <
+  Entity extends ObjectLiteral,
+  OrderEntity
+>(
   orderFilter: OrderFilter<OrderEntity>,
   options?: ApplyOrderOptions
 ): SelectQueryBuilder<Entity> {
-  if (!orderFilter.orderBy) {
-    return this;
+  if (!isNil(orderFilter?.orderBy)) {
+    return orderFilter.orderBy!.reduce(
+      (acc, order, index) =>
+        acc.applyOrder(order, {
+          ...options,
+          resetPreviousOrder: index === 0 ? options?.resetPreviousOrder : false,
+        }),
+      this as SelectQueryBuilder<Entity>
+    );
   }
 
-  orderFilter.orderBy?.forEach((orderBy) => {
-    this.applyOrder(orderBy, options);
-  });
-
   return this;
+};
+
+export const getOrderOption = <OrderEntity>(
+  orderBy: OrderParam<OrderEntity>,
+  defaultAlias: string,
+  options?: ApplyOrderOptions
+): OrderType => {
+  const {
+    useDoubleQuotes = defaultUseDoubleQuotes,
+    alias: customAlias,
+    alwaysAliasFields = alwaysAliasWhiteList,
+  } = options ?? {};
+  const {
+    field,
+    direction = defaultOrderDirection,
+    nulls: nullsOrder = defaultNullsOrder,
+  } = orderBy;
+
+  const alias =
+    customAlias ??
+    (alwaysAliasFields.includes(field as string) ? defaultAlias : undefined);
+
+  const identifier = new Identifier(field, alias, useDoubleQuotes);
+
+  const selector = identifier.fieldIdentifier();
+  const order = direction.toUpperCase() as 'ASC' | 'DESC';
+
+  const nulls = nullsOrder
+    ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
+    : undefined;
+
+  return {
+    selector,
+    order,
+    nulls,
+  };
 };
 
 export {};
