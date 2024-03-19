@@ -31,15 +31,20 @@ import 'typeorm-extensions'; // Import the library root to extend the QueryBuild
 
 const query = myDataSource
   .createQueryBuilder()
-  .from(User, 'user')
+  .from(UserEntity, 'users')
+  // Join relation defined in entity model
+  .leftJoinTyped(user => users.profile, 'profile')
+  // Select type-safe properties
   .selectTyped(user => ([
     id: user.id,
     name: user.name,
     email: user.email,
   ]))
   .whereTyped(user => user.name, 'ILIKE :search', { search: 'John' })
-  .orderTyped(user => user.createdAt, 'ASC')
-  .applyPagination({ page: 1, pageSize: 10 });
+  // Order by type-safe own and relation properties
+  .orderByTyped(user => user.profile.avatarUrl, 'ASC', 'NULLS LAST')
+  // Use pagination as simple as that
+  .applyPaginationFilter({ page: 1, pageSize: 10 }, { useTakeAndSkip: true });
 ```
 
 ## Documentation
