@@ -1,8 +1,8 @@
 export const defaultPageSize = 10;
 
-export const defaultUseTakeAndSkip = true;
+export const defaultUseTakeAndSkip = false;
 
-export const defaultUseDoubleQuotes = false;
+export const defaultUseDoubleQuotes = true;
 
 export const defaultOrderDirection = 'ASC';
 
