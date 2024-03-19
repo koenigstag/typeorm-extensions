@@ -25,18 +25,19 @@ npm install typeorm-extensions
 ## Usage
 
 ```typescript
-import { createQueryBuilder } from 'typeorm';
 import 'typeorm-extensions'; // Import the library root to extend the QueryBuilder with all extensions
 
 // Or init specific extension: import from 'typeorm-extensions/dist/extensions/pagination.extension';
 
-const query = createQueryBuilder()
+const query = myDataSource
+  .createQueryBuilder()
   .from(User, 'user')
   .selectTyped(user => ([
     id: user.id,
     name: user.name,
     email: user.email,
   ]))
+  .whereTyped(user => user.name, 'ILIKE :search', { search: 'John' })
   .orderTyped(user => user.createdAt, 'ASC')
   .applyPagination({ page: 1, pageSize: 10 });
 ```
