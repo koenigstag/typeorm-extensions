@@ -17,7 +17,7 @@ TypeORM Extensions is a library that provides additional functionality and exten
 
 To install `typeorm-extensions`:
 
-Npm:
+Install using npm, yarn or pnpm:
 ```bash
 npm install typeorm-extensions
 ```

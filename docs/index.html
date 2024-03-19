@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>typeorm-extensions</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Documentation</h1>
+    </header>
+
+    <nav>
+      <ul>
+        <li><a href="#getting-started">Getting Started</a></li>
+        <li><a href="#usage">Usage</a></li>
+        <li><a href="api_reference">API Reference</a></li>
+        <li><a href="examples">Examples</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="getting-started">
+        <h2>Getting Started</h2>
+        <p>
+          <h3>Installation</h3>
+          <p>Install using npm, yarn or pnpm:</p>
+          <pre><code>npm install typeorm-extensions</code></pre>
+        </p>
+        <p>
+          <h3>Importing</h3>
+          <h4>Import the entire library:</h4>
+          <pre><code>import from 'typeorm-extensions';</code></pre>
+          <h4>Import the specific extension:</h4>
+          <pre><code>import from 'typeorm-extensions/dist/extensions/typed/typed-where/typed-where.extension';</code></pre>
+        </p>
+      </section>
+
+      <section id="api-reference">
+        <h2>API Reference</h2>
+        <p>
+          API documentation is available <a href="api_reference">here</a>
+        </p>
+      </section>
+
+      <section id="usage">
+        <h2>Usage</h2>
+        <p>
+          <h3>Pagination</h3>
+          <pre><code>query.applyPaginationFilter({ page: 1, pageSize: 10 }, { useTakeAndSkip: true })</code></pre>
+        </p>
+        <p>
+          <h3>Typed Where</h3>
+          <pre><code>query.whereTyped(user => user.name, 'ILIKE :search', { search: value })</code></pre>
+        </p>
+        <p>
+          <h3>Typed Order By</h3>
+          <pre><code>query.orderByTyped(user => user.name, 'ASC')</code></pre>
+        </p>
+        <p>
+          <h3>Typed Select</h3>
+          <pre><code>query.selectTyped(user => user.name)</code></pre>
+        </p>
+        <p>
+          <h3>Typed Join</h3>
+          <pre><code>query.leftJoinTyped(user => user.address, 'address')</code></pre>
+        </p>
+        <br> 
+        <p>
+          For other examples please visit the <a href="examples">Examples</a> page.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>&copy; 2024 typeorm-extensions</p>
+    </footer>
+  </body>
+</html>

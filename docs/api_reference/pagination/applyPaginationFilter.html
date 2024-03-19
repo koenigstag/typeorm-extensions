@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>applyPaginationFilter / API reference / typeorm-extensions</title>
+</head>
+<body>
+  <header>
+    <h1>applyPaginationFilter</h1>
+    
+  </header>
+
+  <nav>
+    <ul>
+      <li><a href="../pagination">Pagination</a></li>
+      <li><a href="../order">Order</a></li>
+      <li><a href="../typed">Typed Extensions</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <section>
+      <h2>Description</h2>
+      <p>
+        <code>applyPaginationFilter</code> is a method that applies pagination to a query.
+      </p>
+    </section>
+    <section>
+      <h2>Signature</h2>
+      <p>
+        <pre><code>applyPaginationFilter(paginationFilter: PaginationFilter, paginationOptions?: ApplyPaginationOptions): void</code></pre>
+      </p>
+    </section>
+    <section>
+      <h2>Arguments</h2>
+      <ul>
+        <li>
+          <h3>paginationFilter: PaginationFilter</h3>
+          <p>The pagination options to apply to the query.</p>
+          <p>
+            <h4>Properties</h4>
+            <ul>
+              <li>
+                <h5>page: number</h5>
+                <p>The page number to retrieve.</p>
+              </li>
+            <li>
+              <h5>pageSize: number</h5>
+              <p>The number of items per page.</p>
+            </li>
+          </ul>
+        </p>
+      </li>
+      <li>
+        <h3>(optional) paginationOptions?: ApplyPaginationOptions</h3>
+        <p>Additional options to apply to the pagination filter.</p>
+        <p>
+          <h4>Properties</h4>
+          <ul>
+            <li>
+              <h5>useTakeAndSkip?: boolean</h5>
+              <p>
+                Whether to use the <code>take</code> and <code>skip</code> methods instead of <code>limit</code> and <code>offset</code> (defaults to false).
+              </p>
+            </li>
+          </ul>
+        </p>
+      </li>
+    </ul>
+    </section>
+    <section>
+      <h2>Usage</h2>
+      <pre><code>query.applyPaginationFilter({ page: 1, pageSize: 10 }, { useTakeAndSkip: true })</code></pre>
+    </section>
+  </main>
+</body>
+</html>
