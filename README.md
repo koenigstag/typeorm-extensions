@@ -1,6 +1,6 @@
 # TypeORM Extensions
 
-[![Build Status](https://travis-ci.org/your-username/typeorm-extensions.svg?branch=main)](https://travis-ci.org/your-username/typeorm-extensions)
+[![Build Status](https://travis-ci.org/koenigstag/typeorm-extensions.svg?branch=main)](https://travis-ci.org/koenigstag/typeorm-extensions)
 [![npm version](https://badge.fury.io/js/typeorm-extensions.svg)](https://badge.fury.io/js/typeorm-extensions)
 
 ## Description
