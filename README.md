@@ -29,7 +29,7 @@ npm install typeorm-extensions
 ```typescript
 import 'typeorm-extensions'; // Import the library root to extend the QueryBuilder with all extensions
 
-// Or init specific extension: import from 'typeorm-extensions/dist/extensions/pagination.extension';
+// Or init specific extension: import 'typeorm-extensions/dist/extensions/pagination.extension';
 
 const query = myDataSource
   .createQueryBuilder()

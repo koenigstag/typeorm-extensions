@@ -2,6 +2,7 @@ import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { getLimitAndOffset } from '../utils/pagination.utils';
 import { ApplyPaginationOptions } from './pagination.extension';
+import './pagination.extension';
 
 export type GetManyWithTotalsOptions = {
   disableTotalsCalculation?: boolean;
@@ -28,7 +29,11 @@ SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
   paginationFilter: PaginationFilter,
   options?: GetManyWithTotalsOptions & ApplyPaginationOptions
 ): Promise<ListWithTotals<Entity>> {
-  const { disableTotalsCalculation = false, loadAll = false } = options || {};
+  const {
+    disableTotalsCalculation = false,
+    loadAll = false,
+    ...paginationOptions
+  } = options || {};
 
   const { limit, offset } = loadAll
     ? { limit: null, offset: null }
@@ -45,7 +50,10 @@ SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
   if (loadAll) {
     requests[1] = this.getMany();
   } else {
-    requests[1] = this.applyPaginationFilter(paginationFilter).getMany();
+    requests[1] = this.applyPaginationFilter(
+      paginationFilter,
+      paginationOptions
+    ).getMany();
   }
 
   const [totalCount, list] = (await Promise.all(requests)) as [
@@ -55,7 +63,7 @@ SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
 
   return {
     list,
-    totalCount: totalCount,
+    totalCount,
     limit,
     offset,
   };
