@@ -43,14 +43,14 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove th'typeorm-extensions'e "edit this page" links.
           editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+            `https://github.com/${organizationName}/${repositoryName}/tree/main/page/docs/`,
         },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+            `https://github.com/${organizationName}/${repositoryName}/tree/main/page/blog/`,
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -97,6 +97,10 @@ const config: Config = {
             {
               label: 'Getting started',
               to: '/docs/getting-started/overview',
+            },
+            {
+              label: 'API',
+              to: '/docs/api/core/',
             },
           ],
         },
