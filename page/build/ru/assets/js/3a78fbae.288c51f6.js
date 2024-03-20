@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunktypeorm_extensions_docs=self.webpackChunktypeorm_extensions_docs||[]).push([[6480],{8894:e=>{e.exports=JSON.parse('{"label":"facebook","permalink":"/typeorm-extensions/ru/blog/tags/facebook","allTagsPath":"/typeorm-extensions/ru/blog/tags","count":1,"unlisted":false}')}}]);
