@@ -1,7 +1,9 @@
 # TypeORM Extensions
 
-[![Build Status](https://travis-ci.org/koenigstag/typeorm-extensions.svg?branch=main)](https://travis-ci.org/koenigstag/typeorm-extensions)
 [![npm version](https://badge.fury.io/js/typeorm-extensions.svg)](https://badge.fury.io/js/typeorm-extensions)
+[![npm downloads](https://img.shields.io/npm/dm/typeorm-extensions)](https://www.npmjs.com/package/typeorm-extensions)
+[![Issues](https://img.shields.io/github/issues-raw/koenigstag/typeorm-extensions.svg?maxAge=25000)](https://github.com/koenigstag/typeorm-extensions/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/koenigstag/typeorm-extensions/pulls)
 
 ## Description
 
