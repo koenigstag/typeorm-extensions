@@ -1,0 +1,46 @@
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+  width="100%" height="100%" viewBox="0 0 340.000000 250.000000" preserveAspectRatio="xMidYMid meet"
+  color-interpolation-filters="sRGB" style="margin: auto;">
+  <rect x="0" y="0" width="100%" height="100%" fill="#073763" fill-opacity="0" class="background">
+  </rect>
+  <g fill="#c69815" class="iconlinesvg-g iconlinesvg"
+    transform="translate(128.07416915893555,99.9715633392334)">
+    <g class="tp-name" transform="translate(0,0)">
+      <g transform="translate(0, 0)">
+        <g>
+          <g class="imagesvg">
+            <g><svg x="0" y="0" width="35.88273615635179"
+                height="40.396658812005256" filtersec="colorsb7151336179" class="image-svg-svg primary"
+                style="overflow: visible;"><svg xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0.6100000143051147 0.25 86.78799438476562 97.70600128173828">
+                  <path fill="#c69815"
+                    d="M49.627 76.344c-15.504 0-28.49-12.55-28.49-27.29s13.096-27.296 28.49-27.296v10.916c-9.39 0-17.574 7.645-17.574 16.374s8.19 16.373 17.574 16.373v10.923z">
+                  </path>
+                  <path fill="#c69815"
+                    d="M49.517 97.955C22.552 97.955.61 76.013.61 49.048S22.552.25 49.517.25v10.916c-20.962 0-37.881 17.029-37.881 37.88S28.666 86.93 49.517 86.93v11.026zM49.517 87.04V76.122c14.849 0 26.965-12.116 26.965-26.965S64.366 22.083 49.517 22.083V11.167c20.962 0 37.881 17.029 37.881 37.88S70.479 87.04 49.517 87.04z">
+                  </path>
+                  <path fill="#c69815"
+                    d="M49.407 65.753V54.837c3.167 0 5.789-2.622 5.789-5.79s-2.622-5.788-5.79-5.788V32.343c9.17 0 16.705 7.535 16.705 16.705s-7.424 16.705-16.704 16.705z">
+                  </path>
+                </svg></svg>
+              <!---->
+            </g>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(44, 3.1144798353778143)">
+        <g data-gra="path-name" fill="#c69815" transform="scale(1)">
+          <path d="M0.27-34.17L16.65-34.17L16.65-30.18L10.92-30.18L10.92 0L6.00 0L6.00-30.18L0.27-30.18L0.27-34.17Z"
+            transform="translate(-0.27290494521764874, 34.16769914124963)"></path>
+        </g>
+      </g>
+      <g transform="translate(69, 3.1144798353778143)">
+        <g data-gra="path-name" fill="#c69815" transform="scale(1)">
+          <path
+            d="M7.81-15.66L7.81-3.98L17.68-3.98L17.68 0L2.84 0L2.84-34.17L17.30-34.17L17.30-30.18L7.81-30.18L7.81-19.65L15.66-19.65L15.66-15.66L7.81-15.66Z"
+            transform="translate(-2.8382114302635473, 34.16769914124963)"></path>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
