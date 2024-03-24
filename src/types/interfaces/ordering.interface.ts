@@ -1,6 +1,6 @@
 import { NonFunctionPropertyNames } from "../util-types";
 
-export type OrderDirection = 'asc' | 'desc' | 'ASC' | 'DESC';
+export type OrderDirection = 'asc' | 'desc' | 'ASC' | 'DESC' | 1 | -1;
 
 export type NullsOrder = 'first' | 'last' | 'FIRST' | 'LAST';
 

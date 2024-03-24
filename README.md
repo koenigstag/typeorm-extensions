@@ -35,7 +35,7 @@ const query = myDataSource
   .createQueryBuilder()
   .from(UserEntity, 'users')
   // Join relation defined in entity model
-  .leftJoinTyped(user => users.profile, 'profile')
+  .leftJoinTyped(user => user.profile, 'profile')
   // Select type-safe properties
   .selectTyped(user => ([
     id: user.id,

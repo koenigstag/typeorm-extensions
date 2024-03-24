@@ -1,6 +1,6 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { ColumnValueType } from '../typeorm.types';
 import { getSqlKey } from '../../../utils/proxy-key.utils';
+import { KeyProxyCallback } from '../typeorm-querybuilder.types';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
 	interface SelectQueryBuilder<Entity> {
@@ -9,14 +9,14 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		 */
 		distinctOnTyped<Type extends ObjectLiteral = Entity>(
 			this: SelectQueryBuilder<Entity>,
-			...distinctOn: Array<(proxy: Type) => ColumnValueType>
+			...distinctOn: Array<KeyProxyCallback<Type>>
 		): SelectQueryBuilder<Entity>;
 		/**
 		 * Sets the distinct on clause for Postgres.
 		 */
 		distinctOnTyped<Type extends ObjectLiteral = Entity>(
 			this: SelectQueryBuilder<Entity>,
-			distinctOn: (proxy: Type) => Array<ColumnValueType>
+			distinctOn: KeyProxyCallback<Type>
 		): SelectQueryBuilder<Entity>;
 	}
 }
@@ -26,7 +26,7 @@ SelectQueryBuilder.prototype.distinctOnTyped = function <
 	Type extends ObjectLiteral = Entity
 >(
 	this: SelectQueryBuilder<Entity>,
-	...distinctOn: Array<(proxy: Type) => ColumnValueType | Array<ColumnValueType>>
+	...distinctOn: Array<KeyProxyCallback<Type>>
 ): SelectQueryBuilder<Entity> {
 	if (Array.isArray(distinctOn) && distinctOn.length) {
 		const keys = distinctOn.map((callback) => getSqlKey<Type>(callback, this.alias)).flat(3);

@@ -107,11 +107,17 @@ export const getOrderOption = <OrderEntity>(
   const identifier = new Identifier(field, alias, useDoubleQuotes);
 
   const selector = identifier.fieldIdentifier();
-  const order = direction.toUpperCase() as 'ASC' | 'DESC';
+  const order =
+    typeof direction === 'number'
+      ? direction === -1
+        ? 'DESC'
+        : 'ASC'
+      : (direction.toUpperCase() as 'ASC' | 'DESC');
 
-  const nulls = nullsOrder
-    ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
-    : undefined;
+  const nulls =
+    nullsOrder && /first|last/i.test(nullsOrder)
+      ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
+      : undefined;
 
   return {
     selector,
