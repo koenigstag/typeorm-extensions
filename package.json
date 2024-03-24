@@ -1,11 +1,12 @@
 {
   "name": "typeorm-extensions",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "typeorm commonly used extensions",
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist", "LICENSE", "README.md", "package.json"],
   "type": "module",
+  "homepage": "https://koenigstag.github.io/typeorm-extensions/",
   "repository": {
     "type": "git",
     "url": "https://github.com/koenigstag/typeorm-extensions.git"
