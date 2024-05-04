@@ -59,4 +59,3 @@ For more information, please refer to the [documentation](https://koenigstag.git
 - [ ] Virtual column decorator and its query-builder methods (`addSelectVirtual`, `orderByVirtual`, `getManyWithVirtual`, `getOneWithVirtual`)
 - [ ] Add `withVirtualColumns` option to `findManyWithTotals` method to use `getManyWithVirtual` instead of `getMany`
 - [ ] Add `isVirtual` option to `OrderParam` to indicate usage of `orderByVirtual` method
-- [ ] Add option to `findManyWithTotals` to disable pagination
