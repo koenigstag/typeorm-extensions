@@ -56,8 +56,7 @@ For more information, please refer to the [documentation](https://koenigstag.git
 ## ToDo list
 
 - [ ] Add tests for pagination and order extensions
-- [ ] Virtual column decorator and its query-builder methods (`addSelectVirtual`, `orderByVirtual`, `getManyWithVirtual`, `getOneWithVirtual`).
+- [ ] Virtual column decorator and its query-builder methods (`addSelectVirtual`, `orderByVirtual`, `getManyWithVirtual`, `getOneWithVirtual`)
 - [ ] Add `withVirtualColumns` option to `findManyWithTotals` method to use `getManyWithVirtual` instead of `getMany`
 - [ ] Add `isVirtual` option to `OrderParam` to indicate usage of `orderByVirtual` method
-- [ ] Refactor `applyOrder` to
 - [ ] Add option to `findManyWithTotals` to disable pagination
