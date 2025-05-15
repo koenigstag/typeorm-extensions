@@ -5,6 +5,7 @@
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist", "LICENSE", "README.md", "package.json"],
+  "type": "commonjs",
   "homepage": "https://koenigstag.github.io/typeorm-extensions/",
   "repository": {
     "type": "git",
