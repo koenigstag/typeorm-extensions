@@ -11,7 +11,7 @@ export type GetManyWithTotalsOptions = {
 
 export interface ListWithTotals<Entity> {
   list: Entity[];
-  totalCount: number | null;
+  total: number | null;
   limit: number | null;
   offset: number | null;
 }
@@ -39,31 +39,28 @@ SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
     ? { limit: null, offset: null }
     : getLimitAndOffset(paginationFilter);
 
-  const requests = [];
+  const requests: any[] = [];
 
   if (!disableTotalsCalculation) {
-    requests[0] = this.getCount();
+    requests[0] = await this.getCount();
   } else {
-    requests[0] = Promise.resolve(null);
+    requests[0] = null;
   }
 
   if (loadAll) {
-    requests[1] = this.getMany();
+    requests[1] = await this.getMany();
   } else {
-    requests[1] = this.applyPaginationFilter(
+    requests[1] = await this.applyPaginationFilter(
       paginationFilter,
       paginationOptions
     ).getMany();
   }
 
-  const [totalCount, list] = (await Promise.all(requests)) as [
-    number | null,
-    Entity[]
-  ];
+  const [total, list] = requests as [number | null, Entity[]];
 
   return {
     list,
-    totalCount,
+    total,
     limit,
     offset,
   };
