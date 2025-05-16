@@ -1,6 +1,6 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { getSqlKey } from '../../../utils/proxy-key.utils';
-import { KeyProxyCallback } from '../typeorm-querybuilder.types';
+import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
 	interface SelectQueryBuilder<Entity> {

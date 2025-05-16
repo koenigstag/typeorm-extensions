@@ -1,5 +1,5 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { RelationalKeyProxyCallback } from '../typeorm-querybuilder.types';
+import { RelationalKeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 import { getSqlKey } from '../../../utils/proxy-key.utils';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {

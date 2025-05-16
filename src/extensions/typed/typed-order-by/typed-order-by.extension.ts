@@ -1,7 +1,6 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { ColumnValueType } from '../typeorm.types';
-import { KeyHolder } from '../typeorm-querybuilder.types';
-import { getSqlKey } from '../../../utils/proxy-key.utils';
+import { ProxyColumnValueType } from '../../../types/modules/typeorm.types';
+import { getSqlKey, KeyHolder } from '../../../utils/proxy-key.utils';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
 	interface SelectQueryBuilder<Entity> {
@@ -12,7 +11,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		 */
 		orderByTyped<Type extends ObjectLiteral = Entity>(
 			this: SelectQueryBuilder<Entity>,
-			selection: (proxy: Type) => ColumnValueType | KeyHolder,
+			selection: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
 			nulls?: 'NULLS FIRST' | 'NULLS LAST'
 		): SelectQueryBuilder<Entity>;
@@ -21,7 +20,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		 */
 		addOrderByTyped<Type extends ObjectLiteral = Entity>(
 			this: SelectQueryBuilder<Entity>,
-			selection: (proxy: Type) => ColumnValueType | KeyHolder,
+			selection: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
 			nulls?: 'NULLS FIRST' | 'NULLS LAST'
 		): SelectQueryBuilder<Entity>;
@@ -33,7 +32,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	Type extends ObjectLiteral = Entity
 >(
 	this: SelectQueryBuilder<Entity>,
-	selection?: (proxy: Type) => ColumnValueType | KeyHolder,
+	selection?: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 	order?: 'ASC' | 'DESC',
 	nulls?: 'NULLS FIRST' | 'NULLS LAST'
 ): SelectQueryBuilder<Entity> {
@@ -55,7 +54,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	Type extends ObjectLiteral = Entity
 >(
 	this: SelectQueryBuilder<Entity>,
-	selection?: (proxy: Type) => ColumnValueType | KeyHolder,
+	selection?: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 	order?: 'ASC' | 'DESC',
 	nulls?: 'NULLS FIRST' | 'NULLS LAST'
 ): SelectQueryBuilder<Entity> {

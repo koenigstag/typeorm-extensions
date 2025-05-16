@@ -5,7 +5,7 @@ import {
   UpdateQueryBuilder,
   DeleteQueryBuilder,
 } from 'typeorm';
-import { ColumnValueType } from '../typeorm.types';
+import { ProxyColumnValueType } from '../../../types/modules/typeorm.types';
 import { getSqlKey } from '../../../utils/proxy-key.utils';
 
 export interface TypedWhereOptions {
@@ -21,7 +21,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ColumnValueType,
+      subQuery: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -32,7 +32,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ColumnValueType,
+      subQuery: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -43,7 +43,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ColumnValueType,
+      subQuery: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -60,7 +60,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -71,7 +71,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -82,7 +82,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -99,7 +99,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -110,7 +110,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -121,7 +121,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -138,7 +138,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -149,7 +149,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -160,7 +160,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -181,7 +181,7 @@ const extension = {
       Type extends ObjectLiteral = Entity
     >(
       this: SelectQueryBuilder<Entity>,
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -200,7 +200,7 @@ const extension = {
       Type extends ObjectLiteral = Entity
     >(
       this: SelectQueryBuilder<Entity>,
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -219,7 +219,7 @@ const extension = {
       Type extends ObjectLiteral = Entity
     >(
       this: SelectQueryBuilder<Entity>,
-      where: (proxy: Type) => ColumnValueType,
+      where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
       parameters?: ObjectLiteral,
       options?: TypedWhereOptions
@@ -248,7 +248,7 @@ function attachWhere<
 >(
   builder: Q,
   method: WhereMethod,
-  where: (proxy: Type) => ColumnValueType,
+  where: (proxy: Type) => ProxyColumnValueType,
   conditions: string,
   parameters?: ObjectLiteral,
   options?: TypedWhereOptions

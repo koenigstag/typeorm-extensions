@@ -1,6 +1,6 @@
 import { ObjectLiteral } from 'typeorm';
 import { stringToSQLIdentifier } from './sql.utils';
-import { KeyProxyCallback } from '../types/modules/proxy-types/proxy-callback.types';
+import { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 
 export class KeyHolder {
   constructor(public keys: string[] = []) {
