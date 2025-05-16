@@ -1,5 +1,5 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { getSqlKey } from '../../../utils/proxy-key.utils';
+import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
@@ -29,7 +29,7 @@ SelectQueryBuilder.prototype.distinctOnTyped = function <
 	...distinctOn: Array<KeyProxyCallback<Type>>
 ): SelectQueryBuilder<Entity> {
 	if (Array.isArray(distinctOn) && distinctOn.length) {
-		const keys = distinctOn.map((callback) => getSqlKey<Type>(callback, this.alias)).flat(3);
+		const keys = distinctOn.map((callback) => getSqlKeyFromProxyCallback<Type>(callback, this.alias)).flat(3);
 
 		return this.distinctOn(keys as string[]);
 	}

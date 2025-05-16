@@ -3,8 +3,8 @@ import { stringToSQLIdentifier } from './sql.utils';
 import { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 
 export class KeyHolder {
-  constructor(public keys: string[] = []) {
-    this.keys = [...keys];
+  constructor(private _keys: string[] = []) {
+    this._keys = [..._keys];
   }
 
   toSql(length: number = 2, addDobleQuotes = true) {
@@ -15,7 +15,7 @@ export class KeyHolder {
   }
 
   toString(length = 2) {
-    const keys = this.keys.slice(0, length);
+    const keys = this._keys.slice(0, length);
     const string = keys.join('.');
 
     return string;
@@ -29,13 +29,29 @@ export class KeyHolder {
     return this.toString();
   }
 
-  add(key: string | symbol) {
+  getKeys() {
+    return this._keys.slice();
+  }
+
+  push(key: string | symbol) {
     if (
       typeof key !== 'symbol' &&
       !Object.getOwnPropertyNames(this).includes(key) && // check of getOwnPropertyNames(this) is questionable
       !Object.getOwnPropertyNames(KeyHolder.prototype).includes(key)
     ) {
-      this.keys.push(key);
+      this._keys.push(key);
+    }
+
+    return this;
+  }
+
+  unshift(key: string | symbol) {
+    if (
+      typeof key !== 'symbol' &&
+      !Object.getOwnPropertyNames(this).includes(key) && // check of getOwnPropertyNames(this) is questionable
+      !Object.getOwnPropertyNames(KeyHolder.prototype).includes(key)
+    ) {
+      this._keys.unshift(key);
     }
 
     return this;
@@ -63,9 +79,9 @@ export class KeyProxy {
       }
 
       // for each key create new independent layer of KeyProxy
-      const newKeyHolder = new KeyHolder(target.keys).add(key);
+      const newKeyHolder = new KeyHolder(target.getKeys());
       const newLayer = TypedProxy.create<ObjectLiteral>(
-        newKeyHolder,
+        newKeyHolder.push(key),
         KeyProxy.defaultHandler
       );
 
@@ -100,7 +116,7 @@ export const getKey = <Type extends ObjectLiteral>(callback: KeyProxyCallback<Ty
 	return keyHolder.toString();
 };
 
-export const getSqlKey = <Type extends ObjectLiteral>(
+export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	callback: KeyProxyCallback<Type> | KeyHolder | string,
 	addPrefix?: string,
 	addDobleQuotes = true
@@ -110,11 +126,11 @@ export const getSqlKey = <Type extends ObjectLiteral>(
 	const keyHolder = getKeyHolder<Type>(callback);
 
 	if (Array.isArray(keyHolder)) {
-		return keyHolder.map((holder) => getSqlKey<Type>(holder, addPrefix) as string);
+		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix) as string);
 	}
 
 	// if select is like this: (proxy) => proxy.relation.column
-	if (keyHolder.keys.length > 1) {
+	if (keyHolder.getKeys().length > 1) {
 		// return unchanged
 		return keyHolder.toSql(undefined, addDobleQuotes);
 	}
@@ -122,7 +138,7 @@ export const getSqlKey = <Type extends ObjectLiteral>(
 	// else if select is one layer depth like this: (proxy) => proxy.column
 	// then add alias before the key
 	if (typeof addPrefix === 'string' && addPrefix.length >= 1) {
-		keyHolder.keys.unshift(addPrefix);
+		keyHolder.unshift(addPrefix);
 	}
 
 	return keyHolder.toSql(undefined, addDobleQuotes);

@@ -1,6 +1,6 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { RelationalKeyProxyCallback } from '../../../types/modules/proxy-callback.types';
-import { getSqlKey } from '../../../utils/proxy-key.utils';
+import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
@@ -135,7 +135,7 @@ function addJoin<
   condition?: string,
   parameters?: ObjectLiteral
 ) {
-  const key = getSqlKey<Type>(selection, query.alias) as string;
+  const key = getSqlKeyFromProxyCallback<Type>(selection, query.alias) as string;
 
   return query[method](key, alias, condition, parameters);
 }

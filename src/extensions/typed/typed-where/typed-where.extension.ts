@@ -6,7 +6,7 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { ProxyColumnValueType } from '../../../types/modules/typeorm.types';
-import { getSqlKey } from '../../../utils/proxy-key.utils';
+import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
 
 export interface TypedWhereOptions {
   useDoubleQuotes?: boolean;
@@ -254,7 +254,7 @@ function attachWhere<
   options?: TypedWhereOptions
 ): Q {
   if (typeof where === 'function') {
-    const key = getSqlKey<Type>(
+    const key = getSqlKeyFromProxyCallback<Type>(
       where,
       (builder as unknown as SelectQueryBuilder<Type>).alias,
       options?.useDoubleQuotes

@@ -1,6 +1,6 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { ProxyColumnValueType } from '../../../types/modules/typeorm.types';
-import { getSqlKey, KeyHolder } from '../../../utils/proxy-key.utils';
+import { getSqlKeyFromProxyCallback, KeyHolder } from '../../../utils/proxy-key.utils';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
 	interface SelectQueryBuilder<Entity> {
@@ -41,7 +41,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	}
 
 	if (typeof selection === 'function') {
-		const key = getSqlKey<Type>(selection, this.alias) as string;
+		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias) as string;
 
 		return this.orderBy(key, order, nulls);
 	}
@@ -63,7 +63,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	}
 
 	if (typeof selection === 'function') {
-		const key = getSqlKey<Type>(selection, this.alias) as string;
+		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias) as string;
 
 		return this.addOrderBy(key, order, nulls);
 	}

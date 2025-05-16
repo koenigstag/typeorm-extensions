@@ -1,6 +1,6 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
-import { getSqlKey, KeyHolder } from '../../../utils/proxy-key.utils';
+import { getSqlKeyFromProxyCallback, KeyHolder } from '../../../utils/proxy-key.utils';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
 	interface SelectQueryBuilder<Entity> {
@@ -105,11 +105,11 @@ const attachSelectMethod = <Entity extends ObjectLiteral, Type extends ObjectLit
 	}
 
 	if (Array.isArray(selection)) {
-		const arrayOfKeys = selection.map((value) => getSqlKey<Type>(value, query.alias) as string);
+		const arrayOfKeys = selection.map((select) => getSqlKeyFromProxyCallback<Type>(select, query.alias) as string);
 
 		return query[method](arrayOfKeys);
 	} else if (typeof selection === 'function') {
-		const keyArrayOrSingleKey = getSqlKey<Type>(selection, query.alias);
+		const keyArrayOrSingleKey = getSqlKeyFromProxyCallback<Type>(selection, query.alias);
 
 		if (Array.isArray(keyArrayOrSingleKey)) {
 			return query[method](keyArrayOrSingleKey);
