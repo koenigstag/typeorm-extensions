@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { SelectQueryBuilder, WhereExpressionBuilder } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import { SelectQueryBuilder, WhereExpressionBuilder, ObjectLiteral } from 'typeorm';
+import { randomString } from '../utils/common.utils';
 
 // type definitions
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
-	interface SelectQueryBuilder<Entity> {
+	interface SelectQueryBuilder<Entity extends ObjectLiteral> {
 		whereIsIn(this: SelectQueryBuilder<Entity>, field: string, array?: Array<any>): this;
 		whereIsNotIn(this: SelectQueryBuilder<Entity>, field: string, array?: Array<any>): this;
 		andWhereIsIn(this: SelectQueryBuilder<Entity>, field: string, array?: Array<any>): this;
@@ -28,15 +28,14 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
 // implementation
 
 const createUniqueParameterName = (prefix?: string): string => {
-	const uuid = uuidv4();
-	const [uniqueCode] = uuid.split('-', 1);
+	const uniqueCode = randomString(5);
 
 	return `${prefix || 'param'}_${uniqueCode}`;
 };
 
 const prepareFieldName = (field: string): string => field.includes('"') ? field : field.split('.').map(f => `"${f}"`).join('.');
 
-function whereIn<Entity>(this: WhereExpressionBuilder | SelectQueryBuilder<Entity>, field: string, array?: Array<any>) {
+function whereIn<Entity extends ObjectLiteral>(this: WhereExpressionBuilder | SelectQueryBuilder<Entity>, field: string, array?: Array<any>) {
 	if (!array?.length) {
 		return this.where(`FALSE`);
 	}
@@ -47,7 +46,7 @@ function whereIn<Entity>(this: WhereExpressionBuilder | SelectQueryBuilder<Entit
 	return this.where(`${field} IN (:...${paramName})`, { [paramName]: array });
 }
 
-function whereNotIn<Entity>(
+function whereNotIn<Entity extends ObjectLiteral>(
 	this: WhereExpressionBuilder | SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -62,7 +61,7 @@ function whereNotIn<Entity>(
 	return this.where(`${field} NOT IN (:...${paramName})`, { [paramName]: array });
 }
 
-function andWhereIn<Entity>(
+function andWhereIn<Entity extends ObjectLiteral>(
 	this: WhereExpressionBuilder | SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -77,7 +76,7 @@ function andWhereIn<Entity>(
 	return this.andWhere(`${field} IN (:...${paramName})`, { [paramName]: array });
 }
 
-function andWhereNotIn<Entity>(
+function andWhereNotIn<Entity extends ObjectLiteral>(
 	this: WhereExpressionBuilder | SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -92,7 +91,7 @@ function andWhereNotIn<Entity>(
 	return this.andWhere(`${field} NOT IN (:...${paramName})`, { [paramName]: array });
 }
 
-function orWhereIn<Entity>(
+function orWhereIn<Entity extends ObjectLiteral>(
 	this: WhereExpressionBuilder | SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -107,11 +106,11 @@ function orWhereIn<Entity>(
 	return this.orWhere(`${field} IN (:...${paramName})`, { [paramName]: array });
 }
 
-function orWhereNotIn<Entity>(
-	this: WhereExpressionBuilder | SelectQueryBuilder<Entity>,
+function orWhereNotIn<Entity extends ObjectLiteral, QB extends WhereExpressionBuilder>(
+	this: QB,
 	field: string,
 	array?: Array<any>
-) {
+): QB {
 	if (!array?.length) {
 		return this;
 	}
@@ -126,7 +125,7 @@ function orWhereNotIn<Entity>(
 
 // SelectQueryBuilder
 
-SelectQueryBuilder.prototype.whereIsIn = function <Entity>(
+SelectQueryBuilder.prototype.whereIsIn = function <Entity extends ObjectLiteral>(
 	this: SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -134,7 +133,7 @@ SelectQueryBuilder.prototype.whereIsIn = function <Entity>(
 	return whereIn.call(this, field, array);
 };
 
-SelectQueryBuilder.prototype.whereIsNotIn = function <Entity>(
+SelectQueryBuilder.prototype.whereIsNotIn = function <Entity extends ObjectLiteral>(
 	this: SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -142,7 +141,7 @@ SelectQueryBuilder.prototype.whereIsNotIn = function <Entity>(
 	return whereNotIn.call(this, field, array);
 };
 
-SelectQueryBuilder.prototype.andWhereIsIn = function <Entity>(
+SelectQueryBuilder.prototype.andWhereIsIn = function <Entity extends ObjectLiteral>(
 	this: SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -150,7 +149,7 @@ SelectQueryBuilder.prototype.andWhereIsIn = function <Entity>(
 	return andWhereIn.call(this, field, array);
 };
 
-SelectQueryBuilder.prototype.andWhereIsNotIn = function <Entity>(
+SelectQueryBuilder.prototype.andWhereIsNotIn = function <Entity extends ObjectLiteral>(
 	this: SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -158,7 +157,7 @@ SelectQueryBuilder.prototype.andWhereIsNotIn = function <Entity>(
 	return andWhereNotIn.call(this, field, array);
 };
 
-SelectQueryBuilder.prototype.orWhereIsIn = function <Entity>(
+SelectQueryBuilder.prototype.orWhereIsIn = function <Entity extends ObjectLiteral>(
 	this: SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
@@ -166,12 +165,12 @@ SelectQueryBuilder.prototype.orWhereIsIn = function <Entity>(
 	return orWhereIn.call(this, field, array);
 };
 
-SelectQueryBuilder.prototype.orWhereIsNotIn = function <Entity>(
+SelectQueryBuilder.prototype.orWhereIsNotIn = function <Entity extends ObjectLiteral>(
 	this: SelectQueryBuilder<Entity>,
 	field: string,
 	array?: Array<any>
 ): SelectQueryBuilder<Entity> {
-	return orWhereNotIn.call(this, field, array);
+	return orWhereNotIn.call<Entity, SelectQueryBuilder<Entity>>(this, field, array);
 };
 
 // WhereExpressionBuilder
