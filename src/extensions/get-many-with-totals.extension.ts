@@ -39,7 +39,7 @@ SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
     ? { limit: null, offset: null }
     : getLimitAndOffset(paginationFilter);
 
-  const requests: any[] = [];
+  const requests: unknown[] = [];
 
   if (!disableTotalsCalculation) {
     requests[0] = await this.getCount();

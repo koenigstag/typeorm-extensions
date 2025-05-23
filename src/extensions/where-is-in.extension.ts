@@ -66,7 +66,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
 }
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity> {
+  interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
      * Sets WHERE IN condition in the query builder.
      * If you had previously WHERE expression defined,
@@ -75,7 +75,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     whereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new AND WHERE IN condition in the query builder.
@@ -83,7 +83,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     andWhereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new OR WHERE IN condition in the query builder.
@@ -91,7 +91,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     orWhereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Sets WHERE NOT IN condition in the query builder.
@@ -101,7 +101,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     whereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new AND WHERE NOT IN condition in the query builder.
@@ -109,7 +109,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     andWhereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new OR WHERE NOT IN condition in the query builder.
@@ -118,12 +118,12 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     orWhereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
   }
 }
 
 declare module 'typeorm/query-builder/UpdateQueryBuilder' {
-  interface UpdateQueryBuilder<Entity> {
+  interface UpdateQueryBuilder<Entity extends ObjectLiteral> {
     /**
      * Sets WHERE IN condition in the query builder.
      * If you had previously WHERE expression defined,
@@ -132,7 +132,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     whereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new AND WHERE IN condition in the query builder.
@@ -140,7 +140,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     andWhereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new OR WHERE IN condition in the query builder.
@@ -148,7 +148,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     orWhereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Sets WHERE NOT IN condition in the query builder.
@@ -158,7 +158,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     whereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new AND WHERE NOT IN condition in the query builder.
@@ -166,7 +166,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     andWhereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new OR WHERE NOT IN condition in the query builder.
@@ -175,12 +175,12 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     orWhereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
   }
 }
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
-  interface DeleteQueryBuilder<Entity> {
+  interface DeleteQueryBuilder<Entity extends ObjectLiteral> {
     /**
      * Sets WHERE IN condition in the query builder.
      * If you had previously WHERE expression defined,
@@ -189,7 +189,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     whereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new AND WHERE IN condition in the query builder.
@@ -197,7 +197,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     andWhereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new OR WHERE IN condition in the query builder.
@@ -205,7 +205,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     orWhereIsIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Sets WHERE NOT IN condition in the query builder.
@@ -215,7 +215,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     whereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new AND WHERE NOT IN condition in the query builder.
@@ -223,7 +223,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     andWhereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
 
     /**
      * Adds new OR WHERE NOT IN condition in the query builder.
@@ -232,122 +232,8 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     orWhereIsNotIn(
       field: string,
       array?: any[],
-    ): this;
+    ): SelectQueryBuilder<Entity>;
   }
-}
-
-// implementation
-
-const createUniqueParameterName = (prefix?: string): string => {
-  const uniqueCode = randomString(5);
-
-  return `${prefix || 'param'}_${uniqueCode}`;
-};
-
-const prepareFieldName = (field: string): string =>
-  field.includes('"')
-    ? field
-    : field
-        .split('.')
-        .map((f) => `"${f}"`)
-        .join('.');
-
-function whereIn<QB extends WhereExpressionBuilder>(
-  this: QB,
-  field: string,
-  array?: Array<any>
-): QB {
-  if (!array?.length) {
-    return this.where(`FALSE`);
-  }
-
-  field = prepareFieldName(field);
-  const paramName = createUniqueParameterName('whereIn');
-
-  return this.where(`${field} IN (:...${paramName})`, { [paramName]: array });
-}
-
-function whereNotIn<QB extends WhereExpressionBuilder>(
-  this: QB,
-  field: string,
-  array?: Array<any>
-): QB {
-  if (!array?.length) {
-    return this;
-  }
-
-  field = prepareFieldName(field);
-  const paramName = createUniqueParameterName('whereNotIn');
-
-  return this.where(`${field} NOT IN (:...${paramName})`, {
-    [paramName]: array,
-  });
-}
-
-function andWhereIn<QB extends WhereExpressionBuilder>(
-  this: QB,
-  field: string,
-  array?: Array<any>
-): QB {
-  if (!array?.length) {
-    return this.andWhere(`FALSE`);
-  }
-
-  field = prepareFieldName(field);
-  const paramName = createUniqueParameterName('andWhereIn');
-
-  return this.andWhere(`${field} IN (:...${paramName})`, {
-    [paramName]: array,
-  });
-}
-
-function andWhereNotIn<QB extends WhereExpressionBuilder>(
-  this: QB,
-  field: string,
-  array?: Array<any>
-): QB {
-  if (!array?.length) {
-    return this;
-  }
-
-  field = prepareFieldName(field);
-  const paramName = createUniqueParameterName('andWhereNotIn');
-
-  return this.andWhere(`${field} NOT IN (:...${paramName})`, {
-    [paramName]: array,
-  });
-}
-
-function orWhereIn<QB extends WhereExpressionBuilder>(
-  this: QB,
-  field: string,
-  array?: Array<any>
-): QB {
-  if (!array?.length) {
-    return this.orWhere(`FALSE`);
-  }
-
-  field = prepareFieldName(field);
-  const paramName = createUniqueParameterName('orWhereIn');
-
-  return this.orWhere(`${field} IN (:...${paramName})`, { [paramName]: array });
-}
-
-function orWhereNotIn<QB extends WhereExpressionBuilder>(
-  this: QB,
-  field: string,
-  array?: Array<any>
-): QB {
-  if (!array?.length) {
-    return this;
-  }
-
-  field = prepareFieldName(field);
-  const paramName = createUniqueParameterName('orWhereNotIn');
-
-  return this.orWhere(`${field} NOT IN (:...${paramName})`, {
-    [paramName]: array,
-  });
 }
 
 // patching
@@ -367,7 +253,7 @@ const extension = {
       field: string,
       array?: any[],
     ): SelectQueryBuilder<Entity> {
-      return attachWhereIsIn<Entity, SelectQueryBuilder<Entity>>(
+      return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
         'where',
         field,
@@ -382,7 +268,7 @@ const extension = {
       field: string,
       array?: any[],
     ): SelectQueryBuilder<Entity> {
-      return attachWhereIsIn<Entity, SelectQueryBuilder<Entity>>(
+      return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
         'andWhere',
         field,
@@ -397,7 +283,7 @@ const extension = {
       field: string,
       array?: any[],
     ): SelectQueryBuilder<Entity> {
-      return attachWhereIsIn<Entity, SelectQueryBuilder<Entity>>(
+      return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
         'orWhere',
         field,
@@ -412,7 +298,7 @@ const extension = {
       field: string,
       array?: any[],
     ): SelectQueryBuilder<Entity> {
-      return attachWhereIsIn<Entity, SelectQueryBuilder<Entity>>(
+      return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
         'where',
         field,
@@ -427,7 +313,7 @@ const extension = {
       field: string,
       array?: any[]
     ): SelectQueryBuilder<Entity> {
-      return attachWhereIsIn<Entity, SelectQueryBuilder<Entity>>(
+      return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
         'andWhere',
         field,
@@ -442,7 +328,7 @@ const extension = {
       field: string,
       array?: any[],
     ): SelectQueryBuilder<Entity> {
-      return attachWhereIsIn<Entity, SelectQueryBuilder<Entity>>(
+      return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
         'orWhere',
         field,
@@ -462,10 +348,26 @@ queryBuilders.forEach((builder) => {
   }
 });
 
+
+// implementation
+
+const createUniqueParameterName = (prefix?: string): string => {
+  const uniqueCode = randomString(5);
+
+  return `${prefix || 'param'}_${uniqueCode}`;
+};
+
+const prepareFieldName = (field: string): string =>
+  field.includes('"')
+    ? field
+    : field
+        .split('.')
+        .map((f) => `"${f}"`)
+        .join('.');
+
 type WhereMethods = 'where' | 'andWhere' | 'orWhere';
 
 function attachWhereIsIn<
-  Entity extends ObjectLiteral,
   QB extends WhereExpressionBuilder
 >(
   builder: QB,
