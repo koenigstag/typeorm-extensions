@@ -1,35 +1,47 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import './declarations/pagination.declaration';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import type { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { defaultUseTakeAndSkip } from '../constants';
 import { getLimitAndOffset } from '../utils/pagination.utils';
 import { ObjectLiteral } from 'typeorm';
+import type { ApplyPaginationOptions } from '../types/extensions/pagination.types';
+import { patchPrototype } from '../utils/prototype.utils';
 
-export type ApplyPaginationOptions = {
-  useTakeAndSkip?: boolean;
-};
+// patching
 
-declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity> {
-    applyPaginationFilter(
+const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
+  prototype: {
+    applyPaginationFilter<Entity extends ObjectLiteral>(
+      this: SelectQueryBuilder<Entity>,
       paginationFilter: PaginationFilter,
       options?: ApplyPaginationOptions
-    ): SelectQueryBuilder<Entity>;
-  }
-}
+    ) {
+      return applyPaginationFilter<SelectQueryBuilder<Entity>>(
+        this,
+        paginationFilter,
+        options
+      );
+    },
+  },
+};
 
-SelectQueryBuilder.prototype.applyPaginationFilter = function <Entity extends ObjectLiteral>(
+patchPrototype(SelectQueryBuilder, extension);
+
+// implementation
+
+function applyPaginationFilter<QB extends SelectQueryBuilder<any>>(
+  builder: QB,
   paginationFilter: PaginationFilter,
   options?: ApplyPaginationOptions
-): SelectQueryBuilder<Entity> {
+): QB {
   const { useTakeAndSkip = defaultUseTakeAndSkip } = options || {};
 
   const { limit, offset } = getLimitAndOffset(paginationFilter);
 
   if (useTakeAndSkip) {
-    return this.take(limit).skip(offset);
+    return builder.take(limit).skip(offset);
   }
 
-  return this.limit(limit).offset(offset);
-};
-
-export {};
+  return builder.limit(limit).offset(offset);
+}

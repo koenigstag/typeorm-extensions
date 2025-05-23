@@ -1,31 +1,36 @@
+import './declarations/get-many-with-totals.declaration';
+import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { getLimitAndOffset } from '../utils/pagination.utils';
-import { ApplyPaginationOptions } from './pagination.extension';
 import './pagination.extension';
+import type {
+  ApplyPaginationOptions,
+  GetManyWithTotalsOptions,
+  ListWithTotals,
+} from '../types/extensions';
+import { patchPrototype } from '../utils/prototype.utils';
 
-export type GetManyWithTotalsOptions = {
-  disableTotalsCalculation?: boolean;
-  loadAll?: boolean;
-};
+// patching
 
-export interface ListWithTotals<Entity> {
-  list: Entity[];
-  total: number | null;
-  limit: number | null;
-  offset: number | null;
-}
-
-declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity> {
-    getManyWithTotals(
+const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
+  prototype: {
+    getManyWithTotals<Entity extends ObjectLiteral>(
+      this: SelectQueryBuilder<Entity>,
       paginationFilter: PaginationFilter,
       options?: GetManyWithTotalsOptions
-    ): Promise<ListWithTotals<Entity>>;
-  }
-}
+    ): Promise<ListWithTotals<Entity>> {
+      return getManyWithTotals<Entity>(this, paginationFilter, options);
+    },
+  },
+};
 
-SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
+patchPrototype(SelectQueryBuilder, extension);
+
+// implementation
+
+async function getManyWithTotals<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
   paginationFilter: PaginationFilter,
   options?: GetManyWithTotalsOptions & ApplyPaginationOptions
 ): Promise<ListWithTotals<Entity>> {
@@ -42,18 +47,17 @@ SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
   const requests: unknown[] = [];
 
   if (!disableTotalsCalculation) {
-    requests[0] = await this.getCount();
+    requests[0] = await builder.getCount();
   } else {
     requests[0] = null;
   }
 
   if (loadAll) {
-    requests[1] = await this.getMany();
+    requests[1] = await builder.getMany();
   } else {
-    requests[1] = await this.applyPaginationFilter(
-      paginationFilter,
-      paginationOptions
-    ).getMany();
+    requests[1] = await builder
+      .applyPaginationFilter(paginationFilter, paginationOptions)
+      .getMany();
   }
 
   const [total, list] = requests as [number | null, Entity[]];
@@ -64,4 +68,4 @@ SelectQueryBuilder.prototype.getManyWithTotals = async function <Entity>(
     limit,
     offset,
   };
-};
+}

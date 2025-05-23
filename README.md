@@ -35,16 +35,17 @@ const query = myDataSource
   .createQueryBuilder()
   .from(UserEntity, 'users')
   // Join relation defined in entity model
-  .leftJoinTyped(user => user.profile, 'profile')
+  .leftJoinTyped(user => user.images, 'images')
   // Select type-safe properties
   .selectTyped(user => ([
     id: user.id,
     name: user.name,
     email: user.email,
   ]))
-  .whereTyped(user => user.name, 'ILIKE :search', { search: 'John' })
+  .whereTyped(user => user.name, 'ILIKE', { search: 'John' })
+  .andWhereTyped(user => user.metadata, ` ->> 'jsonField' =`, { value: 'some-value' })
   // Order by type-safe own and relation properties
-  .orderByTyped(user => user.profile.avatarUrl, 'ASC', 'NULLS LAST')
+  .orderByTyped(user => user.images.url, 'ASC', 'NULLS LAST')
   // Use pagination as simple as that
   .applyPaginationFilter({ page: 1, pageSize: 10 }, { useTakeAndSkip: true });
 ```

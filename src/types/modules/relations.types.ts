@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseEntity, ObjectLiteral } from 'typeorm';
 import { SimpleColumnType } from './column.types';
 
 export type RelationColumnsType<ColumnType, Key> = ColumnType extends
   | SimpleColumnType
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | ((...args: any[]) => any)
   ? never
   : ColumnType extends
@@ -13,6 +13,7 @@ export type RelationColumnsType<ColumnType, Key> = ColumnType extends
       | ObjectLiteral[]
   ? Key
   : never;
+
 export type NonRelationColumnsType<ColumnType, Key> =
   ColumnType extends SimpleColumnType ? Key : never;
 

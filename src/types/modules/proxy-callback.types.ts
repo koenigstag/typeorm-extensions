@@ -1,6 +1,8 @@
 import { ObjectLiteral } from "typeorm";
-import { ProxyColumnValueType } from "./typeorm.types";
 import { EntityOnlyWithRelations, EntityWithoutRelations } from "./relations.types";
+import { ColumnValueType } from "./column.types";
+
+export type ProxyColumnValueType = ColumnValueType | ':value';
 
 export type KeyProxyCallback<T extends ObjectLiteral> = (proxy: T) => ProxyColumnValueType | Array<ProxyColumnValueType>;
 export type RelationalKeyProxyCallback<T extends ObjectLiteral> = (

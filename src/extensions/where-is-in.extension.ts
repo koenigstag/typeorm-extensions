@@ -1,3 +1,4 @@
+import './declarations/where-is-in.daclaration';
 import {
   SelectQueryBuilder,
   WhereExpressionBuilder,
@@ -5,254 +6,21 @@ import {
   UpdateQueryBuilder,
   DeleteQueryBuilder,
 } from 'typeorm';
-import { randomString } from '../utils/common.utils';
-
-type ArrayType = unknown[];
-
-declare module 'typeorm/query-builder/WhereExpressionBuilder' {
-  interface WhereExpressionBuilder {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): this;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): this;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): this;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): this;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): this;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): this;
-  }
-}
-
-declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity extends ObjectLiteral> {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-  }
-}
-
-declare module 'typeorm/query-builder/UpdateQueryBuilder' {
-  interface UpdateQueryBuilder<Entity extends ObjectLiteral> {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-  }
-}
-
-declare module 'typeorm/query-builder/DeleteQueryBuilder' {
-  interface DeleteQueryBuilder<Entity extends ObjectLiteral> {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotIn(
-      field: string,
-      array?: ArrayType,
-    ): SelectQueryBuilder<Entity>;
-  }
-}
+import { patchPrototype } from '../utils/prototype.utils';
+import { ArgsType } from '../types/util-types';
+import { WhereMethods } from '../types/extensions';
+import { attachWhere } from '../utils/where.utils';
 
 // patching
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-const extension = {
+const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     whereIsIn: function <
       Entity extends ObjectLiteral,
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: ArrayType,
+      array?: ArgsType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -267,7 +35,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: ArrayType,
+      array?: ArgsType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -282,7 +50,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: ArrayType,
+      array?: ArgsType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -297,7 +65,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: ArrayType,
+      array?: ArgsType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -312,7 +80,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: ArrayType
+      array?: ArgsType
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -327,7 +95,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: ArrayType,
+      array?: ArgsType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -340,33 +108,18 @@ const extension = {
   },
 };
 
-type ExtensionKeys = keyof typeof extension.prototype;
+const queryBuilders = [
+  SelectQueryBuilder,
+  UpdateQueryBuilder,
+  DeleteQueryBuilder,
+];
 
 queryBuilders.forEach((builder) => {
-	for (const method in Object.keys(extension.prototype)) {
-    const methodName = method as ExtensionKeys;
-    builder.prototype[methodName] = extension.prototype[methodName];
-  }
+	patchPrototype(builder, extension);
 });
 
 
 // implementation
-
-const createUniqueParameterName = (prefix?: string): string => {
-  const uniqueCode = randomString(5);
-
-  return `${prefix || 'param'}_${uniqueCode}`;
-};
-
-const prepareFieldName = (field: string): string =>
-  field.includes('"')
-    ? field
-    : field
-        .split('.')
-        .map((f) => `"${f}"`)
-        .join('.');
-
-type WhereMethods = 'where' | 'andWhere' | 'orWhere';
 
 function attachWhereIsIn<
   QB extends WhereExpressionBuilder
@@ -375,20 +128,26 @@ function attachWhereIsIn<
   method: WhereMethods,
   field: string,
   operator: 'IN' | 'NOT IN',
-  array?: ArrayType
+  array?: ArgsType
 ): QB {
   if (method && typeof field === 'string' && typeof operator === 'string') {
     if (!array?.length) {
-      return builder[method](`FALSE`);
+      // if the array is empty, we can use a simple condition
+      // IN (empty array) => FALSE
+      // NOT IN (empty array) => TRUE
+      return builder[method](operator === 'IN' ? 'FALSE' : 'TRUE');
     }
 
-    field = prepareFieldName(field);
-    const paramName = createUniqueParameterName('whereIn');
-
-    // .andWhere(`"table"."column" IN (:...values)`, { values: ['value'] })
-    return builder[method](`${field} ${operator} (:...${paramName})`, {
-      [paramName]: array,
-    });
+    return attachWhere(
+      builder,
+      method,
+      field,
+      operator,
+      { value: array },
+      {
+        addValue: true,
+      }
+    );
   }
 
   return builder;

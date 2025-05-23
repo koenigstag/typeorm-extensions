@@ -1,3 +1,5 @@
+import '../../declarations/typed/typed-where-is-in.declaration';
+import '../../where-is-in.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
@@ -5,273 +7,14 @@ import {
   UpdateQueryBuilder,
   DeleteQueryBuilder,
 } from 'typeorm';
-import '../../where-is-in.extension';
-import { ProxyColumnValueType } from '../../../types/modules/typeorm.types';
+import { ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
+import { patchPrototype } from '../../../utils/prototype.utils';
+import { WhereInMethods } from '../../../types/extensions';
+import { ArgsType } from '../../../types/util-types';
+import { TypedWhereIsInOptions } from '../../../types/extensions/typed-where.types';
 
-type ArrayType = unknown[];
-
-export interface TypedWhereIsInOptions {
-  useDoubleQuotes?: boolean;
-}
-
-declare module 'typeorm/query-builder/WhereExpressionBuilder' {
-  interface WhereExpressionBuilder {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-  }
-}
-
-declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity> {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-  }
-}
-
-declare module 'typeorm/query-builder/UpdateQueryBuilder' {
-  interface UpdateQueryBuilder<Entity> {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-  }
-}
-
-declare module 'typeorm/query-builder/DeleteQueryBuilder' {
-  interface DeleteQueryBuilder<Entity> {
-    /**
-     * Sets WHERE IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE IN condition in the query builder.
-     */
-    andWhereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE IN condition in the query builder.
-     */
-    orWhereIsInTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Sets WHERE NOT IN condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE NOT IN condition in the query builder.
-     */
-    andWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE NOT IN condition in the query builder.
-     */
-
-    orWhereIsNotInTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
-      options?: TypedWhereIsInOptions
-    ): this;
-  }
-}
-
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
+// patching
 
 const extension = {
   prototype: {
@@ -281,7 +24,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
+      array?: ArgsType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -298,7 +41,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
+      array?: ArgsType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -315,7 +58,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
+      array?: ArgsType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -332,7 +75,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
+      array?: ArgsType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -349,7 +92,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
+      array?: ArgsType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -366,7 +109,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: ArrayType,
+      array?: ArgsType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -380,36 +123,44 @@ const extension = {
   },
 };
 
-type ExtensionKeys = keyof typeof extension.prototype;
+const queryBuilders = [
+  SelectQueryBuilder,
+  UpdateQueryBuilder,
+  DeleteQueryBuilder,
+];
 
 queryBuilders.forEach((builder) => {
-	for (const method in Object.keys(extension.prototype)) {
-    const methodName = method as ExtensionKeys;
-    builder.prototype[methodName] = extension.prototype[methodName];
-  }
+  patchPrototype(builder, extension);
 });
 
-type WhereMethods = 'whereIsIn' | 'andWhereIsIn' | 'orWhereIsIn' | 'whereIsNotIn' | 'andWhereIsNotIn' | 'orWhereIsNotIn';
+// implementation
 
 function attachWhereIsIn<
   Type extends ObjectLiteral,
   QB extends WhereExpressionBuilder
 >(
   builder: QB,
-  method: WhereMethods,
+  method: WhereInMethods,
   where: (proxy: Type) => ProxyColumnValueType,
-  array?: ArrayType,
+  array?: ArgsType,
   options?: TypedWhereIsInOptions
 ): QB {
+  const { useDoubleQuotes } = options || {};
+
   if (typeof where === 'function') {
+    const alias = (builder as unknown as SelectQueryBuilder<Type>).alias;
     const key = getSqlKeyFromProxyCallback<Type>(
       where,
-      (builder as unknown as SelectQueryBuilder<Type>).alias,
-      options?.useDoubleQuotes
+      alias,
+      useDoubleQuotes
     );
 
     if (Array.isArray(key)) {
-      throw new Error('Key must be a string, not an array');
+      for (const k of key) {
+        builder = builder[method](k, array);
+      }
+
+      return builder;
     }
 
     // .andWhere(`"table"."column"   IN (:...values)`, { values: ['value'] })
