@@ -236,8 +236,13 @@ const extension = {
   },
 };
 
+type ExtensionKeys = keyof typeof extension.prototype;
+
 queryBuilders.forEach((builder) => {
-	Object.assign(builder, extension);
+  for (const method in Object.keys(extension.prototype)) {
+    const methodName = method as ExtensionKeys;
+    builder.prototype[methodName] = extension.prototype[methodName];
+  }
 });
 
 type WhereMethod = 'where' | 'andWhere' | 'orWhere';
