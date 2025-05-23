@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   SelectQueryBuilder,
   WhereExpressionBuilder,
@@ -7,6 +6,8 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { randomString } from '../utils/common.utils';
+
+type ArrayType = unknown[];
 
 declare module 'typeorm/query-builder/WhereExpressionBuilder' {
   interface WhereExpressionBuilder {
@@ -17,7 +18,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     whereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): this;
 
     /**
@@ -25,7 +26,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     andWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): this;
 
     /**
@@ -33,7 +34,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     orWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): this;
 
     /**
@@ -43,7 +44,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     whereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): this;
 
     /**
@@ -51,7 +52,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     andWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): this;
 
     /**
@@ -60,7 +61,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
 
     orWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): this;
   }
 }
@@ -74,7 +75,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     whereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -82,7 +83,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     andWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -90,7 +91,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     orWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -100,7 +101,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     whereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -108,7 +109,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     andWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -117,7 +118,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
     orWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
   }
 }
@@ -131,7 +132,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     whereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -139,7 +140,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     andWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -147,7 +148,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     orWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -157,7 +158,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     whereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -165,7 +166,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     andWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -174,7 +175,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 
     orWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
   }
 }
@@ -188,7 +189,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     whereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -196,7 +197,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     andWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -204,7 +205,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     orWhereIsIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -214,7 +215,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     whereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -222,7 +223,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     andWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -231,7 +232,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 
     orWhereIsNotIn(
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity>;
   }
 }
@@ -251,7 +252,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -266,7 +267,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -281,7 +282,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -296,7 +297,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -311,7 +312,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: any[]
+      array?: ArrayType
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -326,7 +327,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       field: string,
-      array?: any[],
+      array?: ArrayType,
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<SelectQueryBuilder<Entity>>(
         this,
@@ -374,7 +375,7 @@ function attachWhereIsIn<
   method: WhereMethods,
   field: string,
   operator: 'IN' | 'NOT IN',
-  array?: any[]
+  array?: ArrayType
 ): QB {
   if (method && typeof field === 'string' && typeof operator === 'string') {
     if (!array?.length) {

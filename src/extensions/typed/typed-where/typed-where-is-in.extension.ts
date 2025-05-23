@@ -9,6 +9,8 @@ import '../../where-is-in.extension';
 import { ProxyColumnValueType } from '../../../types/modules/typeorm.types';
 import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
 
+type ArrayType = unknown[];
+
 export interface TypedWhereIsInOptions {
   useDoubleQuotes?: boolean;
 }
@@ -22,7 +24,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     whereIsInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -31,7 +33,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     andWhereIsInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -40,7 +42,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     orWhereIsInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -51,7 +53,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     whereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -60,7 +62,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     andWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -70,7 +72,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
 
     orWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
   }
@@ -85,7 +87,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     whereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -94,7 +96,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     andWhereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -103,7 +105,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     orWhereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -114,7 +116,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     whereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -123,7 +125,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     andWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -133,7 +135,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
     orWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
   }
@@ -148,7 +150,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     whereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -157,7 +159,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     andWhereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -166,7 +168,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     orWhereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -177,7 +179,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     whereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -186,7 +188,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     andWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -196,7 +198,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 
     orWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
   }
@@ -211,7 +213,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     whereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -220,7 +222,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     andWhereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -229,7 +231,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     orWhereIsInTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -240,7 +242,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     whereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -249,7 +251,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     andWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
 
@@ -259,7 +261,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 
     orWhereIsNotInTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): this;
   }
@@ -279,7 +281,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -296,7 +298,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -313,7 +315,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -330,7 +332,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -347,7 +349,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -364,7 +366,7 @@ const extension = {
     >(
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
-      array?: unknown[],
+      array?: ArrayType,
       options?: TypedWhereIsInOptions
     ): SelectQueryBuilder<Entity> {
       return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(
@@ -396,7 +398,7 @@ function attachWhereIsIn<
   builder: QB,
   method: WhereMethods,
   where: (proxy: Type) => ProxyColumnValueType,
-  array?: unknown[],
+  array?: ArrayType,
   options?: TypedWhereIsInOptions
 ): QB {
   if (typeof where === 'function') {
