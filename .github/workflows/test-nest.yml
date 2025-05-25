@@ -6,6 +6,7 @@ on:
     branches: [main]
 
 env:
+  IS_CI: true
   TEST_WORKING_DIR: ${{ vars.TEST_WORKING_DIR }}
 
 jobs:
