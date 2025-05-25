@@ -30,7 +30,7 @@ setupTest(
       expect(result[0].email).toBe(createEmail(3)); // page 2 and pageSize 3 => offset 3
     });
 
-    it('SHOULD return total count currectly', async () => {
+    it('SHOULD return total count correctly', async () => {
       const usersRepository = context.dataSource.getRepository(UserEntity);
 
       // seed 10 users
