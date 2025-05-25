@@ -1,9 +1,8 @@
 // Ensure the extension is imported for side effects (module augmentation)
-import { SelectQB } from '../../../../dist/extensions/pagination.extension';
+import 'typeorm-extensions';
 import { faker } from '@faker-js/faker';
 import { setupTest } from '../test-utils/setupTest';
 import { UserEntity } from '../models/user.entity';
-import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 
 setupTest('pagination', {
   entities: [UserEntity],
@@ -24,12 +23,6 @@ setupTest('pagination', {
 
       const selectQuery = usersRepository.createQueryBuilder('user');
 
-      console.log('Query class:', selectQuery instanceof SelectQB ? SelectQB.name : 'unknown');
-      console.log('Has patch:', new SelectQB(selectQuery).applyPaginationFilter?.name || 'not patched');
-
-      console.log('Is Same prototype:', SelectQueryBuilder.prototype === SelectQB.prototype);
-
-      // @ts-expect-error: applyPaginationFilter is added via module augmentation
       const paginatedQuery = selectQuery.applyPaginationFilter({ page: 2, pageSize: 3 });
 
       const result = await paginatedQuery.getMany();

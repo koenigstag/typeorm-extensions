@@ -38,10 +38,6 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
 
 patchPrototype(SelectQueryBuilder, extension);
 
-console.log('After patching:', SelectQueryBuilder.prototype.applyPaginationFilter?.name || 'not patched');
-
-export const SelectQB = SelectQueryBuilder;
-
 // implementation
 
 function applyPaginationFilter<QB extends SelectQueryBuilder<any>>(

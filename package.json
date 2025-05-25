@@ -13,8 +13,7 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "lint": "eslint . --ext .ts",
-    "test-nest-build": "cd test/nest_v11 && npm install && npm run build"
+    "lint": "eslint . --ext .ts"
   },
   "keywords": [
     "typeorm",
