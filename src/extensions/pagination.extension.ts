@@ -1,12 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import './declarations/pagination.declaration';
-import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
-import type { PaginationFilter } from '../types/interfaces/pagination.interface';
+import { SelectQueryBuilder } from 'typeorm';
+import { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { defaultUseTakeAndSkip } from '../constants';
 import { getLimitAndOffset } from '../utils/pagination.utils';
 import { ObjectLiteral } from 'typeorm';
-import type { ApplyPaginationOptions } from '../types/extensions/pagination.types';
+import { ApplyPaginationOptions } from '../types/extensions/pagination.types';
 import { patchPrototype } from '../utils/prototype.utils';
+
+// declarations
+
+declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  interface SelectQueryBuilder<Entity extends ObjectLiteral> {
+    applyPaginationFilter(
+      paginationFilter: PaginationFilter,
+      options?: ApplyPaginationOptions
+    ): SelectQueryBuilder<Entity>;
+  }
+}
 
 // patching
 
@@ -27,6 +37,10 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
 };
 
 patchPrototype(SelectQueryBuilder, extension);
+
+console.log('After patching:', SelectQueryBuilder.prototype.applyPaginationFilter?.name || 'not patched');
+
+export const SelectQB = SelectQueryBuilder;
 
 // implementation
 

@@ -1,4 +1,3 @@
-import '../../declarations/typed/typed-select.declaration';
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 import {
@@ -6,6 +5,63 @@ import {
   KeyHolder,
 } from '../../../utils/proxy-key.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
+
+// declarations
+
+declare module 'typeorm/query-builder/SelectQueryBuilder' {
+	interface SelectQueryBuilder<Entity> {
+		/**
+		 * Creates SELECT query.
+		 * Replaces all previous selections if they exist.
+		 */
+		selectTyped<Type extends ObjectLiteral = Entity>(
+			this: SelectQueryBuilder<Entity>,
+			selection: KeyProxyCallback<Type>,
+			selectionAliasName?: string
+		): SelectQueryBuilder<Entity>;
+		/**
+		 * Creates SELECT query and selects given data.
+		 * Replaces all previous selections if they exist.
+		 */
+		selectTyped(
+			this: SelectQueryBuilder<Entity>,
+			selection: string | KeyHolder,
+			selectionAliasName?: string
+		): SelectQueryBuilder<Entity>;
+		/**
+		 * Creates SELECT query and selects given data.
+		 * Replaces all previous selections if they exist.
+		 */
+		selectTyped<Type extends ObjectLiteral = Entity>(
+			this: SelectQueryBuilder<Entity>,
+			selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>
+		): SelectQueryBuilder<Entity>;
+
+		/**
+		 * Adds new selection to the SELECT query.
+		 */
+		addSelectTyped<Type extends ObjectLiteral = Entity>(
+			this: SelectQueryBuilder<Entity>,
+			selection: KeyProxyCallback<Type>,
+			selectionAliasName?: string
+		): SelectQueryBuilder<Entity>;
+		/**
+		 * Adds new selection to the SELECT query.
+		 */
+		addSelectTyped(
+			this: SelectQueryBuilder<Entity>,
+			selection: string | KeyHolder,
+			selectionAliasName?: string
+		): SelectQueryBuilder<Entity>;
+		/**
+		 * Adds new selection to the SELECT query.
+		 */
+		addSelectTyped<Type extends ObjectLiteral = Entity>(
+			this: SelectQueryBuilder<Entity>,
+			selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>
+		): SelectQueryBuilder<Entity>;
+	}
+}
 
 // patching
 

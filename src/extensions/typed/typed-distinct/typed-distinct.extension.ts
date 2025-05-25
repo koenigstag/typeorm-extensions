@@ -1,7 +1,27 @@
-import '../../declarations/typed/typed-distinct.declaration';
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
+
+// declarations
+
+declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  interface SelectQueryBuilder<Entity extends ObjectLiteral> {
+    /**
+     * Sets the distinct on clause for Postgres.
+     */
+    distinctOnTyped<Type extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<Entity>,
+      ...distinctOn: Array<KeyProxyCallback<Type>>
+    ): SelectQueryBuilder<Entity>;
+    /**
+     * Sets the distinct on clause for Postgres.
+     */
+    distinctOnTyped<Type extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<Entity>,
+      distinctOn: KeyProxyCallback<Type>
+    ): SelectQueryBuilder<Entity>;
+  }
+}
 
 // patching and implementation
 

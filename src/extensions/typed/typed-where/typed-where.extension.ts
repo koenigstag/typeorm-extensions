@@ -1,4 +1,3 @@
-import '../../declarations/typed/typed-where.declaration';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
@@ -12,6 +11,164 @@ import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
 import { attachWhere } from '../../../utils/where.utils';
+
+// declarations
+
+declare module 'typeorm/query-builder/WhereExpressionBuilder' {
+  interface WhereExpressionBuilder {
+    /**
+     * Sets WHERE condition in the query builder.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     * Additionally you can add parameters used in where expression.
+     */
+    whereTyped<Type extends ObjectLiteral>(
+      subQuery: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new AND WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    andWhereTyped<Type extends ObjectLiteral>(
+      subQuery: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new OR WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    orWhereTyped<Type extends ObjectLiteral>(
+      subQuery: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+  }
+}
+
+declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  interface SelectQueryBuilder<Entity> {
+    /**
+     * Sets WHERE condition in the query builder.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     * Additionally you can add parameters used in where expression.
+     */
+    whereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new AND WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    andWhereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new OR WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    orWhereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+  }
+}
+
+declare module 'typeorm/query-builder/UpdateQueryBuilder' {
+  interface UpdateQueryBuilder<Entity> {
+    /**
+     * Sets WHERE condition in the query builder.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     * Additionally you can add parameters used in where expression.
+     */
+    whereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new AND WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    andWhereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new OR WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    orWhereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+  }
+}
+
+declare module 'typeorm/query-builder/DeleteQueryBuilder' {
+  interface DeleteQueryBuilder<Entity> {
+    /**
+     * Sets WHERE condition in the query builder.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     * Additionally you can add parameters used in where expression.
+     */
+    whereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new AND WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    andWhereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+
+    /**
+     * Adds new OR WHERE condition in the query builder.
+     * Additionally you can add parameters used in where expression.
+     */
+    orWhereTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: Type) => ProxyColumnValueType,
+      conditions: string,
+      parameters?: ObjectLiteral,
+      options?: TypedWhereOptions
+    ): this;
+  }
+}
 
 // patching
 

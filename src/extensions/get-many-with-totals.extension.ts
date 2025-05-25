@@ -1,15 +1,25 @@
-import './declarations/get-many-with-totals.declaration';
+import './pagination.extension';
 import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { getLimitAndOffset } from '../utils/pagination.utils';
-import './pagination.extension';
 import type {
   ApplyPaginationOptions,
   GetManyWithTotalsOptions,
   ListWithTotals,
 } from '../types/extensions';
 import { patchPrototype } from '../utils/prototype.utils';
+
+// declarations
+
+declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  interface SelectQueryBuilder<Entity> {
+    getManyWithTotals(
+      paginationFilter: PaginationFilter,
+      options?: GetManyWithTotalsOptions
+    ): Promise<ListWithTotals<Entity>>;
+  }
+}
 
 // patching
 

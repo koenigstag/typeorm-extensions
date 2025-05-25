@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import './declarations/order.declaration';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import type {
   OrderParam,
@@ -16,6 +15,21 @@ import { isNil } from '../utils/common.utils';
 import { Identifier } from '../utils/identifier.utils';
 import type { ApplyOrderOptions } from '../types/extensions/order.types';
 import { patchPrototype } from '../utils/prototype.utils';
+
+// declarations
+
+declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  interface SelectQueryBuilder<Entity> {
+    applyOrder<OrderEntity>(
+      orderBy: OrderParam<OrderEntity>,
+      options?: ApplyOrderOptions
+    ): SelectQueryBuilder<Entity>;
+    applyOrderFilter<OrderEntity>(
+      orderFilter: OrderFilter<OrderEntity>,
+      options?: ApplyOrderOptions
+    ): SelectQueryBuilder<Entity>;
+  }
+}
 
 // patching
 
