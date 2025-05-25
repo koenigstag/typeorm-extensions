@@ -141,7 +141,7 @@ function addJoin<
   condition?: string,
   parameters?: ObjectLiteral
 ) {
-  const key = getSqlKeyFromProxyCallback<Type>(selection, query.alias) as string;
+  const key = getSqlKeyFromProxyCallback<Type>(selection, query.alias, false) as string;
 
   return query[method](key, alias, condition, parameters);
 }

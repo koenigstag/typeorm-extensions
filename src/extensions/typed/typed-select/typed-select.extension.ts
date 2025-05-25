@@ -9,58 +9,64 @@ import { patchPrototype } from '../../../utils/prototype.utils';
 // declarations
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
-	interface SelectQueryBuilder<Entity> {
-		/**
-		 * Creates SELECT query.
-		 * Replaces all previous selections if they exist.
-		 */
-		selectTyped<Type extends ObjectLiteral = Entity>(
-			this: SelectQueryBuilder<Entity>,
-			selection: KeyProxyCallback<Type>,
-			selectionAliasName?: string
-		): SelectQueryBuilder<Entity>;
-		/**
-		 * Creates SELECT query and selects given data.
-		 * Replaces all previous selections if they exist.
-		 */
-		selectTyped(
-			this: SelectQueryBuilder<Entity>,
-			selection: string | KeyHolder,
-			selectionAliasName?: string
-		): SelectQueryBuilder<Entity>;
-		/**
-		 * Creates SELECT query and selects given data.
-		 * Replaces all previous selections if they exist.
-		 */
-		selectTyped<Type extends ObjectLiteral = Entity>(
-			this: SelectQueryBuilder<Entity>,
-			selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>
-		): SelectQueryBuilder<Entity>;
+  interface SelectQueryBuilder<Entity> {
+    /**
+     * Creates SELECT query.
+     * Replaces all previous selections if they exist.
+     */
+    selectTyped<Type extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<Entity>,
+      selection: KeyProxyCallback<Type>,
+      selectionAliasName?: string,
+      useDoubleQuotes?: boolean
+    ): SelectQueryBuilder<Entity>;
+    /**
+     * Creates SELECT query and selects given data.
+     * Replaces all previous selections if they exist.
+     */
+    selectTyped(
+      this: SelectQueryBuilder<Entity>,
+      selection: string | KeyHolder,
+      selectionAliasName?: string,
+      useDoubleQuotes?: boolean
+    ): SelectQueryBuilder<Entity>;
+    /**
+     * Creates SELECT query and selects given data.
+     * Replaces all previous selections if they exist.
+     */
+    selectTyped<Type extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<Entity>,
+      selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
+      useDoubleQuotes?: boolean
+    ): SelectQueryBuilder<Entity>;
 
-		/**
-		 * Adds new selection to the SELECT query.
-		 */
-		addSelectTyped<Type extends ObjectLiteral = Entity>(
-			this: SelectQueryBuilder<Entity>,
-			selection: KeyProxyCallback<Type>,
-			selectionAliasName?: string
-		): SelectQueryBuilder<Entity>;
-		/**
-		 * Adds new selection to the SELECT query.
-		 */
-		addSelectTyped(
-			this: SelectQueryBuilder<Entity>,
-			selection: string | KeyHolder,
-			selectionAliasName?: string
-		): SelectQueryBuilder<Entity>;
-		/**
-		 * Adds new selection to the SELECT query.
-		 */
-		addSelectTyped<Type extends ObjectLiteral = Entity>(
-			this: SelectQueryBuilder<Entity>,
-			selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>
-		): SelectQueryBuilder<Entity>;
-	}
+    /**
+     * Adds new selection to the SELECT query.
+     */
+    addSelectTyped<Type extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<Entity>,
+      selection: KeyProxyCallback<Type>,
+      selectionAliasName?: string,
+      useDoubleQuotes?: boolean
+    ): SelectQueryBuilder<Entity>;
+    /**
+     * Adds new selection to the SELECT query.
+     */
+    addSelectTyped(
+      this: SelectQueryBuilder<Entity>,
+      selection: string | KeyHolder,
+      selectionAliasName?: string,
+      useDoubleQuotes?: boolean
+    ): SelectQueryBuilder<Entity>;
+    /**
+     * Adds new selection to the SELECT query.
+     */
+    addSelectTyped<Type extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<Entity>,
+      selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
+      useDoubleQuotes?: boolean
+    ): SelectQueryBuilder<Entity>;
+  }
 }
 
 // patching
@@ -79,13 +85,17 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
         | string[]
         | KeyHolder[]
         | Array<KeyProxyCallback<Type>>,
-      selectionAliasName?: string
+      selectionAliasName?: string | boolean,
+      useDoubleQuotes?: boolean
     ) {
       return attachSelectMethod<Entity, Type>(
         this,
         'select',
         selection,
-        selectionAliasName
+        typeof selectionAliasName === 'string' ? selectionAliasName : undefined,
+        typeof selectionAliasName === 'boolean'
+          ? selectionAliasName
+          : useDoubleQuotes
       );
     },
     addSelectTyped<
@@ -100,13 +110,17 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
         | string[]
         | KeyHolder[]
         | Array<KeyProxyCallback<Type>>,
-      selectionAliasName?: string
+      selectionAliasName?: string | boolean,
+      useDoubleQuotes?: boolean
     ) {
       return attachSelectMethod<Entity, Type>(
         this,
         'addSelect',
         selection,
-        selectionAliasName
+        typeof selectionAliasName === 'string' ? selectionAliasName : undefined,
+        typeof selectionAliasName === 'boolean'
+          ? selectionAliasName
+          : useDoubleQuotes
       );
     },
   },
@@ -129,23 +143,32 @@ const attachSelectMethod = <
     | string[]
     | KeyHolder[]
     | Array<KeyProxyCallback<Type>>,
-  selectionAliasName?: string
+  selectionAliasName?: string,
+  useDoubleQuotes?: boolean
 ): SelectQueryBuilder<Entity> => {
   if (selection instanceof KeyHolder) {
-    return query[method](selection.toSql(), selectionAliasName);
+    return query[method](
+      selection.toSql(undefined, useDoubleQuotes),
+      selectionAliasName
+    );
   }
 
   if (Array.isArray(selection)) {
     const arrayOfKeys = selection.map(
       (select) =>
-        getSqlKeyFromProxyCallback<Type>(select, query.alias) as string
+        getSqlKeyFromProxyCallback<Type>(
+          select,
+          query.alias,
+          useDoubleQuotes
+        ) as string
     );
 
     return query[method](arrayOfKeys);
   } else if (typeof selection === 'function') {
     const keyArrayOrSingleKey = getSqlKeyFromProxyCallback<Type>(
       selection,
-      query.alias
+      query.alias,
+      useDoubleQuotes
     );
 
     if (Array.isArray(keyArrayOrSingleKey)) {
