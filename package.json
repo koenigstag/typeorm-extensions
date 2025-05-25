@@ -1,6 +1,6 @@
 {
   "name": "typeorm-extensions",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "typeorm commonly used extensions",
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
