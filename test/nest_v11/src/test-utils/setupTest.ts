@@ -1,46 +1,77 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { describe, beforeEach } from '@jest/globals';
 import { Class } from '../types';
 import { TypeOrmTestingModule } from './typeorm-testing.module';
+import { allEntities } from '../models/all-entities';
 
-export type RepositoriesMap<T extends readonly Class[]> = {
-  [K in T[number] as K['name']]: Repository<InstanceType<K>>;
+type Repositories<T extends readonly Class[]> = {
+  [K in keyof T]: T[K] extends Class ? Repository<InstanceType<T[K]>> : never;
 };
 
-export function getRepositoriesMap<T extends readonly Class[]>(
+export function getRepositories<T extends readonly Class[]>(
   moduleRef: TestingModule,
   entities: T,
-): RepositoriesMap<T> {
-  const result: Record<string, Repository<any>> = {};
+): Repositories<T> {
+  const result: Repository<any>[] = [];
 
   for (const entity of entities) {
     const token = getRepositoryToken(entity);
-    result[entity.name] = moduleRef.get(token, { strict: false });
+    result.push(moduleRef.get(token, { strict: false }));
   }
 
-  return result as RepositoriesMap<T>;
+  return result as Repositories<T>;
 }
 
-export const setupTest = <T extends readonly Class[]>(
+export type TestContext<T extends readonly Class[]> = {
+  name: string;
+  entities: T;
+  moduleRef: TestingModule;
+  dataSource: DataSource;
+};
+
+export const setupTest = <T extends readonly Class[] = typeof allEntities>(
   name: string,
-  props: { entities: T; tests: (repos: RepositoriesMap<T>) => void },
+  props: {
+    entities: T;
+    beforeEach?: (context: TestContext<T>) => void | Promise<void>;
+  } | null | undefined,
+  tests: (context: TestContext<T>) => void,
 ) => {
+  props = props ?? {
+    entities: allEntities
+  } as any;
+
+  if (!props) {
+    throw new Error('Props cannot be null or undefined');
+  }
+
+  if (!props.entities || props.entities.length === 0) {
+    props.entities = allEntities as unknown as T;
+  }
+
   describe(name, () => {
-    let moduleRef: TestingModule;
-    const repositories: RepositoriesMap<T> = {} as RepositoriesMap<T>;
+    const sharedContext: TestContext<T> = {
+      name,
+      entities: props.entities,
+      moduleRef: null as unknown as TestingModule,
+      dataSource: null as unknown as DataSource,
+    };
 
     beforeEach(async () => {
-      moduleRef = await Test.createTestingModule({
-        imports: [
-          ...TypeOrmTestingModule(props.entities),
-        ],
+      // console.debug('Executing beforeEach. Test name:', expect.getState().currentTestName);
+
+      sharedContext.moduleRef = await Test.createTestingModule({
+        imports: [...TypeOrmTestingModule(props.entities)],
       }).compile();
 
-      Object.assign(repositories, getRepositoriesMap(moduleRef, props.entities));
+      sharedContext.dataSource = sharedContext.moduleRef.get(DataSource);
+      // sharedContext.repositories = getRepositories(sharedContext.moduleRef, props.entities);
+
+      await props.beforeEach?.(sharedContext);
     });
 
-    props.tests(repositories);
+    tests(sharedContext);
   });
 };

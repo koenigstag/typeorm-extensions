@@ -2,9 +2,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { ImageEntity } from './image.entity';
 
 @Entity({
   name: 'users',
@@ -15,6 +18,10 @@ import {
   withoutRowid: true,
 })
 export class UserEntity {
+  constructor(partial: Partial<UserEntity> = {}) {
+    Object.assign(this, partial);
+  }
+
   @PrimaryColumn({ type: 'integer' })
   public id: number;
 
@@ -51,4 +58,10 @@ export class UserEntity {
     nullable: false,
   })
   public updatedAt: Date;
+
+  @OneToMany(() => ImageEntity, (image) => image.user, {
+    cascade: true,
+  })
+  @JoinColumn({ name: 'id', referencedColumnName: 'userId' })
+  public images?: ImageEntity[];
 }

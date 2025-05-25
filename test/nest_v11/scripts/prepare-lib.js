@@ -8,15 +8,17 @@ const packageJsonPath = path.resolve(__dirname, '../../../', 'package.json');
 
 // Ensure the library is built before copying
 if (process.env.IS_CI) {
-  console.log('🔧 Building typeorm-extensions...');
   execSync('npm clean-install', { stdio: 'inherit', cwd: path.resolve(__dirname, '../../../') });
-  execSync('npm run build', { stdio: 'inherit', cwd: path.resolve(__dirname, '../../../') });
-} else {
-  fs.existsSync(src) || (() => {
-    console.error('❗️ dist directory does not exist. Please build the library first.');
-    process.exit(1);
-  })();
 }
+
+console.log('🔧 Building typeorm-extensions...');
+execSync('npm run build', { stdio: 'inherit', cwd: path.resolve(__dirname, '../../../') });
+
+fs.existsSync(src) || (() => {
+  console.error('❗️ dist directory does not exist. Please build the library first.');
+  process.exit(1);
+})();
+
 
 // Clear the destination directory if it exists
 if (fs.existsSync(dest)) {
