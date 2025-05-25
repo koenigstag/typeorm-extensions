@@ -3,9 +3,10 @@ name: Test NestJS with library
 on:
   workflow_dispatch:
   pull_request:
+    branches: [main]
 
 jobs:
-  test-nest-build:
+  nest-build:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,8 +18,33 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Change directory to test/nest
+        run: cd test/nest_v11
 
-      - name: Run test-nest-build
-        run: npm run test-nest-build
+      - name: Install nest dependencies
+        run: npm clean-install
+
+      - name: Run build
+        run: npm run build
+
+  nest-test:
+    runs-on: ubuntu-latest
+    needs: nest-build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js 20 (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Change directory to test/nest
+        run: cd test/nest_v11
+
+      - name: Install nest dependencies
+        run: npm clean-install
+
+      - name: Run tests
+        run: npm run test
