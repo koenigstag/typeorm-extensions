@@ -43,7 +43,7 @@ const query = myDataSource
     email: user.email,
   ]))
   .whereTyped(user => user.name, 'ILIKE', { search: 'John' })
-  .andWhereTyped(user => user.metadata, ` ->> 'jsonField' =`, { value: 'some-value' })
+  .andWhereTyped(user => user.metadata, ` ->> 'jsonField' =`, 'some-value')
   // Order by type-safe own and relation properties
   .orderByTyped(user => user.images.url, 'ASC', 'NULLS LAST')
   // Use pagination as simple as that
