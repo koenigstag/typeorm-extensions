@@ -42,7 +42,7 @@ const query = myDataSource
     name: user.name,
     email: user.email,
   ]))
-  .whereTyped(user => user.name, 'ILIKE', { search: 'John' })
+  .whereTyped(user => user.name, 'ILIKE', 'John')
   .andWhereTyped(user => user.metadata, ` ->> 'jsonField' =`, 'some-value')
   // Order by type-safe own and relation properties
   .orderByTyped(user => user.images.url, 'ASC', 'NULLS LAST')
