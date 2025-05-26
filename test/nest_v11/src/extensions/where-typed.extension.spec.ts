@@ -1,48 +1,54 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, createRandomId } from '../test-utils';
 import { UserEntity } from '../models';
+import { selectElements } from '../utils';
+import { faker } from '@faker-js/faker';
 
 setupTest('where-typed.where', undefined, (context) => {
   it('SHOULD apply where IN correctly', async () => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 
     // seed 10 users
-    const fakeUsers = await createFakeUsers({
+    let fakeUsers = await createFakeUsers({
       count: 10,
-      getOverrides: (index) => ({
-        id: index + 1,
-      }),
     });
-    await usersRepository.save(fakeUsers);
+    fakeUsers = await usersRepository.save(fakeUsers);
 
     const selectQuery = usersRepository.createQueryBuilder('user');
-    const whereInQuery = selectQuery.whereTyped((u) => u.id, 'IN', [1, 3, 5, 7, 9]);
+
+    const userIds = selectElements(
+      fakeUsers.map((u) => u.id),
+      'even',
+    );
+    const whereInQuery = selectQuery.clone().whereTyped((u) => u.id, 'IN', userIds);
 
     expect(whereInQuery.getQuery()).toContain('"user"."id" IN (');
 
-    const result = await whereInQuery.getMany();
-    expect(result).toHaveLength(5);
-    expect(result.map((user) => user.id)).toEqual([1, 3, 5, 7, 9]);
+    const result = await whereInQuery.select('user.id').getMany();
+    expect(result).toHaveLength(userIds.length);
+    expect(result.map((user) => user.id)).toEqual(userIds);
   });
 
   it('SHOULD return empty array when no matches', async () => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 
     // seed 10 users
-    const fakeUsers = await createFakeUsers({
+    let fakeUsers = await createFakeUsers({
       count: 10,
-      getOverrides: (index) => ({
-        id: index + 1,
-      }),
     });
-    await usersRepository.save(fakeUsers);
+    fakeUsers = await usersRepository.save(fakeUsers);
 
     const selectQuery = usersRepository.createQueryBuilder('user');
-    const whereInQuery = selectQuery.whereTyped((u) => u.id, 'IN', [11, 12, 13]);
+
+    const whereInQuery = selectQuery.clone().whereTyped((u) => u.id, 'IN', [
+      createRandomId(1000, 1100),
+      createRandomId(1101, 1200),
+      createRandomId(1201, 1300),
+    ]);
 
     expect(whereInQuery.getQuery()).toContain('"user"."id" IN (');
 
-    const result = await whereInQuery.getMany();
+    const result = await whereInQuery.select('user.id').getMany();
     expect(result).toHaveLength(0);
   });
 
@@ -50,22 +56,25 @@ setupTest('where-typed.where', undefined, (context) => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 
     // seed 10 users
-    const fakeUsers = await createFakeUsers({
+    let fakeUsers = await createFakeUsers({
       count: 10,
-      getOverrides: (index) => ({
-        id: index + 1,
-      }),
     });
-    await usersRepository.save(fakeUsers);
+    fakeUsers = await usersRepository.save(fakeUsers);
 
     const selectQuery = usersRepository.createQueryBuilder('user');
-    const whereQuery = selectQuery.whereTyped((u) => u.id, '=', 11);
 
-    expect(whereQuery.getQuery()).not.toContain('"user"."id" IN (');
+    const userId = fakeUsers[0].id;
+    const whereQuery = selectQuery.clone().whereTyped(
+      (u) => u.id,
+      '=',
+      userId,
+    );
+
     expect(whereQuery.getQuery()).toContain('"user"."id" = ');
 
-    const result = await whereQuery.getMany();
-    expect(result).toHaveLength(0);
+    const result = await whereQuery.select('user.id').getMany();
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toEqual(userId);
   });
 });
 
@@ -74,64 +83,77 @@ setupTest('where-is-in.whereIsNotIn', undefined, (context) => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 
     // seed 10 users
-    const fakeUsers = await createFakeUsers({
+    let fakeUsers = await createFakeUsers({
       count: 10,
-      getOverrides: (index) => ({
-        id: index + 1,
-      }),
     });
-    await usersRepository.save(fakeUsers);
+    fakeUsers = await usersRepository.save(fakeUsers);
 
     const selectQuery = usersRepository.createQueryBuilder('user');
-    const whereInQuery = selectQuery.whereTyped((u) => u.id, 'NOT IN', [1, 3, 5, 7, 9]);
+
+    const userIds = selectElements(
+      fakeUsers.map((u) => u.id),
+      'even',
+    );
+    const whereInQuery = selectQuery.clone().whereTyped((u) => u.id, 'NOT IN', userIds);
 
     expect(whereInQuery.getQuery()).toContain('"user"."id" NOT IN (');
 
-    const result = await whereInQuery.getMany();
-    expect(result).toHaveLength(5);
-    expect(result.map((user) => user.id)).toEqual([2, 4, 6, 8, 10]);
+    const otherIds = fakeUsers
+      .map((u) => u.id)
+      .filter((id) => !userIds.includes(id));
+
+    const result = await whereInQuery.select('user.id').getMany();
+    expect(result).toHaveLength(otherIds.length);
+    expect(result.map((user) => user.id)).toEqual(otherIds);
   });
 
   it('SHOULD return all ids array when no conditions met', async () => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 
     // seed 10 users
-    const fakeUsers = await createFakeUsers({
+    let fakeUsers = await createFakeUsers({
       count: 10,
-      getOverrides: (index) => ({
-        id: index + 1,
-      }),
     });
-    await usersRepository.save(fakeUsers);
+    fakeUsers = await usersRepository.save(fakeUsers);
 
     const selectQuery = usersRepository.createQueryBuilder('user');
-    const whereInQuery = selectQuery.whereTyped((u) => u.id, 'NOT IN', [11, 12, 13]);
+    const whereInQuery = selectQuery.clone().whereTyped((u) => u.id, 'NOT IN', [
+      createRandomId(1000, 1100),
+      createRandomId(1101, 1200),
+      createRandomId(1201, 1300),
+    ]);
 
     expect(whereInQuery.getQuery()).toContain('"user"."id" NOT IN (');
 
-    const result = await whereInQuery.getMany();
-    expect(result).toHaveLength(10);
+    const result = await whereInQuery.select('user.id').getMany();
+    expect(result).toHaveLength(fakeUsers.length);
   });
 
   it('SHOULD return full list on not condition', async () => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 
     // seed 10 users
-    const fakeUsers = await createFakeUsers({
+    let fakeUsers = await createFakeUsers({
       count: 10,
-      getOverrides: (index) => ({
-        id: index + 1,
-      }),
     });
-    await usersRepository.save(fakeUsers);
+    fakeUsers = await usersRepository.save(fakeUsers);
 
     const selectQuery = usersRepository.createQueryBuilder('user');
-    const whereNotQuery = selectQuery.whereTyped((u) => u.id, '!=', 11);
 
-    expect(whereNotQuery.getQuery()).not.toContain('"user"."id" NOT IN (');
+    const whereNotQuery = selectQuery.clone().whereTyped(
+      (u) => u.id,
+      '!=',
+      createRandomId(1000, 1100),
+    );
+
     expect(whereNotQuery.getQuery()).toContain('"user"."id" != ');
 
-    const result = await whereNotQuery.getMany();
-    expect(result).toHaveLength(10);
+    const otherUsers = await selectQuery.clone().select('user.id').getMany();
+
+    const result = await whereNotQuery.select('user.id').getMany();
+    expect(result).toHaveLength(otherUsers.length);
+    expect(result.map((user) => user.id)).toEqual(
+      otherUsers.map((user) => user.id),
+    );
   });
 });

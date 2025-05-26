@@ -12,16 +12,30 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
     });
     await usersRepository.save(fakeUsers);
 
-    const selectQuery = usersRepository.createQueryBuilder('user');
-    const orderByQuery = selectQuery.orderByTyped((u) => u.email, 'ASC');
+    const orderByQuery = usersRepository
+      .createQueryBuilder('user')
+      .select('user.id')
+      .addSelect('user.email')
+      .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+      .orderByTyped((u) => u.email, 'ASC');
 
-    expect(orderByQuery.getQuery()).toContain('ORDER BY "user"."email" ASC');
+    const defaultOrderByQuery = usersRepository
+      .createQueryBuilder('user')
+      .select('user.id')
+      .addSelect('user.email')
+      .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+      .orderBy('user.email', 'ASC');
+
+    expect(orderByQuery.getQuery()).toContain('ORDER BY "user_email" ASC');
+    expect(orderByQuery.getQuery()).toEqual(defaultOrderByQuery.getQuery());
 
     const result = await orderByQuery.getMany();
+    const users = await defaultOrderByQuery.getMany();
 
     expect(result).toHaveLength(fakeUsers.length);
+    expect(result).toHaveLength(users.length);
     expect(result[0].email).toBeDefined();
-    expect(result[0].email).toEqual(fakeUsers[0].email);
+    expect(result[0].email).toEqual(users[0].email);
   });
 
   it('SHOULD handle nulls first/last', async () => {
@@ -33,19 +47,32 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
     });
     await usersRepository.save(fakeUsers);
 
-    const selectQuery = usersRepository.createQueryBuilder('user');
-    const orderByQuery = selectQuery.orderByTyped(
-      (u) => u.email,
-      'DESC',
-      'NULLS FIRST',
+    const orderByQuery = usersRepository
+      .createQueryBuilder('user')
+      .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+      .select('user.id')
+      .addSelect('user.email')
+      .orderByTyped((u) => u.id, 'DESC', 'NULLS FIRST');
+
+    const defaultOrderByQuery = usersRepository
+      .createQueryBuilder('user')
+      .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+      .select('user.id')
+      .addSelect('user.email')
+      .orderBy('user.id', 'DESC', 'NULLS FIRST');
+
+    expect(orderByQuery.getQuery()).toContain(
+      'ORDER BY "user_id" DESC NULLS FIRST',
+    );
+    expect(orderByQuery.getQuery()).toEqual(
+      defaultOrderByQuery.getQuery(),
     );
 
-    expect(orderByQuery.getQuery()).toContain('ORDER BY "user"."email" DESC NULLS FIRST');
-
     const result = await orderByQuery.getMany();
+    const users = await defaultOrderByQuery.getMany();
 
-    expect(result).toHaveLength(fakeUsers.length);
-    expect(result[0].email).toBeDefined();
-    expect(result[0].email).toEqual(fakeUsers[9].email);
+    expect(result).toHaveLength(users.length);
+    expect(result[0].id).toBeDefined();
+    expect(result[0].id).toEqual(fakeUsers[9].id);
   });
 });

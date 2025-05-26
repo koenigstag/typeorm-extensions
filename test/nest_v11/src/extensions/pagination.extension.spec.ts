@@ -1,6 +1,12 @@
 // Ensure the extension is imported for side effects (module augmentation)
 import 'typeorm-extensions/extensions/pagination.extension';
-import { setupTest, createFakeUsers, createFakeImages, createEmail } from '../test-utils';
+import { getLimitAndOffset } from 'typeorm-extensions/utils/pagination.utils';
+import {
+  setupTest,
+  createFakeUsers,
+  createFakeImages,
+  createEmail,
+} from '../test-utils';
 import { UserEntity, ImageEntity } from '../models';
 
 setupTest(
@@ -14,20 +20,37 @@ setupTest(
       const fakeUsers = await createFakeUsers({ count: 10 });
       await usersRepository.save(fakeUsers);
 
-      const selectQuery = usersRepository.createQueryBuilder('user');
+      const page = 2;
+      const pageSize = 3;
+      const { limit, offset } = getLimitAndOffset({ page, pageSize });
 
-      const paginatedQuery = selectQuery.applyPaginationFilter({
-        page: 2,
-        pageSize: 3,
-      });
+      const paginatedQuery = usersRepository
+        .createQueryBuilder('user')
+        .select('user.id')
+        .addSelect('user.email')
+        .where('user.id IN (:...userIds)', { userIds: fakeUsers.map((u) => u.id) })
+        .applyPaginationFilter({
+          page,
+          pageSize,
+        });
+      const usersQuery = usersRepository
+        .createQueryBuilder('user')
+        .select('user.id')
+        .addSelect('user.email')
+        .where('user.id IN (:...userIds)', { userIds: fakeUsers.map((u) => u.id) })
+        .limit(limit)
+        .offset(offset);
 
-      expect(paginatedQuery.getQuery()).toContain('LIMIT 3');
-      expect(paginatedQuery.getQuery()).toContain('OFFSET 3');
+      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
+      expect(paginatedQuery.getQuery()).toContain(`OFFSET ${offset}`);
+      expect(paginatedQuery.getQuery()).toEqual(usersQuery.getQuery());
 
       const result = await paginatedQuery.getMany();
+      const users = await usersQuery.getMany();
 
-      expect(result).toHaveLength(3);
-      expect(result[0].email).toBe(createEmail(3)); // page 2 and pageSize 3 => offset 3
+      expect(result).toHaveLength(users.length);
+      expect(offset).toBe((page - 1) * pageSize);
+      expect(result[0]?.email).toBe(fakeUsers[offset]?.email);
     });
 
     it('SHOULD return total count correctly', async () => {
@@ -37,22 +60,45 @@ setupTest(
       const fakeUsers = await createFakeUsers({ count: 10 });
       await usersRepository.save(fakeUsers);
 
-      const selectQuery = usersRepository.createQueryBuilder('user');
-
-      const paginatedQuery = selectQuery.applyPaginationFilter({
-        page: 1,
-        pageSize: 5,
+      const page = 1;
+      const pageSize = 5;
+      const { limit, offset } = getLimitAndOffset({
+        page,
+        pageSize,
       });
 
-      expect(paginatedQuery.getQuery()).toContain('LIMIT 5');
-      expect(paginatedQuery.getQuery()).not.toContain('OFFSET 0');
+      const paginatedQuery = usersRepository
+        .createQueryBuilder('user')
+        .select('user.id')
+        .addSelect('user.email')
+        .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+        .applyPaginationFilter({
+          page,
+          pageSize,
+        });
+      const usersQuery = usersRepository
+        .createQueryBuilder('user')
+        .select('user.id')
+        .addSelect('user.email')
+        .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+        .limit(limit)
+        .offset(offset);
+
+      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
+      expect(paginatedQuery.getQuery()).not.toContain(`OFFSET ${offset}`);
+      expect(paginatedQuery.getQuery()).toEqual(usersQuery.getQuery());
+
+      const allUsersCount = await usersRepository
+        .createQueryBuilder('user')
+        .getCount();
 
       const [result, total] = await paginatedQuery.getManyAndCount();
-      expect(result).toHaveLength(5);
-      expect(total).toBe(10); // total count of users
+      expect(result).toHaveLength(pageSize);
+      expect(total).toBe(allUsersCount); // total count of users
 
-      expect(result[0].email).toBe(createEmail(0)); // first user in the result
-      expect(result[4].email).toBe(createEmail(4));
+      expect(result[0].email).toBe(fakeUsers[offset].email);
+      expect(offset).toBe((page - 1) * pageSize);
+      expect(result[4].email).toBe(fakeUsers[offset + 4].email);
     });
 
     // TODO Add negative test cases
@@ -76,27 +122,34 @@ setupTest(
         const images = await createFakeImages({
           count: 5,
           getOverrides: (index) => ({
-          id: user.id + index + 1,
-          userId: user.id,
-        }),
+            id: user.id + index + 1,
+            userId: user.id,
+          }),
         });
         await imagesRepository.save(images);
       }
 
-      const selectQuery = usersRepository.createQueryBuilder('user');
+      const page = 2;
+      const pageSize = 3;
+      const { limit, offset } = getLimitAndOffset({
+        page,
+        pageSize,
+      });
 
-      const paginatedQuery = selectQuery.applyPaginationFilter(
-        { page: 2, pageSize: 3 },
-        { useTakeAndSkip: true },
-      );
+      const paginatedQuery = usersRepository
+        .createQueryBuilder('user')
+        .select('user.id')
+        .addSelect('user.email')
+        .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+        .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
 
-      expect(paginatedQuery.getQuery()).toContain('LIMIT 3');
-      expect(paginatedQuery.getQuery()).toContain('OFFSET 3');
+      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
+      expect(paginatedQuery.getQuery()).toContain(`OFFSET ${offset}`);
 
       const result = await paginatedQuery.getMany();
 
-      expect(result).toHaveLength(3);
-      expect(result[0].email).toBe(createEmail(3)); // page 2 and pageSize 3 => offset 3
+      expect(result).toHaveLength(pageSize);
+      expect(result[0].email).toBe(fakeUsers[offset].email); // page 2 and pageSize 3 => offset 3
     });
 
     it('SHOULD return total count currectly using take and skip', async () => {
@@ -112,29 +165,40 @@ setupTest(
         const images = await createFakeImages({
           count: 5,
           getOverrides: (index) => ({
-          id: user.id + index + 1,
-          userId: user.id,
-        }),
+            id: user.id + index + 1,
+            userId: user.id,
+          }),
         });
         await imagesRepository.save(images);
       }
 
-      const selectQuery = usersRepository.createQueryBuilder('user');
+      const page = 1;
+      const pageSize = 5;
+      const { limit, offset } = getLimitAndOffset({
+        page,
+        pageSize,
+      });
 
-      const paginatedQuery = selectQuery.applyPaginationFilter(
-        { page: 1, pageSize: 5 },
-        { useTakeAndSkip: true },
-      );
+      const paginatedQuery = usersRepository
+        .createQueryBuilder('user')
+        .select('user.id')
+        .addSelect('user.email')
+        .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
+        .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
 
-      expect(paginatedQuery.getQuery()).toContain('LIMIT 5');
-      expect(paginatedQuery.getQuery()).not.toContain('OFFSET 0');
+      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
+      expect(paginatedQuery.getQuery()).not.toContain(`OFFSET ${offset}`);
+
+      const allUsersCount = await usersRepository
+        .createQueryBuilder('user')
+        .getCount();
 
       const [result, total] = await paginatedQuery.getManyAndCount();
-      expect(result).toHaveLength(5);
-      expect(total).toBe(10); // total count of users
+      expect(result).toHaveLength(pageSize);
+      expect(total).toBe(allUsersCount); // total count of users
 
-      expect(result[0].email).toBe(createEmail(0)); // first user in the result
-      expect(result[4].email).toBe(createEmail(4));
+      expect(result[0].email).toBe(fakeUsers[offset].email); // first user in the result
+      expect(result[4].email).toBe(fakeUsers[offset + 4].email); // last user in the result
     });
 
     // TODO Add negative test cases

@@ -1,12 +1,9 @@
 import 'typeorm-extensions/extensions/typed/typed-distinct/typed-distinct.extension';
 import { createFakeImages, createFakeUsers, setupTest } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
+import { postgresLikeDrivers } from '../constants/database';
 
-const distinctOnSupportedDrivers = [
-  'postgres',
-  'cockroachdb',
-  'aurora-postgres',
-];
+const distinctOnSupportedDrivers = postgresLikeDrivers;
 
 setupTest('distinct-typed', undefined, (context) => {
   if (!distinctOnSupportedDrivers.includes(context.typeormOptions.driver)) {
@@ -49,7 +46,9 @@ setupTest('distinct-typed', undefined, (context) => {
       .distinctOnTyped((u) => u.email);
 
     expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain('DISTINCT ON ("user"."email")');
+    expect(selectTypedQuery.getQuery()).toContain(
+      'DISTINCT ON ("user"."email")',
+    );
 
     const result = await selectTypedQuery.getMany();
 

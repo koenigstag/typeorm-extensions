@@ -7,8 +7,8 @@ export const TypeOrmTestingModule = (
   options: Omit<TypeOrmModuleOptions, 'entities'>,
 ): DynamicModule =>
   TypeOrmModule.forRoot({
-    dropSchema: true,
     synchronize: true,
+    logging: false,
     ...(options as any),
     entities: entities as Class[],
   });

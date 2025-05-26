@@ -4,15 +4,17 @@ import { ImageEntity } from '../models/image.entity';
 
 export const createEmail = (id: number): string => `u${id}@email.com`;
 
+export const createRandomId = (min?: number, max?: number): number => {
+  return faker.number.int({ min: min ?? 1, max: max ?? 1000 });
+}
+
 export const createFakeUser = (
   overrides: Partial<UserEntity> = {},
 ): UserEntity => {
-  const id = overrides.id ?? faker.number.int({ min: 1, max: 1000 });
-  const email = overrides.email ?? createEmail(id);
-
   const user = new UserEntity({
-    id,
-    email,
+    email: faker.internet.email({
+      provider: 'mail.com',
+    }),
     firstName: faker.person.firstName(),
     lastName: faker.person.lastName(),
   });

@@ -12,6 +12,8 @@ import {
   databasePort,
   databaseUsername,
   databaseDriver,
+  dropSchema,
+  postgresLikeDrivers,
 } from '../constants/database';
 
 type Repositories<T extends readonly Class[]> = {
@@ -87,22 +89,19 @@ export const setupTest = <T extends readonly Class[] = typeof allEntities>(
       dataSource: null as unknown as DataSource,
       typeormOptions: {
         ...props.typeormOptions,
+        synchronize: true,
+        logging: false,
         type: databaseDriver,
         database: databaseName,
         host: databaseHost,
         port: databasePort,
         username: databaseUsername,
         password: databasePassword,
+        dropSchema: dropSchema,
       },
     };
 
-    beforeAll(async () => {
-      console.log(`Running tests for: ${name}`);
-    });
-
     beforeEach(async () => {
-      // console.debug('Executing beforeEach. Test name:', expect.getState().currentTestName);
-
       sharedContext.moduleRef = await Test.createTestingModule({
         imports: [
           TypeOrmTestingModule(props.entities, sharedContext.typeormOptions),

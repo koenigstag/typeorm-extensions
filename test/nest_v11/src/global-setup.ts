@@ -6,5 +6,5 @@ export default async function globalSetup() {
   console.log('Database driver:', databaseDriver);
   console.log('Database name:', databaseName);
 
-  console.log(`📀 Created database: ${databaseName}`);
+  // console.log(`📀 Created database: ${databaseName}`);
 }

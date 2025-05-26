@@ -4,7 +4,7 @@ import {
   Entity,
   JoinColumn,
   OneToMany,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { ImageEntity } from './image.entity';
@@ -16,14 +16,13 @@ import { dateColumn } from '../constants/columns';
     id: 'ASC',
   },
   synchronize: true,
-  withoutRowid: true,
 })
 export class UserEntity {
   constructor(partial: Partial<UserEntity> = {}) {
     Object.assign(this, partial);
   }
 
-  @PrimaryColumn({ type: 'integer' })
+  @PrimaryGeneratedColumn('increment')
   public id: number;
 
   @Column({
