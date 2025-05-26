@@ -76,9 +76,9 @@ setupTest(
         const images = await createFakeImages({
           count: 5,
           getOverrides: (index) => ({
-            id: index + 1,
-            userId: user.id,
-          }),
+          id: user.id + index + 1,
+          userId: user.id,
+        }),
         });
         await imagesRepository.save(images);
       }
@@ -112,9 +112,9 @@ setupTest(
         const images = await createFakeImages({
           count: 5,
           getOverrides: (index) => ({
-            id: index + 1,
-            userId: user.id,
-          }),
+          id: user.id + index + 1,
+          userId: user.id,
+        }),
         });
         await imagesRepository.save(images);
       }
