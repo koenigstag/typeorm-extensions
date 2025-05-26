@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ImageEntity } from './image.entity';
+import { dateColumn } from '../constants/columns';
 
 @Entity({
   name: 'users',
@@ -45,14 +46,14 @@ export class UserEntity {
   public email: string;
 
   @CreateDateColumn({
-    type: 'datetime',
+    type: dateColumn,
     default: () => 'CURRENT_TIMESTAMP',
     nullable: false,
   })
   public createdAt: Date;
 
   @UpdateDateColumn({
-    type: 'datetime',
+    type: dateColumn,
     default: () => 'CURRENT_TIMESTAMP',
     onUpdate: 'CURRENT_TIMESTAMP',
     nullable: false,

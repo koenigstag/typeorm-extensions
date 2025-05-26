@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from "typeorm";
 import { UserEntity } from "./user.entity";
+import { dateColumn } from "../constants/columns";
 
 @Entity({
   name: 'images',
@@ -25,14 +26,14 @@ export class ImageEntity {
   public userId: number;
 
   @CreateDateColumn({
-    type: 'datetime',
+    type: dateColumn,
     default: () => 'CURRENT_TIMESTAMP',
     nullable: false,
   })
   public createdAt: Date;
 
   @UpdateDateColumn({
-    type: 'datetime',
+    type: dateColumn,
     default: () => 'CURRENT_TIMESTAMP',
     onUpdate: 'CURRENT_TIMESTAMP',
     nullable: false,
