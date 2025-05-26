@@ -12,7 +12,7 @@ sidebar_position: 4
 whereTyped(
   selection: KeyProxyCallback<Entity>,
   condition?: string,
-  params?: Record <string, unknown>
+  params?: unknown
 ): SelectQueryBuilder<Entity>
 ```
 
@@ -28,7 +28,7 @@ whereTyped(
 query
   .whereTyped(
     user => user.name,
-    'LIKE :name',
+    'LIKE',
     { name: '%John%' },
   )
 ```
@@ -38,8 +38,8 @@ query
 query
   .andWhereTyped(
     user => user.name,
-    'LIKE :name',
-    { name: '%Doe%' },
+    'LIKE',
+    '%Doe%',
   )
 ```
 
@@ -48,7 +48,7 @@ query
 query
   .orWhereTyped(
     user => user.name,
-    'LIKE :name',
-    { name: '%John Doe%' },
+    'LIKE',
+    '%John Doe%',
   )
 ```
