@@ -54,12 +54,10 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
     ? { limit: null, offset: null }
     : getLimitAndOffset(paginationFilter);
 
-  const requests: unknown[] = [];
+  const requests: [number | null, Entity[]] = [null, []];
 
   if (!disableTotalsCalculation) {
     requests[0] = await builder.getCount();
-  } else {
-    requests[0] = null;
   }
 
   if (loadAll) {
@@ -70,7 +68,7 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
       .getMany();
   }
 
-  const [total, list] = requests as [number | null, Entity[]];
+  const [total, list] = requests;
 
   return {
     list,

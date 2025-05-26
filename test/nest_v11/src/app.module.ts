@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 // import previously built package for testing
-import '../../../dist';
+// import 'typeorm-extensions';
 
 @Module({
   imports: [

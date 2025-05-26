@@ -7,9 +7,9 @@ export class KeyHolder {
     this._keys = [..._keys];
   }
 
-  toSql(length: number = 2, addDobleQuotes = true) {
+  toSql(length: number = 2, useDoubleQuotes?: boolean) {
     const string = this.toString(length);
-    const sql = addDobleQuotes ? stringToSQLIdentifier(string) : string;
+    const sql = useDoubleQuotes ? stringToSQLIdentifier(string) : string;
 
     return sql;
   }
@@ -119,7 +119,7 @@ export const getKey = <Type extends ObjectLiteral>(callback: KeyProxyCallback<Ty
 export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	callback: KeyProxyCallback<Type> | KeyHolder | string,
 	addPrefix?: string,
-	addDobleQuotes = true
+	useDoubleQuotes?: boolean
 ): string | string[] => {
 	if (typeof callback === 'string') return callback;
 
@@ -132,7 +132,7 @@ export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	// if select is like this: (proxy) => proxy.relation.column
 	if (keyHolder.getKeys().length > 1) {
 		// return unchanged
-		return keyHolder.toSql(undefined, addDobleQuotes);
+		return keyHolder.toSql(undefined, useDoubleQuotes);
 	}
 
 	// else if select is one layer depth like this: (proxy) => proxy.column
@@ -141,7 +141,7 @@ export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 		keyHolder.unshift(addPrefix);
 	}
 
-	return keyHolder.toSql(undefined, addDobleQuotes);
+	return keyHolder.toSql(undefined, useDoubleQuotes);
 };
 
 // example of typed select

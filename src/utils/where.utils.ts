@@ -7,6 +7,7 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
     return 'NULL';
   }
 
+
   if (Array.isArray(value)) {
     return `(:...${paramName})`;
   }
@@ -28,24 +29,33 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
     field = stringToSQLIdentifier(field);
 
     if (addValue) {
-      const firstValue = value !== null && typeof value === 'object' ? Object.values(value)[0] : value;
+      // is object (not primitive, null or array)
+      const firstValue =
+        value !== null && typeof value === 'object' && !Array.isArray(value)
+          ? Object.values(value)[0]
+          : value;
 
-      const valueIsValid = firstValue !== undefined;
+      // 0, false, '' are valid values like any other
+      // null is a valid value, but undefined and NaN are not
+      const valueIsValid =
+        firstValue !== undefined &&
+        (typeof firstValue === 'number' ? !isNaN(firstValue) : true);
 
       const paramName = valueIsValid
         ? createUniqueParameterName(method)
         : undefined;
 
-      const params = paramName && valueIsValid ? { [paramName]: firstValue } : undefined;
+      const params =
+        paramName && valueIsValid ? { [paramName]: firstValue } : undefined;
 
       const valuePlaceholder = getValuePlaceholder(firstValue, paramName);
 
-      return builder[method](`${field} ${conditions} ${valuePlaceholder}`, params);
-    } else {
       return builder[method](
-        `${field} ${conditions}`,
-        value as ObjectLiteral
+        `${field} ${conditions} ${valuePlaceholder}`,
+        params
       );
+    } else {
+      return builder[method](`${field} ${conditions}`, value as ObjectLiteral);
     }
   }
 

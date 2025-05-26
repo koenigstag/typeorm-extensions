@@ -25,7 +25,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
     whereTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -36,7 +36,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
     andWhereTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -47,7 +47,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
     orWhereTyped<Type extends ObjectLiteral>(
       subQuery: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
   }
@@ -64,7 +64,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     whereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -75,7 +75,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     andWhereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -86,7 +86,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     orWhereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
   }
@@ -103,7 +103,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     whereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -114,7 +114,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     andWhereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -125,7 +125,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     orWhereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
   }
@@ -142,7 +142,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     whereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -153,7 +153,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     andWhereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
 
@@ -164,7 +164,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     orWhereTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: Type) => ProxyColumnValueType,
       conditions: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): this;
   }
@@ -181,7 +181,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
       operator: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): SelectQueryBuilder<Entity> {
       return attachTypedWhere<Type, SelectQueryBuilder<Entity>>(
@@ -200,7 +200,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
       operator: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): SelectQueryBuilder<Entity> {
       return attachTypedWhere<Type, SelectQueryBuilder<Entity>>(
@@ -219,7 +219,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       this: SelectQueryBuilder<Entity>,
       where: (proxy: Type) => ProxyColumnValueType,
       operator: string,
-      parameters?: ObjectLiteral,
+      parameters?: unknown,
       options?: TypedWhereOptions
     ): SelectQueryBuilder<Entity> {
       return attachTypedWhere<Type, SelectQueryBuilder<Entity>>(
@@ -254,7 +254,7 @@ function attachTypedWhere<
   method: WhereMethods,
   where: (proxy: Type) => ProxyColumnValueType,
   conditions: string,
-  parameters?: ObjectLiteral,
+  parameters?: unknown,
   options?: TypedWhereOptions
 ): QB {
   const { useDoubleQuotes, addValue = true } = options || {};
