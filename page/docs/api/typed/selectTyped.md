@@ -16,7 +16,7 @@ selectTyped(
 ```
 
 ## Arguments
-- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback): The callback which selects fields of entity.
+- selection: [KeyProxyCallback&lt;Entity&gt;](../types/KeyProxyCallback): The callback which selects fields of entity.
 - alias?: string: Alias for the selection
 
 ## Usage

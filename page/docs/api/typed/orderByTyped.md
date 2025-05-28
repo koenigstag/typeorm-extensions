@@ -17,7 +17,7 @@ orderByTyped(
 ```
 
 ## Arguments
-- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback): The callback which selects fields of entity.
+- selection: [KeyProxyCallback&lt;Entity&gt;](../types/KeyProxyCallback): The callback which selects fields of entity.
 - order?: 'ASC' | 'DESC': Order direction. Default is 'ASC'.
 - nulls?: 'NULLS FIRST' | 'NULLS LAST': NULLS ordering.
 

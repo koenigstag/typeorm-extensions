@@ -16,8 +16,8 @@ applyPaginationFilter(
 ```
 
 ## Arguments
-- paginationFilter: [PaginationFilter](./types/PaginationFilter): The pagination options to apply to the query.
-- paginationOptions?: [ApplyPaginationOptions](./types/ApplyPaginationOptions): Additional options to apply to the pagination filter.
+- paginationFilter: [PaginationFilter](../types/PaginationFilter): The pagination options to apply to the query.
+- paginationOptions?: [ApplyPaginationOptions](../types/ApplyPaginationOptions): Additional options to apply to the pagination filter.
 
 ## Usage
 

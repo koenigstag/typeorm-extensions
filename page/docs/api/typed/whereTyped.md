@@ -17,7 +17,7 @@ whereTyped(
 ```
 
 ## Arguments
-- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback): The callback which selects fields of entity.
+- selection: [KeyProxyCallback&lt;Entity&gt;](../types/KeyProxyCallback): The callback which selects fields of entity.
 - condition?: string: Operator for the query. This shold not contain `:key` if options.addValue is set `true`.
 - params?: unknown: Parameter for the condition. This can be an object `{ someValue: 'value' }` or the value itself `'value'`.
 - options?: { addValue?: boolean }: Options for where logic.

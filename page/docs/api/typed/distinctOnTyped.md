@@ -15,7 +15,7 @@ distinctOnTyped(
 ```
 
 ## Arguments
-- distinctOn: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback): The array of callbacks which selects fields of entity for distingt rule.
+- distinctOn: [KeyProxyCallback&lt;Entity&gt;](../types/KeyProxyCallback): The array of callbacks which selects fields of entity for distingt rule.
 
 ## Usage
 

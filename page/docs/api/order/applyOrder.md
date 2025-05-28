@@ -19,8 +19,8 @@ applyOrder(
 
 ## Arguments
 
-- orderBy: [OrderParam&lt;Entity&gt;](./types/OrderParam): The order to apply to the query.
-- orderOptions?: [ApplyOrderOptions](./types/ApplyOrderOptions): Additional options to apply to the order filter.
+- orderBy: [OrderParam&lt;Entity&gt;](../types/OrderParam): The order to apply to the query.
+- orderOptions?: [ApplyOrderOptions](../types/ApplyOrderOptions): Additional options to apply to the order filter.
 
 ## Usage
 
