@@ -4,6 +4,7 @@ name: Build Docusaurus and Commit to /docs
 on:
   push:
     branches: [docs]
+    if: github.actor != 'github-actions[bot]'
     paths:
       - 'docusaurus/**'
       - '.github/workflows/update-docs.yml'
