@@ -7,6 +7,8 @@ const repositoryName = 'typeorm-extensions';
 const packageName = repositoryName;
 const organizationName = 'koenigstag';
 
+const projectFolder = __dirname;
+
 const config: Config = {
   title: projectName,
   tagline: 'Additional functionality and extensions for the TypeORM',
@@ -17,6 +19,7 @@ const config: Config = {
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: `/${repositoryName}`,
+  trailingSlash: true,
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -43,14 +46,14 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove th'typeorm-extensions'e "edit this page" links.
           editUrl:
-            `https://github.com/${organizationName}/${repositoryName}/tree/main/page/docs/`,
+            `https://github.com/${organizationName}/${repositoryName}/tree/main/${projectFolder}/docs/`,
         },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            `https://github.com/${organizationName}/${repositoryName}/tree/main/page/blog/`,
+            `https://github.com/${organizationName}/${repositoryName}/tree/main/${projectFolder}/blog/`,
         },
         theme: {
           customCss: './src/css/custom.css',
