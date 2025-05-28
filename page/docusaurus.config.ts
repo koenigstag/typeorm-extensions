@@ -7,6 +7,7 @@ const repositoryName = 'typeorm-extensions';
 const packageName = repositoryName;
 const organizationName = 'koenigstag';
 
+const branchName = 'main';
 const projectFolder = __dirname;
 
 const config: Config = {
@@ -46,14 +47,14 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove th'typeorm-extensions'e "edit this page" links.
           editUrl:
-            `https://github.com/${organizationName}/${repositoryName}/tree/main/${projectFolder}/docs/`,
+            `https://github.com/${organizationName}/${repositoryName}/tree/${branchName}/${projectFolder}/docs/`,
         },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            `https://github.com/${organizationName}/${repositoryName}/tree/main/${projectFolder}/blog/`,
+            `https://github.com/${organizationName}/${repositoryName}/tree/${branchName}/${projectFolder}/blog/`,
         },
         theme: {
           customCss: './src/css/custom.css',
