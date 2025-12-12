@@ -86,8 +86,8 @@ function getOrderOption<OrderEntity>(
   } = options ?? {};
   const {
     field,
-    direction = defaultOrderDirection,
-    nulls: nullsOrder = defaultNullsOrder,
+    direction,
+    nulls: nullsOrder,
   } = orderBy;
 
   const alias =
@@ -97,17 +97,22 @@ function getOrderOption<OrderEntity>(
   const identifier = new Identifier(field, alias, useDoubleQuotes);
 
   const selector = identifier.fieldIdentifier();
+
   const order =
-    typeof direction === 'number'
-      ? direction === -1
-        ? 'DESC'
-        : 'ASC'
-      : (direction.toUpperCase() as 'ASC' | 'DESC');
+    typeof direction === 'boolean'
+      ? (direction ? 'ASC' : 'DESC')
+      : typeof direction === 'number'
+        ? (direction === -1 ? 'DESC' : 'ASC')
+        : typeof direction === 'string'
+          && /asc|desc/i.test(direction)
+          ? (direction.toUpperCase() as 'ASC' | 'DESC')
+          : defaultOrderDirection;
 
   const nulls =
-    nullsOrder && /first|last/i.test(nullsOrder)
+    typeof nullsOrder === 'string'
+      && /first|last/i.test(nullsOrder)
       ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
-      : undefined;
+      : defaultNullsOrder;
 
   return {
     selector,
