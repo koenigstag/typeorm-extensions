@@ -11,8 +11,10 @@ export type OrderParam<Entity> = {
 };
 
 export type OrderType = {
-	selector: string;
-  order: 'ASC' | 'DESC';
+  selector: string;
+  order?: 'ASC' | 'DESC';
+  /** true = DESC, false = ASC */
+  isReversed?: boolean;
   nulls?: 'NULLS FIRST' | 'NULLS LAST';
 };
 
