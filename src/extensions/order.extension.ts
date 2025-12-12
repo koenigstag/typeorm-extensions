@@ -89,10 +89,11 @@ function getOrderOption<OrderEntity>(
     direction,
     isReversed,
     nulls: nullsOrder,
+    tableAlias: otherTableAlias,
   } = orderBy;
 
   const alias =
-    customAlias ??
+    otherTableAlias || customAlias ||
     (alwaysAliasFields.includes(field as string) ? defaultAlias : undefined);
 
   const identifier = new Identifier(field, alias, useDoubleQuotes);
