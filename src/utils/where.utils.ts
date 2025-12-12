@@ -22,12 +22,14 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   params?: unknown,
   options?: { addValue?: boolean }
 ): QB {
-  const { addValue = true } = options || {};
+  const { addValue } = options || {};
 
   if (method && typeof field === 'string' && typeof conditions === 'string') {
     field = stringToSQLIdentifier(field);
 
     const hasParams = typeof params !== 'undefined';
+    // `addValue` defaults to `true` only if `conditions` does not already include value placeholder :value
+    addValue = addValue ?? !conditions.includes(':');
     
     if (addValue && hasParams) {
       // pick first value from params object or pass as is
