@@ -87,6 +87,7 @@ function getOrderOption<OrderEntity>(
   const {
     field,
     direction,
+    isReversed,
     nulls: nullsOrder,
   } = orderBy;
 
@@ -99,18 +100,18 @@ function getOrderOption<OrderEntity>(
   const selector = identifier.fieldIdentifier();
 
   const order =
-    typeof direction === 'boolean'
-      ? (direction ? 'ASC' : 'DESC')
-      : typeof direction === 'number'
-        ? (direction === -1 ? 'DESC' : 'ASC')
-        : typeof direction === 'string'
-          && /asc|desc/i.test(direction)
-          ? (direction.toUpperCase() as 'ASC' | 'DESC')
-          : defaultOrderDirection;
+    typeof isReversed === 'boolean' && isNil(direction)
+      ? (isReversed ? 'DESC' : 'ASC')
+      : typeof direction === 'boolean'
+        ? (direction ? 'ASC' : 'DESC')
+        : typeof direction === 'number'
+          ? (direction === -1 ? 'DESC' : 'ASC')
+          : typeof direction === 'string' && /asc|desc/i.test(direction)
+            ? (direction.toUpperCase() as 'ASC' | 'DESC')
+            : defaultOrderDirection;
 
   const nulls =
-    typeof nullsOrder === 'string'
-      && /first|last/i.test(nullsOrder)
+    typeof nullsOrder === 'string' && /first|last/i.test(nullsOrder)
       ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
       : defaultNullsOrder;
 
