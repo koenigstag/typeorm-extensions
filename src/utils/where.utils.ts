@@ -7,7 +7,6 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
     return 'NULL';
   }
 
-
   if (Array.isArray(value)) {
     return `(:...${paramName})`;
   }
@@ -20,7 +19,7 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   method: WhereMethods,
   field: string,
   conditions: string,
-  value?: unknown,
+  params?: unknown,
   options?: { addValue?: boolean }
 ): QB {
   const { addValue = true } = options || {};
@@ -28,15 +27,17 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   if (method && typeof field === 'string' && typeof conditions === 'string') {
     field = stringToSQLIdentifier(field);
 
-    if (addValue) {
-      // is object (not primitive, null or array)
+    const hasParams = typeof params !== 'undefined';
+    
+    if (addValue && hasParams) {
+      // pick first value from params object or pass as is
       const firstValue =
-        value !== null && typeof value === 'object' && !Array.isArray(value)
-          ? Object.values(value)[0]
-          : value;
+        params !== null && typeof params === 'object' && !Array.isArray(params)
+          ? Object.values(params)[0]
+          : params;
 
       // 0, false, '' are valid values like any other
-      // null is a valid value, but undefined and NaN are not
+      // null, undefined and NaN are equal to NULL
       const valueIsValid =
         firstValue !== undefined &&
         (typeof firstValue === 'number' ? !isNaN(firstValue) : true);
@@ -45,17 +46,17 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
         ? createUniqueParameterName(method)
         : undefined;
 
-      const params =
+      const queryParams =
         paramName && valueIsValid ? { [paramName]: firstValue } : undefined;
 
       const valuePlaceholder = getValuePlaceholder(firstValue, paramName);
 
       return builder[method](
         `${field} ${conditions} ${valuePlaceholder}`,
-        params
+        queryParams
       );
     } else {
-      return builder[method](`${field} ${conditions}`, value as ObjectLiteral);
+      return builder[method](`${field} ${conditions}`, params as ObjectLiteral);
     }
   }
 
