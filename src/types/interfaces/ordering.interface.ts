@@ -5,7 +5,7 @@ export type OrderDirection = 'asc' | 'desc' | 'ASC' | 'DESC' | 1 | -1 | true | f
 export type NullsOrder = 'first' | 'last' | 'FIRST' | 'LAST';
 
 export type OrderParam<Entity> = {
-  field: NonFunctionPropertyNames<Required<Entity>> | string;
+  field: NonFunctionPropertyNames<Required<Entity>>;
   /** -1 = DESC, false = DESC */
   direction?: OrderDirection;
   nulls?: NullsOrder;
