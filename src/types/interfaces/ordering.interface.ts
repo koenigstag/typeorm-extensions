@@ -11,6 +11,8 @@ export type OrderParam<Entity> = {
   nulls?: NullsOrder;
   /** true = DESC, false = ASC */
   isReversed?: boolean;
+  /** order by related table */
+  tableAlias?: string;
 };
 
 export type OrderType = {
