@@ -1,5 +1,5 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
+import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { getSqlKeyFromProxyCallback, KeyHolder } from '../../../utils/proxy-key.utils';
 import type { TypedOrderByOptions } from '../../../types/extensions/typed-order-by.types';
 
@@ -14,7 +14,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		 */
 		orderByTyped<Type extends ObjectLiteral = Entity>(
 			this: SelectQueryBuilder<Entity>,
-			selection: (proxy: Type) => ProxyColumnValueType | KeyHolder,
+			selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
 			nulls?: 'NULLS FIRST' | 'NULLS LAST',
 			options?: TypedOrderByOptions
@@ -24,7 +24,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		 */
 		addOrderByTyped<Type extends ObjectLiteral = Entity>(
 			this: SelectQueryBuilder<Entity>,
-			selection: (proxy: Type) => ProxyColumnValueType | KeyHolder,
+			selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
 			nulls?: 'NULLS FIRST' | 'NULLS LAST',
 			options?: TypedOrderByOptions
@@ -39,7 +39,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	Type extends ObjectLiteral = Entity
 >(
 	this: SelectQueryBuilder<Entity>,
-	selection?: (proxy: Type) => ProxyColumnValueType | KeyHolder,
+	selection?: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 	order?: 'ASC' | 'DESC',
 	nulls?: 'NULLS FIRST' | 'NULLS LAST',
 	options?: TypedOrderByOptions
@@ -62,7 +62,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	Type extends ObjectLiteral = Entity
 >(
 	this: SelectQueryBuilder<Entity>,
-	selection?: (proxy: Type) => ProxyColumnValueType | KeyHolder,
+	selection?: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 	order?: 'ASC' | 'DESC',
 	nulls?: 'NULLS FIRST' | 'NULLS LAST',
 	options?: TypedOrderByOptions

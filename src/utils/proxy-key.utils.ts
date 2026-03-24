@@ -1,6 +1,6 @@
 import { ObjectLiteral } from 'typeorm';
 import { stringToSQLIdentifier } from './sql.utils';
-import { KeyProxyCallback } from '../types/modules/proxy-callback.types';
+import { DeepUnwrapArray, KeyProxyCallback } from '../types/modules/proxy-callback.types';
 
 export class KeyHolder {
   constructor(private _keys: string[] = []) {
@@ -103,7 +103,7 @@ export const getKeyHolder = <Type extends ObjectLiteral>(
 		}
 	}
 
-	const keyHolder = callback(KeyProxy.create<Type>()) as KeyHolder;
+	const keyHolder = callback(KeyProxy.create<DeepUnwrapArray<Type>>()) as KeyHolder;
 
 	return keyHolder;
 };

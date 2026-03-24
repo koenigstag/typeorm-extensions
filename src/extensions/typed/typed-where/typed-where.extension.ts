@@ -5,7 +5,7 @@ import {
   UpdateQueryBuilder,
   DeleteQueryBuilder,
 } from 'typeorm';
-import { ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
+import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
@@ -23,7 +23,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
+      subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -34,7 +34,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
+      subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -45,7 +45,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: Type) => ProxyColumnValueType,
+      subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -62,7 +62,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -73,7 +73,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -84,7 +84,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -101,7 +101,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -112,7 +112,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -123,7 +123,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -140,7 +140,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -151,7 +151,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -162,7 +162,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * Additionally you can add parameters used in where expression.
      */
     orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       conditions: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -179,7 +179,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       Type extends ObjectLiteral = Entity
     >(
       this: SelectQueryBuilder<Entity>,
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       operator: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -198,7 +198,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       Type extends ObjectLiteral = Entity
     >(
       this: SelectQueryBuilder<Entity>,
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       operator: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -217,7 +217,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       Type extends ObjectLiteral = Entity
     >(
       this: SelectQueryBuilder<Entity>,
-      where: (proxy: Type) => ProxyColumnValueType,
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       operator: string,
       parameters?: unknown,
       options?: TypedWhereOptions
@@ -252,7 +252,7 @@ function attachTypedWhere<
 >(
   builder: QB,
   method: WhereMethods,
-  where: (proxy: Type) => ProxyColumnValueType,
+  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
   conditions: string,
   parameters?: unknown,
   options?: TypedWhereOptions
