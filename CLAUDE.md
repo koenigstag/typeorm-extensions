@@ -20,8 +20,10 @@ npm run build       # Compile TypeScript (tsc -p .)
 npm run lint        # ESLint on .ts files
 
 # Tests (run from test/nest_v11/)
-cd test/nest_v11 && npm test          # Run Jest tests
-cd test/nest_v11 && npm run test:cov  # Tests with coverage
+# IMPORTANT: Run prepare-lib before tests to rebuild and copy the library into node_modules
+cd test/nest_v11 && npm run prepare-lib  # Rebuild lib & copy into node_modules
+cd test/nest_v11 && npm test             # Run Jest tests
+cd test/nest_v11 && npm run test:cov     # Tests with coverage
 ```
 
 ## Project Structure

@@ -2,7 +2,7 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import { setupTest, createFakeUsers, createRandomId } from '../test-utils';
 import { UserEntity } from '../models';
 import { selectElements } from '../utils';
-import { faker } from '@faker-js/faker';
+import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 
 setupTest('where-typed.where', undefined, (context) => {
   it('SHOULD apply where IN correctly', async () => {
@@ -154,6 +154,75 @@ setupTest('where-is-in.whereIsNotIn', undefined, (context) => {
     expect(result).toHaveLength(otherUsers.length);
     expect(result.map((user) => user.id)).toEqual(
       otherUsers.map((user) => user.id),
+    );
+  });
+});
+
+setupTest('where-typed.jsonPath', undefined, (context) => {
+  const t = tableHelper<UserEntity>('user');
+
+  it('SHOULD generate correct SQL with jsonPath in conditions', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+    const selectQuery = usersRepository.createQueryBuilder('user');
+
+    const whereQuery = selectQuery.clone().whereTyped(
+      (u) => u.metadata,
+      `${t.jsonPath('metadata', '->>', 'role')} =`,
+      'admin',
+    );
+
+    expect(whereQuery.getQuery()).toContain(
+      '"user"."metadata" ->> \'role\' =',
+    );
+  });
+
+  it('SHOULD generate correct SQL with nested jsonPath', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+    const selectQuery = usersRepository.createQueryBuilder('user');
+
+    const whereQuery = selectQuery.clone().whereTyped(
+      (u) => u.metadata,
+      `${t.jsonPath('metadata', '->>', 'settings', 'theme')} =`,
+      'light',
+    );
+
+    expect(whereQuery.getQuery()).toContain(
+      '"user"."metadata" -> \'settings\' ->> \'theme\' =',
+    );
+  });
+
+  it('SHOULD work with andWhereTyped and jsonPath', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+
+    let fakeUsers = await createFakeUsers({ count: 5 });
+    fakeUsers = await usersRepository.save(fakeUsers);
+
+    const selectQuery = usersRepository.createQueryBuilder('user');
+
+    const whereQuery = selectQuery.clone()
+      .whereTyped((u) => u.id, '=', fakeUsers[0].id)
+      .andWhereTyped(
+        (u) => u.metadata,
+        `${t.jsonPath('metadata', '->>', 'role')} =`,
+        'admin',
+      );
+
+    const query = whereQuery.getQuery();
+    expect(query).toContain('"user"."id" =');
+    expect(query).toContain('"user"."metadata" ->> \'role\' =');
+  });
+
+  it('SHOULD work with -> operator for JSON object extraction', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+    const selectQuery = usersRepository.createQueryBuilder('user');
+
+    const whereQuery = selectQuery.clone().whereTyped(
+      (u) => u.metadata,
+      `${t.jsonPath('metadata', '->', 'settings')} @> '{"theme": "dark"}'`,
+    );
+
+    expect(whereQuery.getQuery()).toContain(
+      '"user"."metadata" -> \'settings\' @> \'{"theme": "dark"}\'',
     );
   });
 });

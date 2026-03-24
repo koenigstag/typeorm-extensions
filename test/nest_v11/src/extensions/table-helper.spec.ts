@@ -110,17 +110,65 @@ describe('tableHelper', () => {
     });
   });
 
-  describe('jsonField', () => {
-    it('SHOULD return column with default ->> operator', () => {
+  describe('jsonColumn', () => {
+    it('SHOULD return column with ->> operator', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.jsonField('firstName', 'nested')).toBe('"user"."firstName" ->> \'nested\'');
+      expect(table.jsonColumn('firstName', '->>', 'nested')).toBe('"user"."firstName" ->> \'nested\'');
     });
 
-    it('SHOULD use custom json operator', () => {
+    it('SHOULD use -> json operator', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.jsonField('firstName', 'nested', '->')).toBe('"user"."firstName" -> \'nested\'');
+      expect(table.jsonColumn('firstName', '->', 'nested')).toBe('"user"."firstName" -> \'nested\'');
+    });
+
+    it('SHOULD support nested path with rest params', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonColumn('firstName', '->>', 'billing', 'amount')).toBe(
+        '"user"."firstName" -> \'billing\' ->> \'amount\''
+      );
+    });
+
+    it('SHOULD support deeply nested path (3+ levels)', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonColumn('firstName', '->>', 'a', 'b', 'c')).toBe(
+        '"user"."firstName" -> \'a\' -> \'b\' ->> \'c\''
+      );
+    });
+
+    it('SHOULD use -> for all segments when jsonOperator is ->', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonColumn('firstName', '->', 'a', 'b')).toBe(
+        '"user"."firstName" -> \'a\' -> \'b\''
+      );
+    });
+  });
+
+  describe('jsonPath', () => {
+    it('SHOULD return only operator fragment', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonPath('firstName', '->>', 'role')).toBe("->> 'role'");
+    });
+
+    it('SHOULD return nested operators without column', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonPath('firstName', '->>', 'billing', 'amount')).toBe(
+        "-> 'billing' ->> 'amount'"
+      );
+    });
+
+    it('SHOULD support deeply nested path', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonPath('firstName', '->>', 'a', 'b', 'c')).toBe(
+        "-> 'a' -> 'b' ->> 'c'"
+      );
     });
   });
 });

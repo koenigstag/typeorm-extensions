@@ -17,6 +17,13 @@ export const createFakeUser = (
     }),
     firstName: faker.person.firstName(),
     lastName: faker.person.lastName(),
+    metadata: {
+      role: faker.helpers.arrayElement(['admin', 'user', 'moderator']),
+      settings: {
+        theme: faker.helpers.arrayElement(['light', 'dark']),
+        status: faker.helpers.arrayElement(['active', 'inactive']),
+      },
+    },
   });
 
   Object.assign(user, overrides);

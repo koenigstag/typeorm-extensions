@@ -10,6 +10,14 @@ import {
 import { ImageEntity } from './image.entity';
 import { dateColumn } from '../constants/columns';
 
+export type UserMetadata = {
+  role: string;
+  settings: {
+    theme: string;
+    status: string;
+  };
+};
+
 @Entity({
   name: 'users',
   orderBy: {
@@ -43,6 +51,12 @@ export class UserEntity {
     nullable: false,
   })
   public email: string;
+
+  @Column({
+    type: 'simple-json',
+    nullable: true,
+  })
+  public metadata: UserMetadata;
 
   @CreateDateColumn({
     type: dateColumn,
