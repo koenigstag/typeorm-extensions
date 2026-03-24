@@ -15,30 +15,32 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		// ["table", "column"] -> "table.column"
 		const id = ids.join('.');
 
-    if (useQuotes) {
-      return stringToSQLIdentifier(id);
-    }
+		if (useQuotes) {
+			return stringToSQLIdentifier(id);
+		}
 
-    return id;
+		return id;
 	},
 	where(columnName: keyof T, expression?: string) {
 		const column = this.column(columnName);
 		return [column, expression].filter(Boolean).join(' ');
 	},
 	join(relation: keyof T) {
-		return `${alias}.${String(relation)}`;
+		return `${this.alias}.${String(relation)}`;
 	},
 	joinOn(thisColumn: keyof T, expression: string) {
 		return this.where(thisColumn, expression);
 	},
 	isNull(columnName: keyof T) {
-		return this.where(columnName, ' IS NULL');
+		return this.where(columnName, 'IS NULL');
 	},
 	isNotNull(columnName: keyof T) {
-		return this.where(columnName, ' IS NOT NULL');
+		return this.where(columnName, 'IS NOT NULL');
 	},
 	count(columnName?: keyof T, countExpression?: string) {
-		return this.cast(`COUNT(${columnName ? this.column(columnName) : `"${alias}".*`} ${countExpression})`, 'integer');
+		const target = columnName ? this.column(columnName) : `${stringToSQLIdentifier(this.alias ?? '')}.*`;
+		const countArgs = [target, countExpression].filter(Boolean).join(' ');
+		return this.cast(`COUNT(${countArgs})`, 'integer');
 	},
 	cast(expression: string, type: string) {
 		return `CAST(${expression} AS ${type})`;
