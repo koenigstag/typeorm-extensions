@@ -1,6 +1,7 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { getSqlKeyFromProxyCallback, KeyHolder } from '../../../utils/proxy-key.utils';
+import type { TypedOrderByOptions } from '../../../types/extensions/typed-order-by.types';
 
 // declarations
 
@@ -15,7 +16,8 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 			this: SelectQueryBuilder<Entity>,
 			selection: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
-			nulls?: 'NULLS FIRST' | 'NULLS LAST'
+			nulls?: 'NULLS FIRST' | 'NULLS LAST',
+			options?: TypedOrderByOptions
 		): SelectQueryBuilder<Entity>;
 		/**
 		 * Adds ORDER BY condition in the query builder.
@@ -24,7 +26,8 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 			this: SelectQueryBuilder<Entity>,
 			selection: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
-			nulls?: 'NULLS FIRST' | 'NULLS LAST'
+			nulls?: 'NULLS FIRST' | 'NULLS LAST',
+			options?: TypedOrderByOptions
 		): SelectQueryBuilder<Entity>;
 	}
 }
@@ -38,14 +41,15 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	this: SelectQueryBuilder<Entity>,
 	selection?: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 	order?: 'ASC' | 'DESC',
-	nulls?: 'NULLS FIRST' | 'NULLS LAST'
+	nulls?: 'NULLS FIRST' | 'NULLS LAST',
+	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
 	if (selection instanceof KeyHolder) {
 		return this.orderBy(selection.toSql(), order, nulls);
 	}
 
 	if (typeof selection === 'function') {
-		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias) as string;
+		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias, options?.useQuotes) as string;
 
 		return this.orderBy(key, order, nulls);
 	}
@@ -61,14 +65,14 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	selection?: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 	order?: 'ASC' | 'DESC',
 	nulls?: 'NULLS FIRST' | 'NULLS LAST',
-	useQuotes?: boolean
+	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
 	if (selection instanceof KeyHolder) {
 		return this.addOrderBy(selection.toSql(), order, nulls);
 	}
 
 	if (typeof selection === 'function') {
-		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias, useQuotes) as string;
+		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias, options?.useQuotes) as string;
 
 		return this.addOrderBy(key, order, nulls);
 	}
