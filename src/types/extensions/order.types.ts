@@ -1,5 +1,5 @@
 export type ApplyOrderOptions = {
-  useDoubleQuotes?: boolean;
+  useQuotes?: boolean;
   alias?: string;
   alwaysAliasFields?: string[];
   resetPreviousOrder?: boolean;

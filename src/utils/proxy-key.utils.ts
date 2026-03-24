@@ -145,5 +145,5 @@ export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 };
 
 // example of typed select
-// const key = getSqlKey<UserEntity>((proxy) => proxy.sessions);
-// console.log(key);
+// const key = getKey<UserEntity>((proxy) => proxy.sessions);
+// console.log(key); // "sessions"

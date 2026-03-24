@@ -8,23 +8,23 @@ import type {
 import {
   defaultNullsOrder,
   defaultOrderDirection,
-  defaultUseDoubleQuotes,
+  defaultUseQuotes,
 } from '../constants';
 import { ObjectLiteral } from 'typeorm';
 import { isNil } from '../utils/common.utils';
-import { Identifier } from '../utils/identifier.utils';
 import type { ApplyOrderOptions } from '../types/extensions/order.types';
 import { patchPrototype } from '../utils/prototype.utils';
+import { tableHelper } from '../utils/table.utils';
 
 // declarations
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
-    applyOrder<OrderEntity>(
+    applyOrder<OrderEntity extends ObjectLiteral>(
       orderBy: OrderParam<OrderEntity>,
       options?: ApplyOrderOptions
     ): SelectQueryBuilder<Entity>;
-    applyOrderFilter<OrderEntity>(
+    applyOrderFilter<OrderEntity extends ObjectLiteral>(
       orderFilter: OrderFilter<OrderEntity>,
       options?: ApplyOrderOptions
     ): SelectQueryBuilder<Entity>;
@@ -35,7 +35,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
 const extension: { prototype: Partial<SelectQueryBuilder<any>> } = {
   prototype: {
-    applyOrder<Entity extends ObjectLiteral, OrderEntity>(
+    applyOrder<Entity extends ObjectLiteral, OrderEntity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
       orderBy: OrderParam<OrderEntity>,
       options?: ApplyOrderOptions
@@ -46,7 +46,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<any>> } = {
         options
       );
     },
-    applyOrderFilter<Entity extends ObjectLiteral, OrderEntity>(
+    applyOrderFilter<Entity extends ObjectLiteral, OrderEntity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
       orderFilter: OrderFilter<OrderEntity>,
       options?: ApplyOrderOptions
@@ -74,13 +74,13 @@ const alwaysAliasWhiteList = [
   'deleted_at',
 ];
 
-function getOrderOption<OrderEntity>(
+function getOrderOption<OrderEntity extends ObjectLiteral>(
   orderBy: OrderParam<OrderEntity>,
   defaultAlias: string,
   options?: ApplyOrderOptions
 ): OrderType {
   const {
-    useDoubleQuotes = defaultUseDoubleQuotes,
+    useQuotes = defaultUseQuotes,
     alias: customAlias,
     alwaysAliasFields = alwaysAliasWhiteList,
   } = options ?? {};
@@ -96,9 +96,9 @@ function getOrderOption<OrderEntity>(
     otherTableAlias || customAlias ||
     (alwaysAliasFields.includes(field as string) ? defaultAlias : undefined);
 
-  const identifier = new Identifier(field, alias, useDoubleQuotes);
+  const table = tableHelper<OrderEntity>(alias, { useQuotes });
 
-  const selector = identifier.fieldIdentifier();
+  const selector = table.column(field);
 
   const order =
     typeof isReversed === 'boolean' && isNil(direction)
@@ -123,7 +123,7 @@ function getOrderOption<OrderEntity>(
   };
 }
 
-function applyOrder<QB extends SelectQueryBuilder<any>, OrderEntity>(
+function applyOrder<QB extends SelectQueryBuilder<any>, OrderEntity extends ObjectLiteral>(
   builder: QB,
   orderBy: OrderParam<OrderEntity>,
   options?: ApplyOrderOptions
@@ -141,7 +141,7 @@ function applyOrder<QB extends SelectQueryBuilder<any>, OrderEntity>(
   );
 }
 
-function applyOrderFilter<QB extends SelectQueryBuilder<any>, OrderEntity>(
+function applyOrderFilter<QB extends SelectQueryBuilder<any>, OrderEntity extends ObjectLiteral>(
   builder: QB,
   orderFilter: OrderFilter<OrderEntity>,
   options?: ApplyOrderOptions
