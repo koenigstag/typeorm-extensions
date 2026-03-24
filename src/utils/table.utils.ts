@@ -8,12 +8,12 @@ export type TableHelperOptions = {
 type JsonFieldTuple<T, Depth extends 0[] = []> = Depth['length'] extends 4
 	? [string, ...string[]]
 	: {
-		[K in keyof T & string]: [NonNullable<T[K]>] extends [Record<string, any>]
+		[K in keyof T & string]: [NonNullable<T[K]>] extends [Record<string, unknown>]
 			? [K, ...JsonFieldTuple<NonNullable<T[K]>, [...Depth, 0]>] | [K]
 			: [K]
 	}[keyof T & string];
 
-export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, any>]
+export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
