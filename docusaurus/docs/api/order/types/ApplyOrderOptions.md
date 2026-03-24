@@ -11,14 +11,14 @@ sidebar_position: 6
 ## Definition
 
 Defaults: 
-- `useDoubleQuotes = true`
+- `useQuotes = true`
 - `alias = query.alias`
 - `alwaysAliasFields = ['id', 'created_at', 'createdAt', 'updated_at', 'updatedAt', 'deleted_at',  'deletedAt']`
 - `resetPreviousOrder = false`
 
 ```typescript
 type ApplyOrderOptions = {
-  useDoubleQuotes?: boolean;
+  useQuotes?: boolean;
   alias?: string;
   alwaysAliasFields?: string[];
   resetPreviousOrder?: boolean;
@@ -31,7 +31,7 @@ type ApplyOrderOptions = {
 query
   .applyOrderFilter(
     order,
-    { useDoubleQuotes: false } // ApplyOrderOptions
+    { useQuotes: false } // ApplyOrderOptions
   )
   .applyPaginationFilter(
     pagination,

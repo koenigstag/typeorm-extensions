@@ -257,11 +257,11 @@ function attachTypedWhere<
   parameters?: unknown,
   options?: TypedWhereOptions
 ): QB {
-  const { useDoubleQuotes, addValue = true } = options || {};
+  const { useQuotes, addValue = true } = options || {};
 
   if (typeof where === 'function') {
     const alias = (builder as unknown as SelectQueryBuilder<Type>).alias;
-    const key = getSqlKeyFromProxyCallback<Type>(where, alias, useDoubleQuotes);
+    const key = getSqlKeyFromProxyCallback<Type>(where, alias, useQuotes);
 
     if (Array.isArray(key)) {
       for (const k of key) {

@@ -1,8 +1,8 @@
 export type TypedWhereOptions = {
-  useDoubleQuotes?: boolean;
+  useQuotes?: boolean;
   addValue?: boolean;
 };
 
 export type TypedWhereIsInOptions = {
-  useDoubleQuotes?: boolean;
+  useQuotes?: boolean;
 }

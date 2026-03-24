@@ -18,7 +18,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       selectionAliasName?: string,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ): SelectQueryBuilder<Entity>;
     /**
      * Creates SELECT query and selects given data.
@@ -28,7 +28,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       this: SelectQueryBuilder<Entity>,
       selection: string | KeyHolder,
       selectionAliasName?: string,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ): SelectQueryBuilder<Entity>;
     /**
      * Creates SELECT query and selects given data.
@@ -37,7 +37,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     selectTyped<Type extends ObjectLiteral = Entity>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ): SelectQueryBuilder<Entity>;
 
     /**
@@ -47,7 +47,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       selectionAliasName?: string,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ): SelectQueryBuilder<Entity>;
     /**
      * Adds new selection to the SELECT query.
@@ -56,7 +56,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       this: SelectQueryBuilder<Entity>,
       selection: string | KeyHolder,
       selectionAliasName?: string,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ): SelectQueryBuilder<Entity>;
     /**
      * Adds new selection to the SELECT query.
@@ -64,7 +64,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     addSelectTyped<Type extends ObjectLiteral = Entity>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ): SelectQueryBuilder<Entity>;
   }
 }
@@ -86,7 +86,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
         | KeyHolder[]
         | Array<KeyProxyCallback<Type>>,
       selectionAliasName?: string | boolean,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ) {
       return attachSelectMethod<Entity, Type>(
         this,
@@ -95,7 +95,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
         typeof selectionAliasName === 'string' ? selectionAliasName : undefined,
         typeof selectionAliasName === 'boolean'
           ? selectionAliasName
-          : useDoubleQuotes
+          : useQuotes
       );
     },
     addSelectTyped<
@@ -111,7 +111,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
         | KeyHolder[]
         | Array<KeyProxyCallback<Type>>,
       selectionAliasName?: string | boolean,
-      useDoubleQuotes?: boolean
+      useQuotes?: boolean
     ) {
       return attachSelectMethod<Entity, Type>(
         this,
@@ -120,7 +120,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
         typeof selectionAliasName === 'string' ? selectionAliasName : undefined,
         typeof selectionAliasName === 'boolean'
           ? selectionAliasName
-          : useDoubleQuotes
+          : useQuotes
       );
     },
   },
@@ -144,11 +144,11 @@ const attachSelectMethod = <
     | KeyHolder[]
     | Array<KeyProxyCallback<Type>>,
   selectionAliasName?: string,
-  useDoubleQuotes?: boolean
+  useQuotes?: boolean
 ): SelectQueryBuilder<Entity> => {
   if (selection instanceof KeyHolder) {
     return query[method](
-      selection.toSql(undefined, useDoubleQuotes),
+      selection.toSql(undefined, useQuotes),
       selectionAliasName
     );
   }
@@ -159,7 +159,7 @@ const attachSelectMethod = <
         getSqlKeyFromProxyCallback<Type>(
           select,
           query.alias,
-          useDoubleQuotes
+          useQuotes
         ) as string
     );
 
@@ -168,7 +168,7 @@ const attachSelectMethod = <
     const keyArrayOrSingleKey = getSqlKeyFromProxyCallback<Type>(
       selection,
       query.alias,
-      useDoubleQuotes
+      useQuotes
     );
 
     if (Array.isArray(keyArrayOrSingleKey)) {

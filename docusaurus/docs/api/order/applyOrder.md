@@ -25,5 +25,5 @@ applyOrder(
 ## Usage
 
 ```typescript
-query.applyOrder({ field: 'name', direction: 'asc', nulls: 'last' }, { useDoubleQuotes: true })
+query.applyOrder({ field: 'name', direction: 'asc', nulls: 'last' }, { useQuotes: true })
 ```

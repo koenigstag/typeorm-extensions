@@ -61,14 +61,14 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	selection?: (proxy: Type) => ProxyColumnValueType | KeyHolder,
 	order?: 'ASC' | 'DESC',
 	nulls?: 'NULLS FIRST' | 'NULLS LAST',
-	useDoubleQuotes?: boolean
+	useQuotes?: boolean
 ): SelectQueryBuilder<Entity> {
 	if (selection instanceof KeyHolder) {
 		return this.addOrderBy(selection.toSql(), order, nulls);
 	}
 
 	if (typeof selection === 'function') {
-		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias, useDoubleQuotes) as string;
+		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias, useQuotes) as string;
 
 		return this.addOrderBy(key, order, nulls);
 	}

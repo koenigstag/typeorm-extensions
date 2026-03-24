@@ -398,14 +398,14 @@ function attachWhereIsIn<
   array?: ArgsType,
   options?: TypedWhereIsInOptions
 ): QB {
-  const { useDoubleQuotes } = options || {};
+  const { useQuotes } = options || {};
 
   if (typeof where === 'function') {
     const alias = (builder as unknown as SelectQueryBuilder<Type>).alias;
     const key = getSqlKeyFromProxyCallback<Type>(
       where,
       alias,
-      useDoubleQuotes
+      useQuotes
     );
 
     if (Array.isArray(key)) {

@@ -20,6 +20,6 @@ query
         { field: 'createdAt', direction: 'asc', nulls: 'last' }
       ]
     },
-    { useDoubleQuotes: true }
+    { useQuotes: true }
   )
 ```

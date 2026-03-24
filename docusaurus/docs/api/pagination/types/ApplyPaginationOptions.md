@@ -28,6 +28,6 @@ query
   )
   .applyOrderFilter(
     order,
-    { useDoubleQuotes: false }
+    { useQuotes: false }
   )
 ```
