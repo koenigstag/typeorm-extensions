@@ -59,6 +59,22 @@ query
   .andWhere(`${t.jsonColumn('metadata', '->>', 'settings', 'theme')} = :theme`, { theme: 'dark' })
 ```
 
+## Join condition with tableHelper
+
+[API reference](/docs/api/utils/tableHelper#composing-helpers)
+
+```typescript
+import { tableHelper } from 'typeorm-extensions';
+
+const user = tableHelper<UserEntity>('user');
+const image = tableHelper<ImageEntity>('images');
+
+query
+  // ON "user"."id" = "images"."userId": both sides quoted, so camelCase columns keep their case
+  .leftJoin(ImageEntity, 'images', user.joinOn('id', `= ${image.column('userId')}`))
+  .andWhere(image.isNotNull('url'))
+```
+
 ## Page with totals
 
 [API reference](/docs/api/pagination/getManyWithTotals)

@@ -49,7 +49,76 @@ Notes:
 - Without an alias, `column()` returns just the column (`"email"`) and `count()` counts `*`. `join()` needs an alias.
 - `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number.
 - `countExpression` is appended after the column inside `COUNT(...)`.
-- `expression` in `where()` / `joinOn()` is inserted as is. Build columns in it with `tableHelper` too, as in the `joinOn` example: TypeORM rewrites an unquoted `alias.property` only for aliases of entities it knows. For a subquery or raw table join, `img.userId` reaches the database unchanged and PostgreSQL folds it to `img.userid`, which doesn't exist.
+- `expression` in `where()` / `joinOn()` is inserted as is. Build the columns in it with `tableHelper` too, see [Composing helpers](#composing-helpers).
+
+## Composing helpers
+
+`where()` and `joinOn()` take the rest of the condition as a plain string and insert it as is. When that string references a column of another table, build the column with that table's helper instead of typing it by hand: it is checked against the entity type and quoted.
+
+This matters for camelCase columns. TypeORM rewrites an unquoted `alias.property` only for aliases of entities it knows. For a subquery or raw table join, `img.userId` reaches the database unchanged and PostgreSQL folds it to `img.userid`, which doesn't exist. `"img"."userId"` built by a helper always works.
+
+```typescript
+const user = tableHelper<UserEntity>('user');
+const image = tableHelper<ImageEntity>('images');
+```
+
+Join condition with the other table's column:
+
+```typescript
+query.leftJoin(ImageEntity, 'images', user.joinOn('id', `= ${image.column('userId')}`))
+// LEFT JOIN "images" "images" ON "user"."id" = "images"."userId"
+```
+
+Several conditions:
+
+```typescript
+query.leftJoin(ImageEntity, 'images', [
+  user.joinOn('id', `= ${image.column('userId')}`),
+  image.isNotNull('url'),
+].join(' AND '))
+// ON "user"."id" = "images"."userId" AND "images"."url" IS NOT NULL
+```
+
+Comparing columns of two tables:
+
+```typescript
+query.andWhere(image.where('createdAt', `>= ${user.column('createdAt')}`))
+// WHERE "images"."createdAt" >= "user"."createdAt"
+```
+
+With typed methods, the callback gives the left side and the helper gives the right one. No params are passed, so no placeholder is appended:
+
+```typescript
+query
+  .leftJoinTyped(user => user.images, 'images')
+  .andWhereTyped(user => user.id, `= ${image.column('userId')}`)
+// WHERE "user"."id" = "images"."userId"
+```
+
+Subquery join: TypeORM doesn't know the `img` alias, so a helper typed by the subquery's columns does the quoting:
+
+```typescript
+const i = tableHelper<ImageEntity>('i');
+const img = tableHelper<{ userId: number; imagesCount: number }>('img');
+
+const rows = await usersRepository
+  .createQueryBuilder('user')
+  .leftJoin(
+    qb => qb
+      .from(ImageEntity, 'i')
+      .select(i.column('userId'), 'userId')
+      .addSelect(i.count('id'), 'imagesCount')
+      .groupBy(i.column('userId')),
+    'img',
+    user.joinOn('id', `= ${img.column('userId')}`),
+  )
+  .select(user.column('id'), 'id')
+  .addSelect(`COALESCE(${img.column('imagesCount')}, 0)`, 'imagesCount')
+  .getRawMany();
+// LEFT JOIN (SELECT "i"."userId" AS "userId", CAST(COUNT("i"."id") AS integer) AS "imagesCount"
+//            FROM "images" "i" GROUP BY "i"."userId") "img"
+//   ON "user"."id" = "img"."userId"
+```
 
 ## JSONB
 
