@@ -220,3 +220,116 @@ setupTest('where-is-any.postgres', undefined, (context) => {
     expect(rest.map((user) => user.firstName)).toEqual(['Carol', 'Dave']);
   });
 });
+
+setupTest('where-is-any.array-type-and-not-any.sql', undefined, (context) => {
+  it('SHOULD cast the parameter to arrayType', () => {
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .whereIsAny('user.id', [1, 2], 'int[]')
+      .andWhereIsAnyTyped((u) => u.email, ['a@b.c'], 'character varying(255)[]');
+
+    expect(query.getQuery()).toMatch(
+      /WHERE "user"\."id" = ANY\(CAST\(:where_\w+ AS int\[\]\)\) AND "user"\."email" = ANY\(CAST\(:andWhere_\w+ AS character varying\(255\)\[\]\)\)/,
+    );
+  });
+
+  it('SHOULD reject an arrayType that is not a type name', () => {
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user');
+
+    for (const arrayType of ['int[]) OR (TRUE', "text'", 'int[]; DROP TABLE users']) {
+      expect(() => query.clone().whereIsAny('user.id', [1], arrayType)).toThrow(
+        /Invalid array type/,
+      );
+    }
+  });
+
+  it('SHOULD build `<> ALL(:param)` for whereIsNotAny', () => {
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .whereIsNotAny('user.id', [1, 2])
+      .andWhereIsNotAnyTyped((u) => u.firstName, ['Bob'], 'text[]')
+      .orWhereIsNotAny('user.email', []);
+
+    expect(query.getQuery()).toMatch(
+      /WHERE "user"\."id" <> ALL\(:where_\w+\) AND "user"\."firstName" <> ALL\(CAST\(:andWhere_\w+ AS text\[\]\)\) OR TRUE/,
+    );
+  });
+});
+
+setupTest('where-is-any.array-type-and-not-any.postgres', undefined, (context) => {
+  if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only supported on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  const seed = async () =>
+    context.dataSource.getRepository(UserEntity).save(
+      await createFakeUsers({
+        count: 3,
+        getOverrides: (index) => ({ firstName: ['Alice', 'Bob', 'Carol'][index] }),
+      }),
+    );
+
+  it('SHOULD match with a cast parameter', async () => {
+    const users = await seed();
+
+    const result = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .whereIsAnyTyped((u) => u.id, [users[0].id, users[2].id], 'int[]')
+      .andWhereIsAny('user.firstName', ['Alice', 'Carol'], 'text[]')
+      .orderBy('user.id', 'ASC')
+      .getMany();
+
+    expect(result.map((user) => user.firstName)).toEqual(['Alice', 'Carol']);
+  });
+
+  it('SHOULD exclude every value with whereIsNotAny (<> ALL, not <> ANY)', async () => {
+    await seed();
+    const repository = context.dataSource.getRepository(UserEntity);
+
+    const notAny = await repository
+      .createQueryBuilder('user')
+      .whereIsNotAnyTyped((u) => u.firstName, ['Alice', 'Bob'])
+      .getMany();
+    expect(notAny.map((user) => user.firstName)).toEqual(['Carol']);
+
+    // what `<> ANY` would do: true unless the value equals every array element
+    const wrong = await repository
+      .createQueryBuilder('user')
+      .where('"user"."firstName" <> ANY(:names)', { names: ['Alice', 'Bob'] })
+      .getMany();
+    expect(wrong).toHaveLength(3);
+  });
+
+  it('SHOULD keep every row for an empty whereIsNotAny array', async () => {
+    await seed();
+
+    const result = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .whereIsNotAny('user.firstName', [])
+      .getMany();
+
+    expect(result).toHaveLength(3);
+  });
+
+  it('SHOULD delete with whereIsNotAny', async () => {
+    await seed();
+    const repository = context.dataSource.getRepository(UserEntity);
+
+    await repository
+      .createQueryBuilder()
+      .delete()
+      .whereIsNotAnyTyped((u) => u.firstName, ['Bob'], 'text[]')
+      .execute();
+
+    expect((await repository.find()).map((user) => user.firstName)).toEqual(['Bob']);
+  });
+});
