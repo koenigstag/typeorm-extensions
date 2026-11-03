@@ -19,15 +19,20 @@ Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`
 ## Signature
 
 ```typescript
-whereIsAny(field: string, array?: readonly unknown[]): this
-andWhereIsAny(field: string, array?: readonly unknown[]): this
-orWhereIsAny(field: string, array?: readonly unknown[]): this
+whereIsAny(field: string, array?: readonly unknown[], arrayType?: string): this
+andWhereIsAny(field: string, array?: readonly unknown[], arrayType?: string): this
+orWhereIsAny(field: string, array?: readonly unknown[], arrayType?: string): this
+
+whereIsNotAny(field: string, array?: readonly unknown[], arrayType?: string): this
+andWhereIsNotAny(field: string, array?: readonly unknown[], arrayType?: string): this
+orWhereIsNotAny(field: string, array?: readonly unknown[], arrayType?: string): this
 ```
 
 ## Arguments
 
 - field: string: Column to compare, e.g. `'user.id'`. It is quoted as an SQL identifier: `"user"."id"`.
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
+- arrayType?: string: Type to cast the array parameter to, e.g. `'uuid[]'`, `'text[]'`, `'public.order_status[]'`: `= ANY(CAST(:param AS uuid[]))`. PostgreSQL usually infers the type from the column, so it's optional. Only a type name is accepted (optionally schema-qualified, with a modifier like `varchar(36)` and `[]`); anything else throws a `TypeError`, since it goes into the SQL as is.
 
 Like TypeORM's `where`, `whereIsAny` replaces previously set WHERE conditions; use `andWhereIsAny` / `orWhereIsAny` to add to them.
 
@@ -49,3 +54,15 @@ query.whereIsAny('user.id', [])
 ```
 
 For a typesafe version that takes the column from an entity property, see [whereIsAnyTyped](../typed/whereIsAnyTyped.md).
+
+## whereIsNotAny
+
+`whereIsNotAny` is the negation: `column <> ALL(:array)`, true when the column differs from **every** value of the array, like `NOT IN`. (`<> ANY` would be true as soon as the column differs from one value, i.e. almost always.)
+
+- An empty (or missing) array becomes `TRUE` (the condition doesn't filter anything), like `whereIsNotIn`.
+- A `NULL` in the array, or a `NULL` column, makes the condition `NULL` (row excluded), the same as `NOT IN`.
+
+```typescript
+// WHERE "o"."status" <> ALL(CAST($1 AS order_status[]))
+query.whereIsNotAny('o.status', ['cancelled', 'refunded'], 'order_status[]')
+```
