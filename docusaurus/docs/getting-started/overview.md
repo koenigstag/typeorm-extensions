@@ -41,10 +41,11 @@ Or import specific extension to init only it, if needed:
 import 'typeorm-extensions/dist/extensions/name.extension';
 ```
 
-Helpers are exported from the package root:
+Helpers are exported from the package root, and from `typeorm-extensions/helpers`, which installs no extension. Use the latter if you import extensions one by one:
 
 ```typescript
-import { tableHelper } from 'typeorm-extensions';
+import { tableHelper } from 'typeorm-extensions/helpers'; // no side effects
+import { tableHelper } from 'typeorm-extensions'; // also installs all extensions
 ```
 
 ### What you'll need

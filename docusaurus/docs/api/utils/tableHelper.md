@@ -9,8 +9,10 @@ sidebar_position: 1
 `tableHelper` builds SQL fragments for an entity: column references, conditions, joins, counts and JSONB accessors. Column names are checked against the entity type, so string parts of a query get the same type safety as typed methods.
 
 ```typescript
-import { tableHelper } from 'typeorm-extensions';
+import { tableHelper } from 'typeorm-extensions/helpers';
 ```
+
+`typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
 ## Signature
 
