@@ -49,6 +49,7 @@ Notes:
 - Without an alias, `column()` returns just the column (`"email"`) and `count()` counts `*`. `join()` needs an alias.
 - `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number.
 - `countExpression` is appended after the column inside `COUNT(...)`.
+- `column()` returns a quoted expression, so `select(t.column('id'), 'id')` keeps its position in the select list, unlike `select('user.id')`, which TypeORM moves into entity column order. See [selectTyped › Column order](../typed/selectTyped.md#column-order).
 - `expression` in `where()` / `joinOn()` is inserted as is. Build the columns in it with `tableHelper` too, see [Composing helpers](#composing-helpers).
 
 ## Composing helpers

@@ -62,3 +62,29 @@ query.addSelectTyped(user => user.createdAt, 'registeredAt')
 // same as `query.select('"user"."name"', 'fullName')`
 query.selectTyped(user => user.name, 'fullName', true)
 ```
+
+## Column order
+
+TypeORM treats a selection of the form `alias.property` as an entity column. It moves such selections to the front of the select list, in the entity's column order, ahead of other expressions. This applies to `selectTyped`, which emits `user.email`, as well as to a plain `select('user.email')`:
+
+```typescript
+query
+  .select("'user'", 'kind')
+  .addSelectTyped(user => user.email, 'email')
+  .addSelectTyped(user => user.id, 'id')
+// SELECT "user"."id" AS "id", "user"."email" AS "email", 'user' AS "kind"
+```
+
+That's harmless wherever columns are read by name (`getRawMany`, CTEs, `LATERAL` joins), but a `UNION` matches columns **by position**, so its branches may end up with mismatched columns.
+
+To keep the order as written, pass `useQuotes`. A quoted key isn't recognized as an entity column, so it stays where it was added:
+
+```typescript
+query
+  .select("'user'", 'kind')
+  .addSelectTyped(user => user.email, 'email', true)
+  .addSelectTyped(user => user.id, 'id', true)
+// SELECT 'user' AS "kind", "user"."email" AS "email", "user"."id" AS "id"
+```
+
+Quoted selections are plain expressions for TypeORM and aren't mapped to entity properties: read them with `getRawMany()` / `getRawOne()`, as you would the result of a `UNION`. [tableHelper](../utils/tableHelper.md) `column()` returns the same quoted form.
