@@ -8,13 +8,19 @@ export const createRandomId = (min?: number, max?: number): number => {
   return faker.number.int({ min: min ?? 1, max: max ?? 1000 });
 }
 
+// users.email is UNIQUE, and faker emails collide often enough to fail a seed now and then
+// (e.g. `Olaf54@mail.com` twice in one batch), so append a sequence number
+let fakeEmailSequence = 0;
+
 export const createFakeUser = (
   overrides: Partial<UserEntity> = {},
 ): UserEntity => {
   const user = new UserEntity({
-    email: faker.internet.email({
-      provider: 'mail.com',
-    }),
+    email: faker.internet
+      .email({
+        provider: 'mail.com',
+      })
+      .replace('@', `.${++fakeEmailSequence}@`),
     firstName: faker.person.firstName(),
     lastName: faker.person.lastName(),
     metadata: {
