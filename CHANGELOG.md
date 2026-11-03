@@ -25,6 +25,7 @@
   t.jsonPath('metadata', '->>', 'role')                  // ->> 'role'
   ```
 - **`TypedOrderByOptions`** — options for `orderByTyped` and `addOrderByTyped` with `useQuotes` support (`orderByTyped` had no quoting option before).
+- **`whereIsAny` / `andWhereIsAny` / `orWhereIsAny`** and typed `whereIsAnyTyped` / `andWhereIsAnyTyped` / `orWhereIsAnyTyped` (PostgreSQL): `column = ANY(:array)` with the whole array bound as one parameter, so the number of values isn't limited by the 65535 bind parameters that `IN` runs into. An empty array becomes `FALSE`. (#12)
 
 ### Bug Fixes
 
