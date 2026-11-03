@@ -114,7 +114,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
-    whereIsNotInTyped<Type extends ObjectLiteral>(
+    whereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -123,7 +123,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     /**
      * Adds new AND WHERE NOT IN condition in the query builder.
      */
-    andWhereIsNotInTyped<Type extends ObjectLiteral>(
+    andWhereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -133,7 +133,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Adds new OR WHERE NOT IN condition in the query builder.
      */
 
-    orWhereIsNotInTyped<Type extends ObjectLiteral>(
+    orWhereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -177,7 +177,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
-    whereIsNotInTyped<Type extends ObjectLiteral>(
+    whereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -186,7 +186,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     /**
      * Adds new AND WHERE NOT IN condition in the query builder.
      */
-    andWhereIsNotInTyped<Type extends ObjectLiteral>(
+    andWhereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -196,7 +196,7 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      * Adds new OR WHERE NOT IN condition in the query builder.
      */
 
-    orWhereIsNotInTyped<Type extends ObjectLiteral>(
+    orWhereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -240,7 +240,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
-    whereIsNotInTyped<Type extends ObjectLiteral>(
+    whereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -249,7 +249,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     /**
      * Adds new AND WHERE NOT IN condition in the query builder.
      */
-    andWhereIsNotInTyped<Type extends ObjectLiteral>(
+    andWhereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
@@ -259,7 +259,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      * Adds new OR WHERE NOT IN condition in the query builder.
      */
 
-    orWhereIsNotInTyped<Type extends ObjectLiteral>(
+    orWhereIsNotInTyped<Type extends ObjectLiteral = Entity>(
       subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       array?: ArgsType,
       options?: TypedWhereIsInOptions
