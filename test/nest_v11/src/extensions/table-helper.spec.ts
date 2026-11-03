@@ -1,6 +1,7 @@
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 import { UserEntity } from '../models';
 import { setupTest, createFakeUsers } from '../test-utils';
+import { sqliteDrivers } from '../constants/database';
 
 describe('tableHelper', () => {
   describe('column', () => {
@@ -213,6 +214,15 @@ describe('tableHelper', () => {
 });
 
 setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
+  // `metadata` is a `simple-json` (text) column: SQLite's `->>` works on JSON text,
+  // PostgreSQL's needs a json/jsonb column
+  if (!sqliteDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only runs on sqlite (JSON operators on a text column)', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
   // Loosely typed JSON column so arbitrary keys are allowed
   const t = tableHelper<{ metadata: Record<string, unknown> }>('user');
 
