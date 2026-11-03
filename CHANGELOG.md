@@ -26,6 +26,7 @@
   ```
 - **`TypedOrderByOptions`** — options for `orderByTyped` and `addOrderByTyped` with `useQuotes` support (`orderByTyped` had no quoting option before).
 - **`whereIsAny` / `andWhereIsAny` / `orWhereIsAny`** and typed `whereIsAnyTyped` / `andWhereIsAnyTyped` / `orWhereIsAnyTyped` (PostgreSQL): `column = ANY(:array)` with the whole array bound as one parameter, so the number of values isn't limited by the 65535 bind parameters that `IN` runs into. An empty array becomes `FALSE`. (#12)
+- **`typeorm-extensions/helpers`**: a side-effect-free entry point that exports `tableHelper` (and its types) without installing any QueryBuilder extension, unlike the package root. (#18)
 
 ### Bug Fixes
 
@@ -35,6 +36,7 @@
 - `whereIsIn` / `whereIsNotIn` and their `and` / `or` and typed variants accept readonly arrays and `as const` constants: the values argument (`ArgsType`) is now `readonly unknown[]`. Previously they failed to type-check with TS2345. (#11)
 - Fields of `whereIsIn` / `whereIsNotIn` / `whereIsAny` and of the typed where methods: only a path of identifiers is quoted (`user.id` → `"user"."id"`, `user.*` → `"user".*`); an expression such as `COALESCE(ts."instructorId", e."instructorId")`, `LOWER(u.email)` or `u.id::text` is used as is. Previously it was split on dots and quoted piece by piece into invalid SQL. (#14)
 - Typed where methods on `UpdateQueryBuilder` / `DeleteQueryBuilder` no longer qualify the column with the alias: `WHERE "firstName" = …` instead of `WHERE "UserEntity"."firstName" = …`, which PostgreSQL accepted only when the alias equaled the table name and SQLite rejected. (#15)
+- Typed where methods (`whereTyped`, `whereIsInTyped` / `whereIsNotInTyped`, `whereIsAnyTyped`) map properties to their database column names (`@Column({ name })`) through the alias metadata. Previously they emitted the property name, so a condition on a renamed column hit a nonexistent (or wrong) column. (#17)
 
 ### Improvements
 
