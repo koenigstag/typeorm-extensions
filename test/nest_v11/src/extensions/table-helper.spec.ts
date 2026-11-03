@@ -1,5 +1,6 @@
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 import { UserEntity } from '../models';
+import { setupTest, createFakeUsers } from '../test-utils';
 
 describe('tableHelper', () => {
   describe('column', () => {
@@ -158,6 +159,24 @@ describe('tableHelper', () => {
         '"user"."firstName" -> \'a\' -> \'b\''
       );
     });
+
+    it('SHOULD escape single quotes in keys', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonColumn('firstName', '->>', "o'brien")).toBe(
+        '"user"."firstName" ->> \'o\'\'brien\''
+      );
+    });
+
+    it('SHOULD keep a quote-injection attempt inside the key literal', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(
+        table.jsonColumn('firstName', '->>', "x' OR '1'='1", 'y'),
+      ).toBe(
+        '"user"."firstName" -> \'x\'\' OR \'\'1\'\'=\'\'1\' ->> \'y\''
+      );
+    });
   });
 
   describe('jsonPath', () => {
@@ -182,5 +201,54 @@ describe('tableHelper', () => {
         "-> 'a' -> 'b' ->> 'c'"
       );
     });
+
+    it('SHOULD escape single quotes in keys', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonPath('firstName', '->>', "it's", 'ok')).toBe(
+        "-> 'it''s' ->> 'ok'"
+      );
+    });
+  });
+});
+
+setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
+  // Loosely typed JSON column so arbitrary keys are allowed
+  const t = tableHelper<{ metadata: Record<string, unknown> }>('user');
+
+  it('SHOULD match a JSON key that contains a single quote', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+
+    let fakeUsers = await createFakeUsers({ count: 3 });
+    fakeUsers[0].metadata = {
+      ...fakeUsers[0].metadata,
+      "o'brien": 'yes',
+    } as UserEntity['metadata'];
+    fakeUsers = await usersRepository.save(fakeUsers);
+
+    const result = await usersRepository
+      .createQueryBuilder('user')
+      .where(`${t.jsonColumn('metadata', '->>', "o'brien")} = :value`, {
+        value: 'yes',
+      })
+      .getMany();
+
+    expect(result.map((user) => user.id)).toEqual([fakeUsers[0].id]);
+  });
+
+  it('SHOULD not let a key break out of its literal and widen the WHERE', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+
+    await usersRepository.save(await createFakeUsers({ count: 3 }));
+
+    const result = await usersRepository
+      .createQueryBuilder('user')
+      .where(
+        `${t.jsonColumn('metadata', '->>', "x' OR 1=1 OR '")} = :value`,
+        { value: 'yes' },
+      )
+      .getMany();
+
+    expect(result).toHaveLength(0);
   });
 });
