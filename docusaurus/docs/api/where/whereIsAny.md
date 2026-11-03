@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Description
 
-`whereIsAny` adds a `column = ANY(:array)` condition. Unlike `whereIsIn`, which expands the array into one bind parameter per value (`IN ($1, $2, …)`), the whole array is bound as **one** array parameter.
+`whereIsAny` adds a `column = ANY(:array)` condition. Unlike [whereIsIn](./whereIsIn.md), which expands the array into one bind parameter per value (`IN ($1, $2, …)`), the whole array is bound as **one** array parameter.
 
 - Works for any number of values. PostgreSQL allows at most 65535 bind parameters per query, so `IN` with more values fails, e.g. with `bind message has 4464 parameter formats but 0 parameters` for 70 000 values.
 - The SQL text is the same for any array length, which helps prepared statements and `pg_stat_statements`.

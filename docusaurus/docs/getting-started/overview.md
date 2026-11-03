@@ -10,12 +10,13 @@ This package provides a set of extensions for [TypeORM](https://www.npmjs.com/pa
 
 - **Pagination**: apply pagination to a query, or load a page together with the total count (`getManyWithTotals`).
 - **Order**: apply order to a query from a filter object.
-- **Where IN**: `whereIsIn` / `whereIsNotIn` conditions that handle empty arrays.
+- **Where IN / ANY**: `whereIsIn` / `whereIsNotIn` conditions that handle empty arrays, and `whereIsAny` for `= ANY(array)` with the array bound as one parameter (only PostgreSQL).
 - **Typed**: typesafe methods for the query builder.
   - `selectTyped` - select fields.
   - `joinTyped` - apply join conditions.
   - `whereTyped` - apply where conditions.
   - `whereIsInTyped` - apply where IN / NOT IN conditions.
+  - `whereIsAnyTyped` - apply where `= ANY(array)` conditions (only PostgreSQL).
   - `orderByTyped` - apply order conditions.
   - `distinctOnTyped` - apply distinct on conditions (only PostgreSQL).
 - **tableHelper**: typesafe helper for building SQL fragments: column references, conditions, joins, counts and JSONB paths.
