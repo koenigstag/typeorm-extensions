@@ -11,18 +11,18 @@ Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`
 
 ## Signature
 ```typescript
-whereIsInTyped(selection: KeyProxyCallback<Entity>, array?: unknown[]): SelectQueryBuilder<Entity>
-andWhereIsInTyped(selection: KeyProxyCallback<Entity>, array?: unknown[]): SelectQueryBuilder<Entity>
-orWhereIsInTyped(selection: KeyProxyCallback<Entity>, array?: unknown[]): SelectQueryBuilder<Entity>
+whereIsInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
+andWhereIsInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
+orWhereIsInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
 
-whereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: unknown[]): SelectQueryBuilder<Entity>
-andWhereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: unknown[]): SelectQueryBuilder<Entity>
-orWhereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: unknown[]): SelectQueryBuilder<Entity>
+whereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
+andWhereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
+orWhereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
 ```
 
 ## Arguments
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects the field of entity.
-- array?: unknown[]: Values to compare with.
+- array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 
 ## Usage
 
@@ -42,6 +42,13 @@ query.andWhereIsNotInTyped(user => user.email, emails)
 query
   .leftJoinTyped(user => user.images, 'images')
   .andWhereIsInTyped(user => user.images.url, urls)
+```
+
+```typescript
+// readonly constants work as is, no need to spread them
+const ACTIVE_STATUSES = ['active', 'trial'] as const;
+
+query.whereIsInTyped(user => user.status, ACTIVE_STATUSES)
 ```
 
 ```typescript

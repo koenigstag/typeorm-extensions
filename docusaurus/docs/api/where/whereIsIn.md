@@ -17,19 +17,19 @@ Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`
 ## Signature
 
 ```typescript
-whereIsIn(field: string, array?: unknown[]): this
-andWhereIsIn(field: string, array?: unknown[]): this
-orWhereIsIn(field: string, array?: unknown[]): this
+whereIsIn(field: string, array?: readonly unknown[]): this
+andWhereIsIn(field: string, array?: readonly unknown[]): this
+orWhereIsIn(field: string, array?: readonly unknown[]): this
 
-whereIsNotIn(field: string, array?: unknown[]): this
-andWhereIsNotIn(field: string, array?: unknown[]): this
-orWhereIsNotIn(field: string, array?: unknown[]): this
+whereIsNotIn(field: string, array?: readonly unknown[]): this
+andWhereIsNotIn(field: string, array?: readonly unknown[]): this
+orWhereIsNotIn(field: string, array?: readonly unknown[]): this
 ```
 
 ## Arguments
 
 - field: string: Column to compare, e.g. `'user.id'`. It is quoted as an SQL identifier: `"user"."id"`.
-- array?: unknown[]: Values to compare with.
+- array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 
 Like TypeORM's `where`, `whereIsIn` / `whereIsNotIn` replace previously set WHERE conditions; use the `and` / `or` variants to add to them.
 
