@@ -74,9 +74,21 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	isNotNull(columnName: keyof T) {
 		return this.where(columnName, 'IS NOT NULL');
 	},
-	/** Returns `CAST(COUNT("alias"."column") AS integer)`. Counts all rows if no column given. */
+	/**
+	 * Returns `CAST(COUNT("alias"."column") AS integer)`.
+	 * Counts all rows if no column given: `COUNT("alias".*)`, or `COUNT(*)` without an alias.
+	 */
 	count(columnName?: keyof T, countExpression?: string) {
-		const target = columnName ? this.column(columnName) : `${stringToSQLIdentifier(this.alias ?? '')}.*`;
+		const { useQuotes = true } = options;
+
+		let target: string;
+		if (columnName) {
+			target = this.column(columnName);
+		} else if (this.alias) {
+			target = `${useQuotes ? stringToSQLIdentifier(this.alias) : this.alias}.*`;
+		} else {
+			target = '*';
+		}
 		const countArgs = [target, countExpression].filter(Boolean).join(' ');
 		return this.cast(`COUNT(${countArgs})`, 'integer');
 	},
