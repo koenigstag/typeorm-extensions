@@ -7,8 +7,7 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
-import { getKeyPrefixAlias } from '../../../utils/query-builder.utils';
+import { getTypedColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereAnyMethods } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
@@ -188,8 +187,7 @@ function attachWhereIsAnyTyped<
     return builder;
   }
 
-  const alias = getKeyPrefixAlias(builder);
-  const key = getSqlKeyFromProxyCallback<Type>(where, alias);
+  const key = getTypedColumnKey<Type>(builder, where);
 
   if (Array.isArray(key)) {
     // one ANY condition per column has no single obvious meaning (AND? OR?), so don't guess
