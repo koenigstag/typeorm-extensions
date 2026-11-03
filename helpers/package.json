@@ -1,0 +1,7 @@
+{
+  "name": "typeorm-extensions/helpers",
+  "private": true,
+  "main": "../dist/helpers.js",
+  "types": "../dist/helpers.d.ts",
+  "sideEffects": false
+}
