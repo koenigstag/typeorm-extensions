@@ -257,7 +257,7 @@ function attachTypedWhere<
   parameters?: unknown,
   options?: TypedWhereOptions
 ): QB {
-  const { useQuotes, addValue = true } = options || {};
+  const { useQuotes, addValue } = options || {};
 
   if (typeof where === 'function') {
     const alias = (builder as unknown as SelectQueryBuilder<Type>).alias;

@@ -14,6 +14,28 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   return `:${paramName}`;
 }
 
+/**
+ * Checks whether `conditions` already references a key of `params` as a TypeORM
+ * named parameter (`:key` or `:...key`). Matches parameters the same way TypeORM does,
+ * so `::type` casts and colons inside literals don't count unless they name a `params` key.
+ */
+export function hasParamPlaceholder(conditions: string, params?: unknown): boolean {
+  if (params === null || typeof params !== 'object' || Array.isArray(params)) {
+    return false;
+  }
+
+  const placeholderRegex = /:(?:\.\.\.)?([A-Za-z0-9_.]+)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = placeholderRegex.exec(conditions)) !== null) {
+    if (Object.prototype.hasOwnProperty.call(params, match[1])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function attachWhere<QB extends WhereExpressionBuilder>(
   builder: QB,
   method: WhereMethods,
@@ -28,8 +50,8 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
     field = stringToSQLIdentifier(field);
 
     const hasParams = typeof params !== 'undefined';
-    // `addValue` defaults to `true` only if `conditions` does not already include value placeholder :value
-    addValue = addValue ?? !conditions.includes(':');
+    // `addValue` defaults to `true` unless `conditions` already references one of the `params` keys
+    addValue = addValue ?? !hasParamPlaceholder(conditions, params);
 
     if (addValue && hasParams) {
       // pick first value from params object or pass as is
