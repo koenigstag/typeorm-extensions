@@ -28,7 +28,7 @@ tableHelper<Entity>(
 
 ## Methods
 
-All examples use `const t = tableHelper<UserEntity>('user')`.
+All examples use `const t = tableHelper<UserEntity>('user')` and `const image = tableHelper<ImageEntity>('images')`.
 
 | Method | Example | Result |
 |---|---|---|
@@ -36,7 +36,7 @@ All examples use `const t = tableHelper<UserEntity>('user')`.
 | | `t.column('id', 'u')` | `"u"."id"` |
 | `where(column, expression?)` | `t.where('id', '= :id')` | `"user"."id" = :id` |
 | `join(relation)` | `t.join('images')` | `user.images` |
-| `joinOn(column, expression)` | `t.joinOn('id', '= images.userId')` | `"user"."id" = images.userId` |
+| `joinOn(column, expression)` | `t.joinOn('id', '= ' + image.column('userId'))` | `"user"."id" = "images"."userId"` |
 | `isNull(column)` | `t.isNull('deletedAt')` | `"user"."deletedAt" IS NULL` |
 | `isNotNull(column)` | `t.isNotNull('email')` | `"user"."email" IS NOT NULL` |
 | `count(column?, countExpression?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
@@ -49,6 +49,7 @@ Notes:
 - Without an alias, `column()` returns just the column (`"email"`) and `count()` counts `*`. `join()` needs an alias.
 - `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number.
 - `countExpression` is appended after the column inside `COUNT(...)`.
+- `expression` in `where()` / `joinOn()` is inserted as is. Build columns in it with `tableHelper` too, as in the `joinOn` example: TypeORM rewrites an unquoted `alias.property` only for aliases of entities it knows. For a subquery or raw table join, `img.userId` reaches the database unchanged and PostgreSQL folds it to `img.userid`, which doesn't exist.
 
 ## JSONB
 
