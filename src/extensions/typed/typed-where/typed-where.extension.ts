@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
+import { getKeyPrefixAlias } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
@@ -260,7 +261,7 @@ function attachTypedWhere<
   const { useQuotes, addValue } = options || {};
 
   if (typeof where === 'function') {
-    const alias = (builder as unknown as SelectQueryBuilder<Type>).alias;
+    const alias = getKeyPrefixAlias(builder);
     const key = getSqlKeyFromProxyCallback<Type>(where, alias, useQuotes);
 
     if (Array.isArray(key)) {
