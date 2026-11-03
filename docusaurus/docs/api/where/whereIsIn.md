@@ -28,7 +28,7 @@ orWhereIsNotIn(field: string, array?: readonly unknown[]): this
 
 ## Arguments
 
-- field: string: Column to compare, e.g. `'user.id'`. It is quoted as an SQL identifier: `"user"."id"`.
+- field: string: Column to compare, e.g. `'user.id'`, which is quoted as an SQL identifier: `"user"."id"` (already quoted parts are kept). An expression such as `LOWER(u.email)`, `COALESCE(a."x", b."x")` or `u.id::text` is used as is.
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 
 Like TypeORM's `where`, `whereIsIn` / `whereIsNotIn` replace previously set WHERE conditions; use the `and` / `or` variants to add to them.
@@ -43,6 +43,12 @@ query.whereIsIn('user.id', [1, 2, 3])
 ```typescript
 // same as `query.andWhere('"user"."status" NOT IN (:...statuses)', { statuses: ['banned'] })`
 query.andWhereIsNotIn('user.status', ['banned'])
+```
+
+```typescript
+// expressions are used as is
+// same as `query.where('LOWER(u.email) IN (:...emails)', { emails })`
+query.whereIsIn('LOWER(u.email)', emails)
 ```
 
 ```typescript

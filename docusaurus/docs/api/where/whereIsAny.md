@@ -26,7 +26,7 @@ orWhereIsAny(field: string, array?: readonly unknown[]): this
 
 ## Arguments
 
-- field: string: Column to compare, e.g. `'user.id'`. It is quoted as an SQL identifier: `"user"."id"`.
+- field: string: Column to compare, e.g. `'user.id'`, which is quoted as an SQL identifier: `"user"."id"` (already quoted parts are kept). An expression such as `LOWER(u.email)`, `COALESCE(a."x", b."x")` or `u.id::text` is used as is.
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 
 Like TypeORM's `where`, `whereIsAny` replaces previously set WHERE conditions; use `andWhereIsAny` / `orWhereIsAny` to add to them.

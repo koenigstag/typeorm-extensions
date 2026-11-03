@@ -7,7 +7,7 @@ sidebar_position: 4
 ## Description
 `whereTyped` is a method that applies typesafe condition to a query.
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`, together with `andWhereTyped` and `orWhereTyped`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`, together with `andWhereTyped` and `orWhereTyped`. On `UpdateQueryBuilder` / `DeleteQueryBuilder` the column isn't prefixed with an alias (`UPDATE "users" … WHERE "firstName" = …`), since UPDATE / DELETE statements have none.
 
 ## Signature
 ```typescript
