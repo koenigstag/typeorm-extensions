@@ -7,3 +7,4 @@ export * from './typed-order-by/typed-order-by.extension';
 export * from './typed-select/typed-select.extension';
 export * from './typed-where/typed-where.extension';
 export * from './typed-where/typed-where-is-in.extension';
+export * from './typed-where/typed-where-is-any.extension';
