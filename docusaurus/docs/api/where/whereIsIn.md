@@ -1,0 +1,51 @@
+---
+sidebar_position: 2
+---
+
+# whereIsIn
+
+## Description
+
+`whereIsIn` and `whereIsNotIn` add `IN` / `NOT IN` conditions with a uniquely named array parameter, so several of them can be combined in one query without parameter name clashes.
+
+An empty (or missing) array doesn't produce invalid SQL like `IN ()`:
+- `IN` with an empty array becomes `FALSE` (no rows match);
+- `NOT IN` with an empty array becomes `TRUE` (the condition doesn't filter anything).
+
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+
+## Signature
+
+```typescript
+whereIsIn(field: string, array?: unknown[]): this
+andWhereIsIn(field: string, array?: unknown[]): this
+orWhereIsIn(field: string, array?: unknown[]): this
+
+whereIsNotIn(field: string, array?: unknown[]): this
+andWhereIsNotIn(field: string, array?: unknown[]): this
+orWhereIsNotIn(field: string, array?: unknown[]): this
+```
+
+## Arguments
+
+- field: string: Column to compare, e.g. `'user.id'`. It is quoted as an SQL identifier: `"user"."id"`.
+- array?: unknown[]: Values to compare with.
+
+Like TypeORM's `where`, `whereIsIn` / `whereIsNotIn` replace previously set WHERE conditions; use the `and` / `or` variants to add to them.
+
+## Usage
+
+```typescript
+// same as `query.where('"user"."id" IN (:...ids)', { ids: [1, 2, 3] })`
+query.whereIsIn('user.id', [1, 2, 3])
+```
+
+```typescript
+// same as `query.andWhere('"user"."status" NOT IN (:...statuses)', { statuses: ['banned'] })`
+query.andWhereIsNotIn('user.status', ['banned'])
+```
+
+```typescript
+// same as `query.where('FALSE')`: no rows
+query.whereIsIn('user.id', [])
+```
