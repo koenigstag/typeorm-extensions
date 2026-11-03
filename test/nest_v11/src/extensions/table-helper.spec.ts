@@ -93,6 +93,18 @@ describe('tableHelper', () => {
       expect(table.count()).toBe('CAST(COUNT("user".*) AS integer)');
     });
 
+    it('SHOULD return COUNT(*) when no column and no alias', () => {
+      const table = tableHelper<UserEntity>();
+
+      expect(table.count()).toBe('CAST(COUNT(*) AS integer)');
+    });
+
+    it('SHOULD return unquoted alias.* when useQuotes is false', () => {
+      const table = tableHelper<UserEntity>('user', { useQuotes: false });
+
+      expect(table.count()).toBe('CAST(COUNT(user.*) AS integer)');
+    });
+
     it('SHOULD include count expression', () => {
       const table = tableHelper<UserEntity>('user');
 
