@@ -23,7 +23,7 @@ innerJoinAndSelectTyped(selection, alias, condition?, parameters?): SelectQueryB
 
 ## Arguments
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects a relation of entity.
-- alias: string: Alias of the joined relation. Use the relation's property name (e.g. `'images'` for `user.images`) to reference its columns with typed methods, see [KeyProxyCallback](./types/KeyProxyCallback.md).
+- alias: string: Alias of the joined relation. Use the relation's property name (e.g. `'images'` for `user.images`) to reference its columns with typed methods as `user => user.images.url`. For any other alias, type the callbacks by the query's aliases, see [Typing joined aliases](./types/KeyProxyCallback.md#typing-joined-aliases).
 - condition?: string: Additional join condition.
 - parameters?: ObjectLiteral: Parameters for the condition.
 
