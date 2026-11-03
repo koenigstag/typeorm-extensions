@@ -33,6 +33,8 @@
 - `whereIsNotInTyped` / `andWhereIsNotInTyped` / `orWhereIsNotInTyped` on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder` now default `Type` to the builder's entity, like the `IsIn` variants. Previously the callback accepted any property. (#4)
 - `whereTyped` / `andWhereTyped` / `orWhereTyped`: when `options.addValue` is not set, it now defaults to `false` if `condition` already references a key of `params` (`'= :id'` with `{ id }`, `'IN (:...ids)'` with `{ ids }`). Previously a second placeholder was appended and the SQL was invalid. `::type` casts and colons inside literals are not treated as placeholders. (#6)
 - `whereIsIn` / `whereIsNotIn` and their `and` / `or` and typed variants accept readonly arrays and `as const` constants: the values argument (`ArgsType`) is now `readonly unknown[]`. Previously they failed to type-check with TS2345. (#11)
+- Fields of `whereIsIn` / `whereIsNotIn` / `whereIsAny` and of the typed where methods: only a path of identifiers is quoted (`user.id` → `"user"."id"`, `user.*` → `"user".*`); an expression such as `COALESCE(ts."instructorId", e."instructorId")`, `LOWER(u.email)` or `u.id::text` is used as is. Previously it was split on dots and quoted piece by piece into invalid SQL. (#14)
+- Typed where methods on `UpdateQueryBuilder` / `DeleteQueryBuilder` no longer qualify the column with the alias: `WHERE "firstName" = …` instead of `WHERE "UserEntity"."firstName" = …`, which PostgreSQL accepted only when the alias equaled the table name and SQLite rejected. (#15)
 
 ### Improvements
 
