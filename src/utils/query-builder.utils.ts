@@ -33,6 +33,21 @@ function getAliasMetadata(
   return alias?.hasMetadata ? alias.metadata : undefined;
 }
 
+/**
+ * Database name of an entity property's column (`@Column({ name })`), looked up in the metadata of
+ * a query alias (the main alias when `aliasName` is undefined). `undefined` when the alias has no
+ * entity or the property isn't a column.
+ */
+export function getColumnDatabaseName(
+  builder: WhereExpressionBuilder,
+  aliasName: string | undefined,
+  propertyPath: string
+): string | undefined {
+  const metadata = getAliasMetadata(builder as unknown as QueryBuilder<ObjectLiteral>, aliasName);
+
+  return metadata?.findColumnWithPropertyPath(propertyPath)?.databaseName;
+}
+
 interface ResolvedTypedKey {
   /** Alias to qualify the column with; undefined on UPDATE / DELETE. */
   aliasName: string | undefined;
