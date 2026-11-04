@@ -50,6 +50,7 @@
 - Typed keys on embedded columns (`p => p.address.city`) resolve to the main alias column (`"p"."addressCity"`) in where, select, orderBy and distinctOn, instead of being read as alias `address`. With `useQuotes`, `selectTyped` / `orderByTyped` emit database column names, and an array of callbacks in `selectTyped` honors `useQuotes`. (#20)
 - `whereTyped` / `andWhereTyped` / `orWhereTyped` bind a `Date` (or a `Buffer` / typed array) as the value. Previously it was read as a params object: a `Date` has no own keys, so `whereTyped(u => u.createdAt, '>', date)` compared with `NULL` and returned nothing, and a `Buffer` was bound as its first byte. An invalid `Date` compares with `NULL`, like `NaN`. Class instances with named placeholders still work as params objects. (#22)
 - `stringToSQLIdentifier` quotes with backticks for MariaDB too, not only `mysql` / `aurora-mysql`. (#21)
+- `applyOrder` / `applyOrderFilter` order by the database column of the field (`@Column({ name })`): `{ field: 'createdAt' }` with `@Column({ name: 'created_at' })` is ordered by `"created_at"`. Previously the property name was used and the query failed (`column user.createdAt does not exist`). An unquoted `alias.property` is still left to TypeORM, which maps it itself. (#26)
 
 ### Improvements
 
