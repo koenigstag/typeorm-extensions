@@ -138,7 +138,6 @@ describe('tableHelper column names', () => {
     const t = tableHelper<Legacy>('user-1');
 
     expect(t.column('id')).toBe('"user-1"."id"');
-    expect(t.count()).toBe('CAST(COUNT("user-1".*) AS integer)');
     expect(tableHelper<Legacy>('public.users').column('id')).toBe('"public"."users"."id"');
   });
 });

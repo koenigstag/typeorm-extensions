@@ -55,6 +55,8 @@ describe('tableHelper', () => {
       const table = tableHelper<UserEntity>('user');
 
       expect(table.join('images')).toBe('user.images');
+      expect(table.join('images', 'u')).toBe('u.images');
+      expect(() => tableHelper<UserEntity>().join('images')).toThrow(/needs an alias/);
     });
   });
 
@@ -89,10 +91,11 @@ describe('tableHelper', () => {
       expect(table.count('id')).toBe('CAST(COUNT("user"."id") AS integer)');
     });
 
-    it('SHOULD return COUNT with alias.* when no column', () => {
+    it('SHOULD return COUNT(*) when no column, with or without an alias', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.count()).toBe('CAST(COUNT("user".*) AS integer)');
+      // not COUNT("user".*), which only PostgreSQL accepts
+      expect(table.count()).toBe('CAST(COUNT(*) AS integer)');
     });
 
     it('SHOULD return COUNT(*) when no column and no alias', () => {
@@ -101,18 +104,48 @@ describe('tableHelper', () => {
       expect(table.count()).toBe('CAST(COUNT(*) AS integer)');
     });
 
-    it('SHOULD return unquoted alias.* when useQuotes is false', () => {
+    it('SHOULD return COUNT(*) when useQuotes is false too', () => {
       const table = tableHelper<UserEntity>('user', { useQuotes: false });
 
-      expect(table.count()).toBe('CAST(COUNT(user.*) AS integer)');
+      expect(table.count()).toBe('CAST(COUNT(*) AS integer)');
     });
 
-    it('SHOULD include count expression', () => {
+    it('SHOULD count distinct values of a column', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.count('id', 'FILTER (WHERE "user"."id" > 5)')).toBe(
-        'CAST(COUNT("user"."id" FILTER (WHERE "user"."id" > 5)) AS integer)'
+      expect(table.count('email', { distinct: true })).toBe('CAST(COUNT(DISTINCT "user"."email") AS integer)');
+      expect(() => table.count(undefined, { distinct: true })).toThrow(/needs a column/);
+    });
+
+    it('SHOULD count rows matching a condition with CASE by default', () => {
+      const table = tableHelper<UserEntity>('user');
+      const filter = table.where('firstName', "= 'Ann'");
+
+      expect(table.count(undefined, { filter })).toBe(
+        `CAST(COUNT(CASE WHEN "user"."firstName" = 'Ann' THEN 1 END) AS integer)`
       );
+      expect(table.count('email', { filter, distinct: true })).toBe(
+        `CAST(COUNT(DISTINCT CASE WHEN "user"."firstName" = 'Ann' THEN "user"."email" END) AS integer)`
+      );
+    });
+
+    it('SHOULD count rows matching a condition with FILTER on request', () => {
+      const table = tableHelper<UserEntity>('user');
+      const filter = table.where('firstName', "= 'Ann'");
+
+      expect(table.count(undefined, { filter, syntax: 'filter' })).toBe(
+        `CAST(COUNT(*) FILTER (WHERE "user"."firstName" = 'Ann') AS integer)`
+      );
+      expect(table.count('email', { filter, distinct: true, syntax: 'filter' })).toBe(
+        `CAST(COUNT(DISTINCT "user"."email") FILTER (WHERE "user"."firstName" = 'Ann') AS integer)`
+      );
+    });
+
+    it('SHOULD reject the old string argument and unknown syntaxes', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(() => table.count('id', 'DISTINCT' as never)).toThrow(/options object/);
+      expect(() => table.count('id', { filter: 'x', syntax: 'where' as never })).toThrow(/'case' or 'filter'/);
     });
   });
 
