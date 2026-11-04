@@ -13,7 +13,7 @@ import { patchPrototype } from '../../../utils/prototype.utils';
 
 export interface TypedReturningMethods<Entity extends ObjectLiteral> {
   /**
-   * Sets the columns to return from entity properties: `RETURNING` on PostgreSQL, `OUTPUT` on SQL Server.
+   * Sets the columns to return from entity properties: `RETURNING` on PostgreSQL and MariaDB, `OUTPUT` on SQL Server.
    * `returningTyped(u => [u.id, u.status])` returns the columns of `id` and `status`, whatever their
    * database names; the rows come in `execute()`'s `raw`. A property that isn't a column of the
    * entity throws a `TypeError` (TypeORM's `returning([...])` silently skips it).

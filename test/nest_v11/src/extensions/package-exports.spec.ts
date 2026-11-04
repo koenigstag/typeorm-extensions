@@ -10,4 +10,13 @@ describe('package root exports', () => {
   it('SHOULD build the same SQL via the root export', () => {
     expect(lib.tableHelper('user').column('id')).toBe('"user"."id"');
   });
+
+  it('SHOULD export InvalidCursorError, but not internal helpers', () => {
+    expect(new lib.InvalidCursorError('x')).toBeInstanceOf(TypeError);
+    expect(new lib.InvalidCursorError('x').name).toBe('InvalidCursorError');
+
+    for (const name of ['attachPeriodFilter', 'attachOrderByArrayPosition', 'encodeCursor', 'andWhereNarrowing']) {
+      expect(lib).not.toHaveProperty(name);
+    }
+  });
 });
