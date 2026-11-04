@@ -157,7 +157,7 @@ const attachSelectMethod = <
   if (Array.isArray(selection)) {
     const arrayOfKeys = selection.flatMap((select) =>
       select instanceof KeyHolder
-        ? (getSqlKeyFromProxyCallback<Type>(select, query.alias, useQuotes) as string)
+        ? (getSqlKeyFromProxyCallback<Type>(select, () => query.alias, useQuotes) as string)
         : getTypedSelectionKey<Type>(query, select, useQuotes)
     );
 

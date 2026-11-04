@@ -1,4 +1,5 @@
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
+import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
 import { createFakeUsers, setupTest } from '../test-utils';
 import { UserEntity } from '../models';
 
@@ -74,5 +75,32 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
     expect(result).toHaveLength(users.length);
     expect(result[0].id).toBeDefined();
     expect(result[0].id).toEqual(fakeUsers[9].id);
+  });
+
+  it('SHOULD accept TypedOrderByOptions in orderByTyped and addOrderByTyped', () => {
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderByTyped((u) => u.lastName, 'ASC', undefined, { useQuotes: true })
+      .addOrderByTyped((u) => u.firstName, 'DESC', 'NULLS LAST', { useQuotes: true });
+
+    expect(query.expressionMap.orderBys).toEqual({
+      '"user"."lastName"': 'ASC',
+      '"user"."firstName"': { order: 'DESC', nulls: 'NULLS LAST' },
+    });
+  });
+
+  it('SHOULD apply useQuotes to a KeyHolder', () => {
+    const holder = new KeyHolder(['user', 'email']);
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderByTyped(holder as never, 'ASC', undefined, { useQuotes: true })
+      .addOrderByTyped(new KeyHolder(['user', 'id']) as never, 'DESC');
+
+    expect(query.expressionMap.orderBys).toEqual({
+      '"user"."email"': 'ASC',
+      'user.id': 'DESC',
+    });
   });
 });
