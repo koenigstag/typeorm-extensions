@@ -22,16 +22,21 @@ const IDENTIFIER_PATH_SEGMENT = new RegExp(`${IDENTIFIER}|\\*`, 'gu');
 export const isMysqlLikeDriver = (driver?: DatabaseType): boolean =>
   driver === 'mysql' || driver === 'mariadb' || driver === 'aurora-mysql';
 
+// `string[]`: TypeORM 1.0 removed the `sqlite` driver from `DatabaseType`, 0.3.x still has it
+const SQLITE_LIKE_DRIVERS: readonly string[] = [
+  'sqlite',
+  'better-sqlite3',
+  'sqljs',
+  'capacitor',
+  'cordova',
+  'expo',
+  'nativescript',
+  'react-native',
+];
+
 /** SQLite drivers: `IS` / `IS NOT` are null-safe comparisons. */
 export const isSqliteLikeDriver = (driver?: DatabaseType): boolean =>
-  driver === 'sqlite' ||
-  driver === 'better-sqlite3' ||
-  driver === 'sqljs' ||
-  driver === 'capacitor' ||
-  driver === 'cordova' ||
-  driver === 'expo' ||
-  driver === 'nativescript' ||
-  driver === 'react-native';
+  driver !== undefined && SQLITE_LIKE_DRIVERS.includes(driver);
 
 /** Database type of the query builder's connection, e.g. `'postgres'`; undefined without one. */
 export function getDriverType(builder: WhereExpressionBuilder): DatabaseType | undefined {

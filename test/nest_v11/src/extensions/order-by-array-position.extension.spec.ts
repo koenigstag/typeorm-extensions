@@ -19,7 +19,8 @@ setupTest('order-by-array-position.sql', undefined, (context) => {
     const [, alias] = sql.match(/array_position\(:position_\w+, "user"\."id"\) AS "(array_position_\w+)"/) ?? [];
 
     expect(alias).toBe(alias?.toLowerCase());
-    expect(sql).toMatch(new RegExp(`ORDER BY ${alias} ASC NULLS LAST$`));
+    // TypeORM 1.x quotes the alias in ORDER BY, 0.3.x leaves it as is
+    expect(sql).toMatch(new RegExp(`ORDER BY "?${alias}"? ASC NULLS LAST$`));
     expect(Object.values(query.getParameters())).toEqual([[3, 1, 2]]);
   });
 
@@ -32,7 +33,7 @@ setupTest('order-by-array-position.sql', undefined, (context) => {
       .getQuery();
 
     expect(sql).toMatch(/array_position\(CAST\(:position_\w+ AS int\[\]\), "user"\."id"\)/);
-    expect(sql).toMatch(/ORDER BY "user"\."email" ASC, array_position_\w+ ASC NULLS LAST$/);
+    expect(sql).toMatch(/ORDER BY "user"\."email" ASC, "?array_position_\w+"? ASC NULLS LAST$/);
   });
 
   it('SHOULD take the database column from the typed callback', () => {
