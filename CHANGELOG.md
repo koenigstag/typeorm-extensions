@@ -33,6 +33,10 @@
   - `whereArrayContains` / `whereArrayContainedBy` / `whereArrayOverlaps`: `@>`, `<@`, `&&` on array columns, the values bound as one array parameter, with an optional `arrayType` cast.
   - `whereJsonContains` / `whereJsonHasKey`: `@>` and `?` on the column cast to `jsonb`, so `json` and `simple-json` columns work too; on `jsonb` columns the cast is dropped and a GIN index is still used.
 - **`whereIsDistinctFrom` / `whereIsNotDistinctFrom`** (+ `and` / `or` and typed variants): null-safe comparisons, where `NULL` equals `NULL`. `IS [NOT] DISTINCT FROM` on PostgreSQL and most databases, `<=>` on MySQL / MariaDB, `IS [NOT]` on SQLite. (#21)
+- **`PeriodFilter` + `applyPeriodFilter` / `applyPeriodFilterTyped`** (Select, Update, Delete; any database): `{ periodFrom?, periodTo? }` of `Date | string` adds `column >= periodFrom` / `column <= periodTo` with AND around the existing conditions. Missing or empty ends are skipped; `includeFrom` / `includeTo: false` exclude an end; a date-only string is a whole day (`periodTo: '2024-01-31'` → `< '2024-02-01'`). (#23)
+- **`getManyWithCursor(cursorFilter, { orderBy })`**: keyset (cursor) pagination returning `{ list, nextCursor }`. The primary key is appended to the order, date / time keys keep the database's precision (PostgreSQL microseconds), and an invalid cursor throws the exported `InvalidCursorError`. (#23)
+- **`orderByArrayPosition` / `addOrderByArrayPosition`** (+ typed, PostgreSQL): order by the position of the column's value in an array, also with `take` and joins. (#23)
+- **`returningTyped(x => [x.id, x.status])`** on Insert, Update, Delete and SoftDelete builders: RETURNING columns from entity properties, throwing for properties that aren't columns. (#23)
 
 ### Bug Fixes
 
