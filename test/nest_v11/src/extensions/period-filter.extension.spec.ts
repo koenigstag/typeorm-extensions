@@ -25,7 +25,7 @@ setupTest('period-filter.sql', undefined, (context) => {
       .applyPeriodFilter('user.createdAt', { periodFrom: from, periodTo: to });
 
     expect(query.getQuery()).toMatch(
-      /WHERE user\.id > 0 AND "user"\."createdAt" >= :periodFrom_\w+ AND "user"\."createdAt" <= :periodTo_\w+/,
+      /WHERE "user"\."id" > 0 AND "user"\."createdAt" >= :periodFrom_\w+ AND "user"\."createdAt" <= :periodTo_\w+/,
     );
     expect(Object.values(query.getParameters())).toEqual([from, to]);
   });
