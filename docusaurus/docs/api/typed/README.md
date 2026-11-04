@@ -17,8 +17,11 @@ This category provides a set of extensions for typed features. Instead of column
 - [whereArrayContainsTyped / ContainedByTyped / OverlapsTyped](./whereArrayTyped): add typesafe array column conditions to a query (only PostgreSQL).
 - [whereJsonContainsTyped / whereJsonHasKeyTyped](./whereJsonTyped): add typesafe JSON column conditions to a query (only PostgreSQL).
 - [whereIsDistinctFromTyped](./whereIsDistinctFromTyped): add typesafe null-safe comparison to a query.
+- [applyPeriodFilterTyped](./applyPeriodFilterTyped): filter by a period of a typesafe date / time property.
 - [orderByTyped](./orderByTyped): add typesafe order to a query.
 - [distinctOnTyped](./distinctOnTyped): add typesafe distinct on to a query (only PostgreSQL).
+- [orderByArrayPositionTyped](./orderByArrayPositionTyped): order by the position of a property's value in an array (only PostgreSQL).
+- [returningTyped](./returningTyped): return typesafe columns from INSERT / UPDATE / DELETE (PostgreSQL, MariaDB, SQL Server).
 
 ### Types:
 - [KeyProxyCallback](./types/KeyProxyCallback): the callback that selects entity properties, and how it maps to SQL keys.

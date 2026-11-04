@@ -11,6 +11,7 @@ This category provides a set of extensions for pagination features.
 ### Methods
 - [applyPaginationFilter](./applyPaginationFilter): apply pagination to a query.
 - [getManyWithTotals](./getManyWithTotals): load a page of entities together with the total count.
+- [getManyWithCursor](./getManyWithCursor): load a page with keyset (cursor) pagination, for feeds and large tables.
 
 ### Types
 - [PaginationFilter](./types/PaginationFilter): interface that represents a pagination filter.

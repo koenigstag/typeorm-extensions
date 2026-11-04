@@ -8,9 +8,9 @@ This package provides a set of extensions for [TypeORM](https://www.npmjs.com/pa
 
 ## Features
 
-- **Pagination**: apply pagination to a query, or load a page together with the total count (`getManyWithTotals`).
-- **Order**: apply order to a query from a filter object.
-- **Where IN / ANY**: `whereIsIn` / `whereIsNotIn` conditions that handle empty arrays, and `whereIsAny` for `= ANY(array)` with the array bound as one parameter (only PostgreSQL).
+- **Pagination**: apply pagination to a query, load a page together with the total count (`getManyWithTotals`), or page with a cursor (`getManyWithCursor`).
+- **Order**: apply order to a query from a filter object, or by the position in an array of ids (`orderByArrayPosition`, only PostgreSQL).
+- **Where**: `whereIsIn` / `whereIsNotIn` conditions that handle empty arrays; `whereIsAny` for `= ANY(array)` with the array bound as one parameter, array and JSON operators (only PostgreSQL); null-safe `whereIsDistinctFrom`; period filters (`applyPeriodFilter`).
 - **Typed**: typesafe methods for the query builder.
   - `selectTyped` - select fields.
   - `joinTyped` - apply join conditions.
@@ -19,6 +19,7 @@ This package provides a set of extensions for [TypeORM](https://www.npmjs.com/pa
   - `whereIsAnyTyped` - apply where `= ANY(array)` conditions (only PostgreSQL).
   - `orderByTyped` - apply order conditions.
   - `distinctOnTyped` - apply distinct on conditions (only PostgreSQL).
+  - `returningTyped` - return columns from INSERT / UPDATE / DELETE.
 - **tableHelper**: typesafe helper for building SQL fragments: column references, conditions, joins, counts and JSONB paths.
 
 ## Getting Started
