@@ -56,3 +56,51 @@ jobs:
       - name: Run tests
         run: npm run test
         working-directory: ${{ env.TEST_WORKING_DIR }}
+
+  # the peer range `^0.3.12 || ^1.0.0`: its lowest version and the latest 0.3.x and 1.x
+  nest-test-typeorm:
+    name: nest-test (typeorm ${{ matrix.typeorm }})
+    runs-on: ubuntu-latest
+    needs: nest-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - typeorm: '0.3.12'
+            extra-packages: ''
+            jest-config: jest.config.ts
+          - typeorm: '^0.3'
+            extra-packages: ''
+            jest-config: jest.config.ts
+          # TypeORM 1.x needs better-sqlite3 12; its config replaces @nestjs/typeorm, see jest.typeorm1.config.ts
+          - typeorm: '^1'
+            extra-packages: 'better-sqlite3@^12'
+            jest-config: jest.typeorm1.config.ts
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js 20 (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install nest dependencies
+        run: npm clean-install
+        working-directory: ${{ env.TEST_WORKING_DIR }}
+
+      - name: Install TypeORM ${{ matrix.typeorm }}
+        run: |
+          npm install --no-save --legacy-peer-deps "typeorm@${{ matrix.typeorm }}" ${{ matrix.extra-packages }}
+          grep -m1 '"version"' node_modules/typeorm/package.json
+        working-directory: ${{ env.TEST_WORKING_DIR }}
+
+      - name: Run tests
+        run: npm run test -- --config ${{ matrix.jest-config }}
+        working-directory: ${{ env.TEST_WORKING_DIR }}
+
+      - name: Type-check the library against TypeORM ${{ matrix.typeorm }}
+        run: |
+          npm install --no-save --legacy-peer-deps "typeorm@${{ matrix.typeorm }}"
+          npx tsc -p . --noEmit
