@@ -8,3 +8,7 @@ local/
 
 .vscode/
 .idea/
+
+# playground build output (docusaurus/playground/build.mjs)
+docusaurus/static/playground-assets
+docusaurus/playground/.generated
