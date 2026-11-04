@@ -4,13 +4,13 @@ import {
   ObjectLiteral,
   UpdateQueryBuilder,
   DeleteQueryBuilder,
-  QueryBuilder,
   DatabaseType,
 } from 'typeorm';
 import { patchPrototype } from '../utils/prototype.utils';
 import { WhereMethods } from '../types/extensions';
 import {
   createUniqueParameterName,
+  getDriverType,
   isMysqlLikeDriver,
   isSqliteLikeDriver,
   stringToSQLIdentifier,
@@ -114,10 +114,6 @@ queryBuilders.forEach((builder) => {
 });
 
 // implementation
-
-function getDriverType(builder: WhereExpressionBuilder): DatabaseType | undefined {
-  return (builder as unknown as QueryBuilder<ObjectLiteral>).connection?.driver?.options?.type;
-}
 
 /** `field IS [NOT] DISTINCT FROM value` in the database's own null-safe syntax. */
 function buildDistinctCondition(
