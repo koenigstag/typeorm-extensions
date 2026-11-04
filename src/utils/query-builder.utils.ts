@@ -3,20 +3,33 @@ import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import { getKeyHolder, KeyHolder } from './proxy-key.utils';
 
 /**
- * Alias to qualify a single-level typed key with (`user.firstName`).
+ * Whether single-level typed keys are qualified with the main alias (`user.firstName`).
  *
  * UPDATE / DELETE builders turn alias prefixing off (`aliasNamePrefixingEnabled === false`)
  * and render `UPDATE "users" … WHERE …` without an alias, where `"UserEntity"."firstName"`
- * is invalid. Return no alias for them, so the key is just the column: `"firstName"`.
+ * is invalid: their keys are just the column, `"firstName"`.
  */
-export function getKeyPrefixAlias(builder: WhereExpressionBuilder): string | undefined {
-  const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
+function isAliasPrefixingEnabled(queryBuilder: QueryBuilder<ObjectLiteral>): boolean {
+  return queryBuilder.expressionMap?.aliasNamePrefixingEnabled !== false;
+}
 
-  if (queryBuilder.expressionMap?.aliasNamePrefixingEnabled === false) {
-    return undefined;
+/**
+ * Main alias of the query for the single-level key `key`. A query created without an entity
+ * (`dataSource.createQueryBuilder()`, `qb.subQuery()`) has none until `from()`: throw a
+ * `TypeError` that says how to fix the call, instead of TypeORM's "Main alias is not set".
+ */
+function requireMainAliasName(queryBuilder: QueryBuilder<ObjectLiteral>, key: string): string {
+  const mainAlias = queryBuilder.expressionMap?.mainAlias;
+
+  if (!mainAlias) {
+    throw new TypeError(
+      `Typed key "${key}" has no alias and the query has no main alias yet. ` +
+        `Call from() before this method, or address the column by its alias with an alias-keyed type: ` +
+        `type Q = { someAlias: SomeEntity }; (q) => q.someAlias.${key}`
+    );
   }
 
-  return queryBuilder.alias;
+  return mainAlias.name;
 }
 
 /** Entity metadata of a query alias (the main alias when `aliasName` is undefined), if it has any. */
@@ -43,36 +56,58 @@ interface ResolvedTypedKey {
 
 /**
  * Splits typed keys into the alias and the property path they refer to:
- * - `t => t.status` → the query's alias + `status`;
+ * - `t => t.status` → the query's main alias + `status` (no alias on UPDATE / DELETE);
  * - `j => j.t.status`, `u => u.images.url` → the first key, when it is an alias of the query;
  * - `p => p.address.city` → when the first key isn't an alias but the main entity has a column
  *   with that path (an embedded entity), the main alias + `address.city`;
- * - anything else → the first key as the alias (an alias the query builder doesn't know yet).
+ * - anything else → the first key as the alias (an alias the query builder doesn't know yet,
+ *   e.g. `q => q.base.chatRoomId` before `.from(…, 'base')`).
+ *
+ * Only single-level keys need the main alias, so `alias.column` keys work before `from()`.
+ * Their column names can be mapped only through aliases already known to the query, though:
+ * before `from()` the property name is used as the column name.
  */
 function resolveTypedKey(
   queryBuilder: QueryBuilder<ObjectLiteral>,
-  keys: string[],
-  prefixAlias: string | undefined
+  keys: string[]
 ): ResolvedTypedKey {
+  const prefixing = isAliasPrefixingEnabled(queryBuilder);
+
   if (keys.length === 1) {
+    const aliasName = prefixing ? requireMainAliasName(queryBuilder, keys[0]) : undefined;
+
     return {
-      aliasName: prefixAlias,
+      aliasName,
       propertyPath: keys[0],
-      metadata: getAliasMetadata(queryBuilder, prefixAlias),
+      metadata: getAliasMetadata(queryBuilder, aliasName),
     };
   }
 
   const [firstKey, ...restKeys] = keys;
-  const queryAlias = queryBuilder.expressionMap?.aliases.find(
-    (alias) => alias.name === firstKey
-  );
+  const expressionMap = queryBuilder.expressionMap;
+  const mainAlias = expressionMap?.mainAlias;
 
-  if (!queryAlias) {
-    const mainMetadata = getAliasMetadata(queryBuilder, prefixAlias);
+  // UPDATE / DELETE have no alias to qualify with: `u => u.user.firstName` is `"firstName"` there
+  if (!prefixing && mainAlias?.name === firstKey) {
+    return {
+      aliasName: undefined,
+      propertyPath: restKeys.join('.'),
+      metadata: getAliasMetadata(queryBuilder, undefined),
+    };
+  }
+
+  const queryAlias = expressionMap?.aliases.find((alias) => alias.name === firstKey);
+
+  if (!queryAlias && mainAlias) {
+    const mainMetadata = getAliasMetadata(queryBuilder, undefined);
     const embeddedPath = keys.join('.');
 
     if (mainMetadata?.findColumnWithPropertyPath(embeddedPath)) {
-      return { aliasName: prefixAlias, propertyPath: embeddedPath, metadata: mainMetadata };
+      return {
+        aliasName: prefixing ? mainAlias.name : undefined,
+        propertyPath: embeddedPath,
+        metadata: mainMetadata,
+      };
     }
   }
 
@@ -108,10 +143,9 @@ export function getTypedColumnKey<Type extends ObjectLiteral>(
   callback: KeyProxyCallback<Type>
 ): string | string[] {
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
-  const prefixAlias = getKeyPrefixAlias(builder);
 
   const toKey = (keyHolder: KeyHolder): string =>
-    toQuotedColumnKey(queryBuilder, resolveTypedKey(queryBuilder, keyHolder.getKeys(), prefixAlias));
+    toQuotedColumnKey(queryBuilder, resolveTypedKey(queryBuilder, keyHolder.getKeys()));
 
   const keyHolder = getKeyHolder<Type>(callback);
 
@@ -156,10 +190,9 @@ export function getTypedSelectionKey<Type extends ObjectLiteral>(
   }
 
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
-  const prefixAlias = getKeyPrefixAlias(builder);
 
   const toKey = (keyHolder: KeyHolder): string => {
-    const resolved = resolveTypedKey(queryBuilder, keyHolder.getKeys(), prefixAlias);
+    const resolved = resolveTypedKey(queryBuilder, keyHolder.getKeys());
 
     if (useQuotes) {
       return toQuotedColumnKey(queryBuilder, resolved);

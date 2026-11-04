@@ -87,6 +87,26 @@ setupTest('where-typed.update-delete', undefined, (context) => {
     }
   });
 
+  it('SHOULD drop the main alias from alias.column keys on UPDATE / DELETE', async () => {
+    await seed();
+
+    // `u.user.firstName` names the main alias `user`, which UPDATE doesn't render
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .update()
+      .set({ lastName: 'Updated' })
+      .whereTyped<{ user: UserEntity }>((u) => u.user.firstName, '=', 'Carol');
+
+    expect(query.getQuery()).toMatch(/WHERE "firstName" = :where_\w+$/);
+
+    const result = await query.execute();
+    expect(result.affected).toBe(1);
+    expect((await firstNames()).filter((n) => n.endsWith(':Updated'))).toEqual([
+      'Carol:Updated',
+    ]);
+  });
+
   it('SHOULD keep qualifying typed keys on SelectQueryBuilder', () => {
     const query = context.dataSource
       .getRepository(UserEntity)
