@@ -18,6 +18,21 @@ const IDENTIFIER = `(?:${UNQUOTED_IDENTIFIER}|${DOUBLE_QUOTED_IDENTIFIER}|${BACK
 const IDENTIFIER_PATH = new RegExp(`^${IDENTIFIER}(?:\\.${IDENTIFIER})*(?:\\.\\*)?$`, 'u');
 const IDENTIFIER_PATH_SEGMENT = new RegExp(`${IDENTIFIER}|\\*`, 'gu');
 
+/** MySQL, MariaDB and Aurora MySQL: backtick identifiers, `<=>` null-safe comparison. */
+export const isMysqlLikeDriver = (driver?: DatabaseType): boolean =>
+  driver === 'mysql' || driver === 'mariadb' || driver === 'aurora-mysql';
+
+/** SQLite drivers: `IS` / `IS NOT` are null-safe comparisons. */
+export const isSqliteLikeDriver = (driver?: DatabaseType): boolean =>
+  driver === 'sqlite' ||
+  driver === 'better-sqlite3' ||
+  driver === 'sqljs' ||
+  driver === 'capacitor' ||
+  driver === 'cordova' ||
+  driver === 'expo' ||
+  driver === 'nativescript' ||
+  driver === 'react-native';
+
 /**
  * Quotes an identifier path: `user.id` → `"user"."id"`, `user.*` → `"user".*`.
  * Already quoted segments are kept. Anything that isn't a path of identifiers
@@ -31,7 +46,7 @@ export const stringToSQLIdentifier = (
     return str;
   }
 
-  const quote = driver?.includes('mysql')
+  const quote = isMysqlLikeDriver(driver)
     ? wrapWithBackQoutes
     : wrapWithDoubleQoutes;
 
@@ -51,3 +66,23 @@ export const createUniqueParameterName = (prefix?: string): string => {
 
   return `${prefix || 'param'}_${uniqueCode}`;
 };
+
+// a type name, optionally schema-qualified, multi-word (`character varying`), with a
+// modifier (`varchar(255)`) and array brackets: `uuid[]`, `public.order_status[]`, `"MyEnum"[]`
+const TYPE_NAME_PART = '(?:[A-Za-z_][\\w$]*|"(?:[^"]|"")+")';
+const ARRAY_TYPE_PATTERN = new RegExp(
+  `^${TYPE_NAME_PART}(?:\\.${TYPE_NAME_PART})*(?: ${TYPE_NAME_PART})*` +
+    `(?:\\(\\d+(?:, ?\\d+)?\\))?(?:\\[\\d*\\])*$`
+);
+
+/**
+ * Returns `arrayType` if it is a type name (`uuid[]`, `public.order_status[]`, `varchar(36)[]`),
+ * throws a `TypeError` otherwise: the type is inserted into the SQL as is.
+ */
+export function assertArrayType(arrayType: string): string {
+  if (typeof arrayType !== 'string' || !ARRAY_TYPE_PATTERN.test(arrayType)) {
+    throw new TypeError(`Invalid array type "${arrayType}": expected a type name like "uuid[]"`);
+  }
+
+  return arrayType;
+}

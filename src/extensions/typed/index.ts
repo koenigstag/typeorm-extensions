@@ -8,3 +8,6 @@ export * from './typed-select/typed-select.extension';
 export * from './typed-where/typed-where.extension';
 export * from './typed-where/typed-where-is-in.extension';
 export * from './typed-where/typed-where-is-any.extension';
+export * from './typed-where/typed-where-array.extension';
+export * from './typed-where/typed-where-json.extension';
+export * from './typed-where/typed-where-is-distinct-from.extension';
