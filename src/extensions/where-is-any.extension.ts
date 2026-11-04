@@ -9,6 +9,7 @@ import { patchPrototype } from '../utils/prototype.utils';
 import { ArgsType } from '../types/util-types';
 import { WhereMethods } from '../types/extensions';
 import {
+  assertArrayType,
   createUniqueParameterName,
   stringToSQLIdentifier,
 } from '../utils/sql.utils';
@@ -222,23 +223,6 @@ queryBuilders.forEach((builder) => {
 });
 
 // implementation
-
-// a type name, optionally schema-qualified, multi-word (`character varying`), with a
-// modifier (`varchar(255)`) and array brackets: `uuid[]`, `public.order_status[]`, `"MyEnum"[]`
-const TYPE_NAME_PART = '(?:[A-Za-z_][\\w$]*|"(?:[^"]|"")+")';
-const ARRAY_TYPE_PATTERN = new RegExp(
-  `^${TYPE_NAME_PART}(?:\\.${TYPE_NAME_PART})*(?: ${TYPE_NAME_PART})*` +
-    `(?:\\(\\d+(?:, ?\\d+)?\\))?(?:\\[\\d*\\])*$`
-);
-
-function assertArrayType(arrayType: string): string {
-  if (!ARRAY_TYPE_PATTERN.test(arrayType)) {
-    // it is inserted into the SQL as is, so only accept a type name
-    throw new TypeError(`Invalid array type "${arrayType}": expected a type name like "uuid[]"`);
-  }
-
-  return arrayType;
-}
 
 function attachWhereIsAny<QB extends WhereExpressionBuilder>(
   builder: QB,

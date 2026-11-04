@@ -3,4 +3,7 @@ export * from './order.extension';
 export * from './pagination.extension';
 export * from './where-is-in.extension';
 export * from './where-is-any.extension';
+export * from './where-array.extension';
+export * from './where-json.extension';
+export * from './where-is-distinct-from.extension';
 export * from './typed';

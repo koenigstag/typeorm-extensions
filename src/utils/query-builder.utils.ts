@@ -119,6 +119,27 @@ export function getTypedColumnKey<Type extends ObjectLiteral>(
 }
 
 /**
+ * Quoted column of a typed callback that must select exactly one column
+ * (`whereIsAnyTyped`, `whereArrayContainsTyped`, …). Throws a `TypeError` for several columns:
+ * one condition per column has no single obvious meaning (AND? OR?), so don't guess.
+ */
+export function getTypedSingleColumnKey<Type extends ObjectLiteral>(
+  builder: WhereExpressionBuilder,
+  callback: KeyProxyCallback<Type>,
+  methodName: string
+): string {
+  const key = getTypedColumnKey<Type>(builder, callback);
+
+  if (Array.isArray(key)) {
+    throw new TypeError(
+      `${methodName} expects the callback to select a single column, got ${key.length}: ${key.join(', ')}`
+    );
+  }
+
+  return key;
+}
+
+/**
  * Key for typed select / order / distinct on a SelectQueryBuilder.
  *
  * Without quotes it is `alias.propertyPath` (`user.name`, `images.url`, `p.address.city`),
