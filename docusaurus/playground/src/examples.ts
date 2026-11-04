@@ -100,6 +100,24 @@ export default dataSource
 `,
   ),
   example(
+    'search',
+    'Search box: ILIKE across columns',
+    `
+import 'typeorm-extensions';
+import { dataSource, User } from 'playground';
+
+// What someone typed into a search box: trimmed, \`%\` and \`_\` escaped,
+// and a blank value adds no condition at all.
+const search = '  an ';
+
+export default dataSource
+  .getRepository(User)
+  .createQueryBuilder('user')
+  .whereSearchTyped([(u) => u.firstName, (u) => u.lastName, (u) => u.email], search)
+  .andWhereILikeTyped((u) => u.email, 'example.com', { match: 'suffix' });
+`,
+  ),
+  example(
     'arrays-json',
     'Array and JSONB operators',
     `
