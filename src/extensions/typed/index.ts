@@ -12,5 +12,8 @@ export * from './typed-where/typed-where-array.extension';
 export * from './typed-where/typed-where-json.extension';
 export * from './typed-where/typed-where-is-distinct-from.extension';
 export * from './typed-where/typed-period-filter.extension';
+export * from './typed-where/typed-where-ilike.extension';
+export * from './typed-where/typed-where-lower.extension';
+export * from './typed-where/typed-where-similar.extension';
 export * from './typed-returning/typed-returning.extension';
 export * from './typed-order-by/typed-order-by-array-position.extension';

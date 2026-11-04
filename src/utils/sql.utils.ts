@@ -1,4 +1,4 @@
-import { DatabaseType } from 'typeorm';
+import type { DatabaseType, ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
 import { randomString } from './common.utils';
 
 export const wrapWithDoubleQoutes = (str: string) =>
@@ -32,6 +32,11 @@ export const isSqliteLikeDriver = (driver?: DatabaseType): boolean =>
   driver === 'expo' ||
   driver === 'nativescript' ||
   driver === 'react-native';
+
+/** Database type of the query builder's connection, e.g. `'postgres'`; undefined without one. */
+export function getDriverType(builder: WhereExpressionBuilder): DatabaseType | undefined {
+  return (builder as unknown as QueryBuilder<ObjectLiteral>).connection?.driver?.options?.type;
+}
 
 /**
  * Quotes an identifier path: `user.id` → `"user"."id"`, `user.*` → `"user".*`.
