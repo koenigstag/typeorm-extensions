@@ -2,6 +2,7 @@ import type { WhereExpressionBuilder } from 'typeorm';
 import type { PeriodFilter } from '../types/interfaces/period.interface';
 import type { ApplyPeriodOptions } from '../types/extensions/period.types';
 import { createUniqueParameterName } from './sql.utils';
+import { andWhereNarrowing } from './where.utils';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -81,7 +82,8 @@ function getBoundCondition(
 
 /**
  * Adds `column >= :periodFrom` and `column <= :periodTo` conditions (or their exclusive versions) with
- * AND, so the filter narrows whatever WHERE conditions the query already has. `column` is already quoted.
+ * AND, so the filter narrows whatever WHERE conditions the query already has, OR ones included:
+ * `(a OR b) AND column >= …`. `column` is already quoted.
  */
 export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
   builder: QB,
@@ -106,7 +108,7 @@ export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
     const { operator, value } = getBoundCondition(boundary, name, include);
     const paramName = createUniqueParameterName(name);
 
-    builder.andWhere(`${column} ${operator} :${paramName}`, { [paramName]: value });
+    andWhereNarrowing(builder, `${column} ${operator} :${paramName}`, { [paramName]: value });
   }
 
   return builder;

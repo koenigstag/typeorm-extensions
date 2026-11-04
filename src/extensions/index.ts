@@ -7,4 +7,5 @@ export * from './where-array.extension';
 export * from './where-json.extension';
 export * from './where-is-distinct-from.extension';
 export * from './period-filter.extension';
+export * from './cursor-pagination.extension';
 export * from './typed';
