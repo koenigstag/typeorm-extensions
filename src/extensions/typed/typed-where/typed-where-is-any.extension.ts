@@ -19,12 +19,14 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
     /**
      * Sets WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
      * The array is bound as a single parameter instead of one parameter per value.
+     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
     whereIsAnyTyped<Type extends ObjectLiteral>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -32,7 +34,8 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     andWhereIsAnyTyped<Type extends ObjectLiteral>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -40,7 +43,38 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
      */
     orWhereIsAnyTyped<Type extends ObjectLiteral>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Sets WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL):
+     * the column differs from every value of the array.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsNotAnyTyped<Type extends ObjectLiteral>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new AND WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    andWhereIsNotAnyTyped<Type extends ObjectLiteral>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new OR WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    orWhereIsNotAnyTyped<Type extends ObjectLiteral>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
     ): this;
   }
 }
@@ -50,12 +84,14 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     /**
      * Sets WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
      * The array is bound as a single parameter instead of one parameter per value.
+     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
     whereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -63,7 +99,8 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     andWhereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -71,7 +108,38 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      */
     orWhereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Sets WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL):
+     * the column differs from every value of the array.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new AND WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    andWhereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new OR WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    orWhereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
     ): this;
   }
 }
@@ -81,12 +149,14 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
     /**
      * Sets WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
      * The array is bound as a single parameter instead of one parameter per value.
+     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
     whereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -94,7 +164,8 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     andWhereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -102,7 +173,38 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
      */
     orWhereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Sets WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL):
+     * the column differs from every value of the array.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new AND WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    andWhereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new OR WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    orWhereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
     ): this;
   }
 }
@@ -112,12 +214,14 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     /**
      * Sets WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
      * The array is bound as a single parameter instead of one parameter per value.
+     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
     whereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -125,7 +229,8 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     andWhereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
     ): this;
 
     /**
@@ -133,7 +238,38 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
      */
     orWhereIsAnyTyped<Type extends ObjectLiteral = Entity>(
       where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      array?: ArgsType
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Sets WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL):
+     * the column differs from every value of the array.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new AND WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    andWhereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
+    ): this;
+
+    /**
+     * Adds new OR WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    orWhereIsNotAnyTyped<Type extends ObjectLiteral = Entity>(
+      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+      array?: ArgsType,
+      arrayType?: string
     ): this;
   }
 }
@@ -144,13 +280,15 @@ const createWhereIsAnyTypedMethod = (method: WhereAnyMethods) =>
   function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-    array?: ArgsType
+    array?: ArgsType,
+    arrayType?: string
   ): SelectQueryBuilder<Entity> {
     return attachWhereIsAnyTyped<Type, SelectQueryBuilder<Entity>>(
       this,
       method,
       where,
-      array
+      array,
+      arrayType
     );
   };
 
@@ -159,6 +297,9 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
     whereIsAnyTyped: createWhereIsAnyTypedMethod('whereIsAny'),
     andWhereIsAnyTyped: createWhereIsAnyTypedMethod('andWhereIsAny'),
     orWhereIsAnyTyped: createWhereIsAnyTypedMethod('orWhereIsAny'),
+    whereIsNotAnyTyped: createWhereIsAnyTypedMethod('whereIsNotAny'),
+    andWhereIsNotAnyTyped: createWhereIsAnyTypedMethod('andWhereIsNotAny'),
+    orWhereIsNotAnyTyped: createWhereIsAnyTypedMethod('orWhereIsNotAny'),
   },
 };
 
@@ -181,7 +322,8 @@ function attachWhereIsAnyTyped<
   builder: QB,
   method: WhereAnyMethods,
   where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  array?: ArgsType
+  array?: ArgsType,
+  arrayType?: string
 ): QB {
   if (typeof where !== 'function') {
     return builder;
@@ -197,5 +339,5 @@ function attachWhereIsAnyTyped<
   }
 
   // .andWhere(`"table"."column" = ANY(:param)`, { param: ['value'] })
-  return builder[method](key, array);
+  return builder[method](key, array, arrayType);
 }

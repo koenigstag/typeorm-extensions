@@ -94,18 +94,36 @@ export class KeyProxy {
   }
 }
 
+/** Typed keys are `column` or `alias.column`: a deeper path can't be mapped to a query alias. */
+export const MAX_KEY_DEPTH = 2;
+
+const assertKeyDepth = (keyHolder: KeyHolder): KeyHolder => {
+	const keys = keyHolder.getKeys();
+
+	if (keys.length > MAX_KEY_DEPTH) {
+		throw new TypeError(
+			`Typed key "${keys.join('.')}" is ${keys.length} levels deep, but typed methods support only ` +
+				`"column" or "alias.column". Join the nested relation and address it by its alias ` +
+				`with an alias-keyed type, e.g. type Joins = { someAlias: SomeEntity }; (j) => j.someAlias.column`
+		);
+	}
+
+	return keyHolder;
+};
+
 export const getKeyHolder = <Type extends ObjectLiteral>(
 	callback: KeyProxyCallback<Type> | KeyHolder
 ): KeyHolder | Array<KeyHolder> => {
 	if (typeof callback !== 'function') {
 		if (callback instanceof KeyHolder) {
-			return callback;
+			return assertKeyDepth(callback);
 		}
 	}
 
-	const keyHolder = callback(KeyProxy.create<DeepUnwrapArray<Type>>()) as KeyHolder;
+	const keyHolder = callback(KeyProxy.create<DeepUnwrapArray<Type>>()) as KeyHolder | Array<KeyHolder>;
 
-	return keyHolder;
+	// fail loudly instead of silently dropping levels beyond `alias.column`
+	return Array.isArray(keyHolder) ? keyHolder.map(assertKeyDepth) : assertKeyDepth(keyHolder);
 };
 
 export const getKey = <Type extends ObjectLiteral>(callback: KeyProxyCallback<Type> | KeyHolder | string): string => {

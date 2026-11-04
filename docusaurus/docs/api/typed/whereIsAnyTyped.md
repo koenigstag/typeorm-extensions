@@ -13,14 +13,19 @@ Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`
 
 ## Signature
 ```typescript
-whereIsAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
-andWhereIsAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
-orWhereIsAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[]): SelectQueryBuilder<Entity>
+whereIsAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[], arrayType?: string): SelectQueryBuilder<Entity>
+andWhereIsAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[], arrayType?: string): SelectQueryBuilder<Entity>
+orWhereIsAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[], arrayType?: string): SelectQueryBuilder<Entity>
+
+whereIsNotAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[], arrayType?: string): SelectQueryBuilder<Entity>
+andWhereIsNotAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[], arrayType?: string): SelectQueryBuilder<Entity>
+orWhereIsNotAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknown[], arrayType?: string): SelectQueryBuilder<Entity>
 ```
 
 ## Arguments
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects **one** field of entity. Selecting several fields throws a `TypeError`.
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
+- arrayType?: string: Type to cast the array parameter to, e.g. `'uuid[]'`: `= ANY(CAST(:param AS uuid[]))`. See [whereIsAny](../where/whereIsAny.md).
 
 ## Usage
 
@@ -41,4 +46,15 @@ query.andWhereIsAnyTyped(user => user.status, ACTIVE_STATUSES)
 query
   .leftJoinTyped(user => user.images, 'images')
   .whereIsAnyTyped(user => user.images.url, urls)
+```
+
+```typescript
+// WHERE "user"."id" = ANY(CAST($1 AS uuid[]))
+query.whereIsAnyTyped(user => user.id, ids, 'uuid[]')
+```
+
+```typescript
+// NOT: the column differs from every value — `<> ALL`, see whereIsAny › whereIsNotAny
+// WHERE "user"."status" <> ALL($1)
+query.whereIsNotAnyTyped(user => user.status, ['banned', 'deleted'])
 ```
