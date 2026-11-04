@@ -37,22 +37,67 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `column(column, alias?)` | `t.column('email')` | `"user"."email"` |
 | | `t.column('id', 'u')` | `"u"."id"` |
 | `where(column, expression?)` | `t.where('id', '= :id')` | `"user"."id" = :id` |
-| `join(relation)` | `t.join('images')` | `user.images` |
+| `join(relation, alias?)` | `t.join('images')` | `user.images` |
 | `joinOn(column, expression)` | `t.joinOn('id', '= ' + image.column('userId'))` | `"user"."id" = "images"."userId"` |
 | `isNull(column)` | `t.isNull('deletedAt')` | `"user"."deletedAt" IS NULL` |
 | `isNotNull(column)` | `t.isNotNull('email')` | `"user"."email" IS NOT NULL` |
-| `count(column?, countExpression?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
-| | `t.count()` | `CAST(COUNT("user".*) AS integer)` |
+| `count(column?, options?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
+| | `t.count()` | `CAST(COUNT(*) AS integer)` |
+| | `t.count('email', { distinct: true })` | `CAST(COUNT(DISTINCT "user"."email") AS integer)` |
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
 | `jsonColumn(column, operator, ...keys)` | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
 | `jsonPath(column, operator, ...keys)` | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
 
 Notes:
-- Without an alias, `column()` returns just the column (`"email"`) and `count()` counts `*`. `join()` needs an alias.
-- `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number.
-- `countExpression` is appended after the column inside `COUNT(...)`.
+- Without an alias, `column()` returns just the column (`"email"`). `join()` needs an alias, the helper's or its `alias` argument; without one it throws a `TypeError`.
+- `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number. Its options are described in [Counting](#counting).
 - `column()` returns a quoted expression, so `select(t.column('id'), 'id')` keeps its position in the select list, unlike `select('user.id')`, which TypeORM moves into entity column order. See [selectTyped › Column order](../typed/selectTyped.md#column-order).
 - `expression` in `where()` / `joinOn()` is inserted as is. Build the columns in it with `tableHelper` too, see [Composing helpers](#composing-helpers).
+
+## Counting
+
+```typescript
+count(
+  column?: keyof Entity,
+  options?: { distinct?: boolean; filter?: string; syntax?: 'case' | 'filter' }
+): string
+```
+
+- column?: Column to count: rows where it is not `NULL`. Without a column it is `COUNT(*)`, every row of the result.
+- options.distinct?: boolean: `COUNT(DISTINCT column)`, the number of different values. Needs a column.
+- options.filter?: string: Count only the rows that match this condition. It is inserted as is: build it with `tableHelper` (`t.isNull('deletedAt')`, `t.where('status', "= 'active'")`).
+- options.syntax?: `'case' | 'filter'`: How `filter` is written:
+  - `'case'` (default): `COUNT(CASE WHEN filter THEN column END)`. Works in every database.
+  - `'filter'`: `COUNT(column) FILTER (WHERE filter)`. PostgreSQL and SQLite 3.30+ only. On PostgreSQL it is a few percent faster.
+
+```typescript
+t.count(undefined, { filter: t.isNull('deletedAt') })
+// CAST(COUNT(CASE WHEN "user"."deletedAt" IS NULL THEN 1 END) AS integer)
+
+t.count(undefined, { filter: t.isNull('deletedAt'), syntax: 'filter' })
+// CAST(COUNT(*) FILTER (WHERE "user"."deletedAt" IS NULL) AS integer)
+
+t.count('email', { distinct: true, filter: t.isNull('deletedAt') })
+// CAST(COUNT(DISTINCT CASE WHEN "user"."deletedAt" IS NULL THEN "user"."email" END) AS integer)
+```
+
+Several counts in one query:
+
+```typescript
+const t = tableHelper<UserEntity>('user');
+
+const stats = await userRepository
+  .createQueryBuilder('user')
+  .select(t.count(), 'total')
+  .addSelect(t.count(undefined, { filter: t.isNull('deletedAt') }), 'active')
+  .addSelect(t.count('email', { distinct: true }), 'emails')
+  .getRawOne();
+// { total: 120, active: 97, emails: 118 }
+```
+
+With a `LEFT JOIN`, `COUNT(*)` also counts the row of a user without images. To count the joined rows, count a non-null column of the joined table: `image.count('id')`.
+
+`count()` throws a `TypeError` for `distinct` without a column, for an unknown `syntax`, and for a second argument that is not an options object.
 
 ## Composing helpers
 

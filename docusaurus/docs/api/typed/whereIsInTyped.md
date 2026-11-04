@@ -21,7 +21,7 @@ orWhereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknow
 ```
 
 ## Arguments
-- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects the field of entity.
+- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects the field of entity. A callback that selects several columns throws a `TypeError`.
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 
 ## Usage

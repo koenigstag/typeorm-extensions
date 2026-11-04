@@ -23,7 +23,7 @@ orWhereTyped(selection, condition?, params?, options?): SelectQueryBuilder<Entit
 ```
 
 ## Arguments
-- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects fields of entity.
+- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects a field of entity. A callback that selects several columns (`u => [u.id, u.email]`) throws a `TypeError`: add one condition per column, or use [whereSearchTyped](./whereSearchTyped.md) to search several columns.
 - condition?: string: Operator for the query. It may reference a key of `params` as a placeholder (`:key` or `(:...keys)`); then the value is not appended automatically.
 - params?: unknown: Parameter for the condition. This can be an object `{ someValue: 'value' }` or the value itself `'value'`. A `Date`, a `Buffer` or a typed array is a value too: `whereTyped(u => u.createdAt, '>', since)` binds `since`.
 - options?: \{ addValue?: boolean \}: Options for where logic.
