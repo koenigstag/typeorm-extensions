@@ -14,13 +14,36 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   return `:${paramName}`;
 }
 
+const isDate = (value: unknown): value is Date =>
+  Object.prototype.toString.call(value) === '[object Date]';
+
+/**
+ * Objects that are parameter values themselves, not `{ name: value }` params objects:
+ * `Date`, and binary data (`Buffer`, typed arrays, `ArrayBuffer`).
+ */
+const isValueObject = (value: object): boolean =>
+  isDate(value) || ArrayBuffer.isView(value) || value instanceof ArrayBuffer;
+
+/**
+ * Whether `params` is a `{ name: value }` params object (a plain object or a class instance such
+ * as a DTO), rather than the value itself (a primitive, an array, a `Date`, a `Buffer`).
+ */
+export function isParamsObject(params: unknown): params is Record<string, unknown> {
+  return (
+    params !== null &&
+    typeof params === 'object' &&
+    !Array.isArray(params) &&
+    !isValueObject(params)
+  );
+}
+
 /**
  * Checks whether `conditions` already references a key of `params` as a TypeORM
  * named parameter (`:key` or `:...key`). Matches parameters the same way TypeORM does,
  * so `::type` casts and colons inside literals don't count unless they name a `params` key.
  */
 export function hasParamPlaceholder(conditions: string, params?: unknown): boolean {
-  if (params === null || typeof params !== 'object' || Array.isArray(params)) {
+  if (!isParamsObject(params)) {
     return false;
   }
 
@@ -54,17 +77,15 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
     addValue = addValue ?? !hasParamPlaceholder(conditions, params);
 
     if (addValue && hasParams) {
-      // pick first value from params object or pass as is
-      const firstValue =
-        params !== null && typeof params === 'object' && !Array.isArray(params)
-          ? Object.values(params)[0]
-          : params;
+      // pick first value from params object or pass as is (a Date or a Buffer is a value too)
+      const firstValue = isParamsObject(params) ? Object.values(params)[0] : params;
 
       // 0, false, '' are valid values like any other
-      // null, undefined and NaN are equal to NULL
+      // null, undefined, NaN and invalid dates are equal to NULL
       const valueIsValid =
         firstValue !== undefined &&
-        (typeof firstValue === 'number' ? !isNaN(firstValue) : true);
+        (typeof firstValue === 'number' ? !isNaN(firstValue) : true) &&
+        (isDate(firstValue) ? !isNaN(firstValue.getTime()) : true);
 
       const paramName = valueIsValid
         ? createUniqueParameterName(method)
