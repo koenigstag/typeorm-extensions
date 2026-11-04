@@ -28,7 +28,7 @@ addOrderByTyped(
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects fields of entity.
 - order?: 'ASC' | 'DESC': Order direction. Default is 'ASC'.
 - nulls?: 'NULLS FIRST' | 'NULLS LAST': NULLS ordering.
-- options?: `TypedOrderByOptions`: `{ useQuotes?: boolean }`. With `useQuotes: true` the key is the quoted database column name (`"user"."name"`, `@Column({ name })` applied). Default `false` (`user.name`, which TypeORM maps to the column itself).
+- options?: `TypedOrderByOptions`: `{ useQuotes?: boolean }`. With `useQuotes: true` the key is the quoted database column (`"user"."updated_at"`, `@Column({ name })` applied) instead of `user.updatedAt`. Default `false`: `user.updatedAt`, which TypeORM maps to the column itself. Replaces the `useDoubleQuotes` argument of 1.3.x.
 
 ## Usage
 
@@ -51,6 +51,6 @@ query
 ```
 
 ```typescript
-// same as `query.addOrderBy('"user"."name"', 'ASC')`
-query.addOrderByTyped(user => user.name, 'ASC', undefined, { useQuotes: true })
+// same as `query.addOrderBy('"user"."name"', 'DESC', 'NULLS LAST')`
+query.addOrderByTyped(user => user.name, 'DESC', 'NULLS LAST', { useQuotes: true })
 ```

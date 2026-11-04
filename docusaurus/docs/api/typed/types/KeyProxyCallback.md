@@ -27,6 +27,8 @@ type KeyProxyCallback<Entity> = (
 | `person => person.address.city` | `person.address.city`: an embedded column of the main entity (the first key isn't a query alias, and the entity has a column with that path) |
 | `user => [user.id, user.name]` | `['user.id', 'user.name']`: several keys (for `selectTyped`, `distinctOnTyped`) |
 
+The property is mapped to its database column (`@Column({ name })`, embedded columns) through the metadata of its alias: where methods and `useQuotes` emit the quoted column, e.g. `"user"."created_at"`.
+
 A relation column is keyed by the relation property name, so join the relation with that alias:
 
 ```typescript
@@ -66,6 +68,34 @@ query
 - The main alias works the same way (`j.user.id`), so one `Joins` type covers the whole query.
 - A typo in an alias or a column (`j.img.uri`) is a compile error.
 - For string parts of the query, `tableHelper<Joins['img']>('img')` gives the matching helper.
+
+## Before `from()`
+
+A query created without an entity (`dataSource.createQueryBuilder()`, `manager.createQueryBuilder()`, `qb.subQuery()`) has no main alias until `from()`. Address columns by their alias there: `alias.column` keys don't need the main alias.
+
+```typescript
+type Base = { base: ChatMessage };
+
+// SELECT "base"."chatRoomId" FROM "chat_messages" "base"
+dataSource
+  .createQueryBuilder()
+  .selectTyped<Base>((q) => q.base.chatRoomId)
+  .from(ChatMessage, 'base')
+```
+
+```typescript
+query.where((qb) => {
+  const subQuery = qb
+    .subQuery()
+    .selectTyped<{ m: ChatMessage }>((q) => q.m.chatRoomId)
+    .from(ChatMessage, 'm')
+    .getQuery();
+
+  return `"room"."id" IN ${subQuery}`;
+})
+```
+
+A single-level key (`(q) => q.chatRoomId`) needs the main alias, so before `from()` it throws a `TypeError`. Column names are mapped through aliases the query already knows: a quoted key (where methods, `useQuotes`) for a renamed column needs `from()` to come first.
 
 ## Example
 

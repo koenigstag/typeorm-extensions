@@ -63,6 +63,17 @@ query.addSelectTyped(user => user.createdAt, 'registeredAt')
 query.selectTyped(user => user.name, 'fullName', true)
 ```
 
+```typescript
+// before from(): address the column by its alias, the query has no main alias yet
+// same as `dataSource.createQueryBuilder().select('base.chatRoomId').from(ChatMessage, 'base')`
+dataSource
+  .createQueryBuilder()
+  .selectTyped<{ base: ChatMessage }>((q) => q.base.chatRoomId)
+  .from(ChatMessage, 'base')
+```
+
+See [KeyProxyCallback](./types/KeyProxyCallback.md#before-from) for keys before `from()`.
+
 ## Column order
 
 TypeORM treats a selection of the form `alias.property` as an entity column. It moves such selections to the front of the select list, in the entity's column order, ahead of other expressions. This applies to `selectTyped`, which emits `user.email`, as well as to a plain `select('user.email')`:
