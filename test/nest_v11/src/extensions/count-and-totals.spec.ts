@@ -23,6 +23,8 @@ setupTest('tableHelper.count rows', undefined, (context) => {
     const row = await tickets
       .createQueryBuilder('t')
       .select(t.count('ticket_id'), 'total')
+      .addSelect(t.count(), 'rows')
+      .addSelect(t.count(undefined, { filter: open, syntax: 'filter' }), 'openRows')
       .addSelect(t.count('owner_id', { distinct: true }), 'owners')
       .addSelect(t.count('ticket_id', { filter: open }), 'openCase')
       .addSelect(t.count('ticket_id', { filter: open, syntax: 'filter' }), 'openFilter')
@@ -31,7 +33,7 @@ setupTest('tableHelper.count rows', undefined, (context) => {
       .orderBy('total')
       .getRawOne();
 
-    expect(row).toEqual({ total: 4, owners: 2, openCase: 3, openFilter: 3, openOwners: 1 });
+    expect(row).toEqual({ total: 4, rows: 4, openRows: 3, owners: 2, openCase: 3, openFilter: 3, openOwners: 1 });
   });
 });
 

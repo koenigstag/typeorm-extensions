@@ -104,14 +104,15 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		return this.where(columnName, 'IS NOT NULL');
 	},
 	/**
-	 * Returns `CAST(COUNT("alias"."column") AS integer)`.
-	 * Counts all rows if no column given: `COUNT("alias".*)`, or `COUNT(*)` without an alias.
+	 * Returns `CAST(COUNT("alias"."column") AS integer)`: the rows where the column isn't `NULL`.
+	 * Without a column it is `COUNT(*)`, all the rows of the result, in every database. To count the rows
+	 * of a table joined with LEFT JOIN, count one of its non-null columns: `images.count('id')`.
 	 * @example
 	 * t.count('email', { distinct: true })              // CAST(COUNT(DISTINCT "user"."email") AS integer)
 	 * t.count(undefined, { filter: t.where('status', "= 'active'") })
 	 * // CAST(COUNT(CASE WHEN "user"."status" = 'active' THEN 1 END) AS integer)
 	 * t.count(undefined, { filter: t.where('status', "= 'active'"), syntax: 'filter' })
-	 * // CAST(COUNT("user".*) FILTER (WHERE "user"."status" = 'active') AS integer)
+	 * // CAST(COUNT(*) FILTER (WHERE "user"."status" = 'active') AS integer)
 	 */
 	count(columnName?: keyof T, countOptions: TableHelperCountOptions = {}) {
 		if (typeof countOptions !== 'object' || countOptions === null) {
@@ -120,7 +121,6 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 			);
 		}
 
-		const { useQuotes = true } = options;
 		const { distinct = false, filter, syntax = 'case' } = countOptions;
 
 		if (syntax !== 'case' && syntax !== 'filter') {
@@ -133,9 +133,9 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 			throw new TypeError("tableHelper.count({ distinct: true }) needs a column, e.g. count('email', { distinct: true })");
 		}
 
-		const rows = this.alias ? `${useQuotes ? quoteIdentifierPath(this.alias) : this.alias}.*` : '*';
-		// a CASE can't return `alias.*`: without a column, it counts 1 per matching row
-		const counted = filter && syntax === 'case' ? `CASE WHEN ${filter} THEN ${column ?? '1'} END` : column ?? rows;
+		// `COUNT(*)`, not `COUNT("alias".*)`, which only PostgreSQL accepts;
+		// a CASE can't return `*`: without a column, it counts 1 per matching row
+		const counted = filter && syntax === 'case' ? `CASE WHEN ${filter} THEN ${column ?? '1'} END` : column ?? '*';
 
 		let expression = `COUNT(${distinct ? 'DISTINCT ' : ''}${counted})`;
 
