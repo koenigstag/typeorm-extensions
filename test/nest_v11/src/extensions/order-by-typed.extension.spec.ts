@@ -27,7 +27,8 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
       .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
       .orderBy('user.email', 'ASC');
 
-    expect(orderByQuery.getQuery()).toContain('ORDER BY "user_email" ASC');
+    // newer TypeORM orders by the select alias ("user_email"), 0.3.12 by the column ("user"."email")
+    expect(orderByQuery.getQuery()).toMatch(/ORDER BY ("user_email"|"user"\."email") ASC/);
     expect(orderByQuery.getQuery()).toEqual(defaultOrderByQuery.getQuery());
 
     const result = await orderByQuery.getMany();
@@ -62,9 +63,7 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
       .addSelect('user.email')
       .orderBy('user.id', 'DESC', 'NULLS FIRST');
 
-    expect(orderByQuery.getQuery()).toContain(
-      'ORDER BY "user_id" DESC NULLS FIRST',
-    );
+    expect(orderByQuery.getQuery()).toMatch(/ORDER BY ("user_id"|"user"\."id") DESC NULLS FIRST/);
     expect(orderByQuery.getQuery()).toEqual(
       defaultOrderByQuery.getQuery(),
     );

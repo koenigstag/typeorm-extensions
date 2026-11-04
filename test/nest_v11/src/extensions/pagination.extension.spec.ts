@@ -84,8 +84,8 @@ setupTest(
         .limit(limit)
         .offset(offset);
 
-      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
-      expect(paginatedQuery.getQuery()).not.toContain(`OFFSET ${offset}`);
+      // the first page has no offset: recent TypeORM versions write `OFFSET 0`, older ones leave it out
+      expect(paginatedQuery.getQuery()).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
       expect(paginatedQuery.getQuery()).toEqual(usersQuery.getQuery());
 
       const allUsersCount = await usersRepository
@@ -186,8 +186,8 @@ setupTest(
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
         .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
 
-      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
-      expect(paginatedQuery.getQuery()).not.toContain(`OFFSET ${offset}`);
+      // the first page has no offset: recent TypeORM versions write `OFFSET 0`, older ones leave it out
+      expect(paginatedQuery.getQuery()).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
 
       const allUsersCount = await usersRepository
         .createQueryBuilder('user')
