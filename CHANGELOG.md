@@ -8,7 +8,15 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 
 ### Breaking Changes
 
-- **Renamed `useDoubleQuotes` to `useQuotes`** in the options types `ApplyOrderOptions`, `TypedWhereOptions` and `TypedWhereIsInOptions`. The positional `useDoubleQuotes` parameter of `selectTyped` / `addSelectTyped` is renamed to `useQuotes` as well (positional calls keep working).
+- **Renamed `useDoubleQuotes` to `useQuotes`** in `ApplyOrderOptions`. The positional `useDoubleQuotes` parameter of `selectTyped` / `addSelectTyped` is renamed to `useQuotes` as well (positional calls keep working).
+- **Removed `useDoubleQuotes` from the typed where options** (#29):
+  - `TypedWhereOptions` (`whereTyped` and its `and` / `or` variants) keeps only `addValue`;
+  - `whereIsInTyped` / `whereIsNotInTyped` and their `and` / `or` variants no longer take an options argument, and the exported `TypedWhereIsInOptions` type is removed.
+
+  The option never had an effect, in 1.3.5 either: the key was quoted with or without it, and typed keys are now always the quoted database column. Migrate by deleting `useDoubleQuotes` from `whereTyped` options and dropping the last argument of `whereIsInTyped` calls.
+- **`whereTyped` / `whereIsInTyped` / `whereIsNotInTyped` (and their `and` / `or` variants) throw a `TypeError` for a callback that selects several columns,** like `whereIsAnyTyped` (#29).
+  - Previously they added one condition per column: `where…` kept only the last one, while `and…` / `or…` silently joined them with AND / OR.
+  - Migrate to one call per column. For an OR search over several columns, use `whereSearchTyped`.
 - **`addOrderByTyped` takes an options object as its 4th argument**: `useDoubleQuotes?: boolean` became `options?: TypedOrderByOptions`. Migrate `addOrderByTyped(cb, 'ASC', undefined, true)` to `addOrderByTyped(cb, 'ASC', undefined, { useQuotes: true })`. In plain JS a boolean passed there is now ignored, so `true` silently stops quoting the key (`user.name` instead of `"user"."name"`).
 - **Typed key paths are limited to `column` / `alias.column`** (#16). A callback reaching a third level (`u => u.images.user.email`, `u => u.metadata.settings.theme`) is a compile error and throws a `TypeError` at runtime. Previously the path was cut to its first two keys without notice: typed where failed in the database, while select / orderBy / distinctOn used the relation's join column, so `x => x.images.user.id` happened to return the foreign key and any other field returned it too. Migrate `x.rel.rel2.id` to the foreign key property (`x => x.images.userId`); for other columns of nested relations, join them and address the join alias with an alias-keyed type (`(j: { imageUser: UserEntity }) => j.imageUser.email`).
 - **String fields that the query can't resolve are quoted only when they are paths of identifiers** (#14, #28): the untyped methods (`whereIsIn`, `whereIsAny`, …) quote a column of a query alias whatever its name (`'user.first-name'` → `"user"."first-name"`), and leave an expression such as `LOWER(u.email)` as it is. A field the query doesn't know (an alias of a subquery or of a table given by name) is quoted only when it is a path of plain identifiers: a name like `sub.first-name` there used to be quoted piece by piece and is now passed as is. Quote such a name yourself: `'sub."first-name"'`.
@@ -19,9 +27,12 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 - **`tableHelper` utility**, exported from the package root (`import { tableHelper } from 'typeorm-extensions'`) — type-safe SQL helper for building column references, WHERE expressions, JOIN clauses, and JSONB accessors. (#5)
   - `column()` — quoted SQL column identifier
   - `where()` — column with expression
-  - `join()` / `joinOn()` — join path helpers
+  - `join()` / `joinOn()` — join path helpers (`join(relation, alias?)` throws when there is no alias; #29)
   - `isNull()` / `isNotNull()` — null check expressions
-  - `count()` / `cast()` — aggregate and cast helpers (`count()` without a column counts `alias.*`, or `*` without an alias; #7)
+  - `count()` / `cast()` — aggregate and cast helpers (#7, #29). `count(column?, { distinct, filter, syntax })`:
+    - `COUNT(*)` without a column;
+    - `COUNT(DISTINCT col)` with `distinct`;
+    - conditional counts with `filter`, as `COUNT(CASE WHEN … THEN … END)` by default (any database) or, with `syntax: 'filter'`, `COUNT(…) FILTER (WHERE …)` (PostgreSQL, SQLite 3.30+).
   - `jsonColumn()` — full JSONB column access expression with typed field names
   - `jsonPath()` — JSONB operator fragment for use in `whereTyped` conditions strings
 - **JSONB access via `tableHelper`** with nested paths as rest params. Field names are inferred from the column's TypeScript type (autocomplete up to 4 levels deep) and escaped as SQL string literals (#8):
@@ -67,6 +78,7 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 - On UPDATE / DELETE, an `alias.column` key naming the main alias (`u => u.user.firstName`) gives the bare column `"firstName"`, like a single-level key; it used to give `"user"."firstName"`, which PostgreSQL rejects. (#24)
 - `selectTyped` with an array of callbacks keeps `useQuotes`, and no longer changes a `KeyHolder` passed in; `orderByTyped` / `addOrderByTyped` honor `options.useQuotes` for a `KeyHolder` selection. (#24)
 - String fields of the untyped methods (`whereIsIn` / `whereIsNotIn`, `whereIsAny`, array / JSON / distinct-from where methods, `applyPeriodFilter`, `orderByArrayPosition`) are resolved through the query's aliases: a column of an alias is quoted by the driver whatever its name (`'user.first-name'` → `"user"."first-name"`, also on UPDATE / DELETE as `"first-name"`), and `alias.property` is mapped to its column (`'user.createdAt'` → `"user"."created_at"`). Other fields use the driver's quotes, so MySQL / MariaDB get backticks instead of double quotes, which MySQL reads as strings. `tableHelper.column()` always quotes the column as one identifier. (#28)
+- `GetManyWithTotalsOptions` includes the pagination options. `getManyWithTotals` already honored `useTakeAndSkip`, but its type didn't allow it, so TypeScript code couldn't page queries with joined collections correctly. (#29)
 
 ### Improvements
 
