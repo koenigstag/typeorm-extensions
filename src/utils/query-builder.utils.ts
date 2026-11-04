@@ -33,13 +33,75 @@ function getAliasMetadata(
   return alias?.hasMetadata ? alias.metadata : undefined;
 }
 
+interface ResolvedTypedKey {
+  /** Alias to qualify the column with; undefined on UPDATE / DELETE. */
+  aliasName: string | undefined;
+  /** Property path within the alias' entity: `status`, `url`, `address.city` (embedded). */
+  propertyPath: string;
+  metadata: EntityMetadata | undefined;
+}
+
+/**
+ * Splits typed keys into the alias and the property path they refer to:
+ * - `t => t.status` → the query's alias + `status`;
+ * - `j => j.t.status`, `u => u.images.url` → the first key, when it is an alias of the query;
+ * - `p => p.address.city` → when the first key isn't an alias but the main entity has a column
+ *   with that path (an embedded entity), the main alias + `address.city`;
+ * - anything else → the first key as the alias (an alias the query builder doesn't know yet).
+ */
+function resolveTypedKey(
+  queryBuilder: QueryBuilder<ObjectLiteral>,
+  keys: string[],
+  prefixAlias: string | undefined
+): ResolvedTypedKey {
+  if (keys.length === 1) {
+    return {
+      aliasName: prefixAlias,
+      propertyPath: keys[0],
+      metadata: getAliasMetadata(queryBuilder, prefixAlias),
+    };
+  }
+
+  const [firstKey, ...restKeys] = keys;
+  const queryAlias = queryBuilder.expressionMap?.aliases.find(
+    (alias) => alias.name === firstKey
+  );
+
+  if (!queryAlias) {
+    const mainMetadata = getAliasMetadata(queryBuilder, prefixAlias);
+    const embeddedPath = keys.join('.');
+
+    if (mainMetadata?.findColumnWithPropertyPath(embeddedPath)) {
+      return { aliasName: prefixAlias, propertyPath: embeddedPath, metadata: mainMetadata };
+    }
+  }
+
+  return {
+    aliasName: firstKey,
+    propertyPath: restKeys.join('.'),
+    metadata: queryAlias?.hasMetadata ? queryAlias.metadata : undefined,
+  };
+}
+
+/** `"alias"."column"` (or `"column"` without an alias) with the database column name. */
+function toQuotedColumnKey(
+  queryBuilder: QueryBuilder<ObjectLiteral>,
+  { aliasName, propertyPath, metadata }: ResolvedTypedKey
+): string {
+  const column =
+    metadata?.findColumnWithPropertyPath(propertyPath)?.databaseName ?? propertyPath;
+
+  return aliasName === undefined
+    ? queryBuilder.escape(column)
+    : `${queryBuilder.escape(aliasName)}.${queryBuilder.escape(column)}`;
+}
+
 /**
  * SQL key for a typed callback on `builder`: `"alias"."column"`, or `"column"` on UPDATE / DELETE.
  *
- * The property is mapped to its database column name (`@Column({ name })`) through the
- * metadata of the alias it belongs to: the query's alias for `t => t.status`, the first key
- * for `j => j.t.status` / `u => u.images.url`. Aliases without metadata (subqueries) and
- * unknown properties keep the property name.
+ * The property is mapped to its database column name (`@Column({ name })`, embedded columns)
+ * through the metadata of the alias it belongs to (see `resolveTypedKey`). Aliases without
+ * metadata (subqueries) and unknown properties keep the property name.
  */
 export function getTypedColumnKey<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
@@ -48,21 +110,46 @@ export function getTypedColumnKey<Type extends ObjectLiteral>(
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
   const prefixAlias = getKeyPrefixAlias(builder);
 
-  const toKey = (keyHolder: KeyHolder): string => {
-    const keys = keyHolder.getKeys();
-    const [aliasName, propertyPath] =
-      keys.length > 1 ? [keys[0], keys[1]] : [prefixAlias, keys[0]];
-
-    const metadata = getAliasMetadata(queryBuilder, aliasName);
-    const column =
-      metadata?.findColumnWithPropertyPath(propertyPath)?.databaseName ?? propertyPath;
-
-    return aliasName === undefined
-      ? queryBuilder.escape(column)
-      : `${queryBuilder.escape(aliasName)}.${queryBuilder.escape(column)}`;
-  };
+  const toKey = (keyHolder: KeyHolder): string =>
+    toQuotedColumnKey(queryBuilder, resolveTypedKey(queryBuilder, keyHolder.getKeys(), prefixAlias));
 
   const keyHolder = getKeyHolder<Type>(callback);
+
+  return Array.isArray(keyHolder) ? keyHolder.map(toKey) : toKey(keyHolder);
+}
+
+/**
+ * Key for typed select / order / distinct on a SelectQueryBuilder.
+ *
+ * Without quotes it is `alias.propertyPath` (`user.name`, `images.url`, `p.address.city`),
+ * which TypeORM maps to the column itself. With `useQuotes` it is the quoted database column
+ * (`"t"."ticket_status"`), since TypeORM doesn't map quoted keys. Strings are kept as is.
+ */
+export function getTypedSelectionKey<Type extends ObjectLiteral>(
+  builder: WhereExpressionBuilder,
+  selection: KeyProxyCallback<Type> | string,
+  useQuotes?: boolean
+): string | string[] {
+  if (typeof selection === 'string') {
+    return selection;
+  }
+
+  const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
+  const prefixAlias = getKeyPrefixAlias(builder);
+
+  const toKey = (keyHolder: KeyHolder): string => {
+    const resolved = resolveTypedKey(queryBuilder, keyHolder.getKeys(), prefixAlias);
+
+    if (useQuotes) {
+      return toQuotedColumnKey(queryBuilder, resolved);
+    }
+
+    return resolved.aliasName === undefined
+      ? resolved.propertyPath
+      : `${resolved.aliasName}.${resolved.propertyPath}`;
+  };
+
+  const keyHolder = getKeyHolder<Type>(selection);
 
   return Array.isArray(keyHolder) ? keyHolder.map(toKey) : toKey(keyHolder);
 }

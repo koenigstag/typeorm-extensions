@@ -1,6 +1,7 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getSqlKeyFromProxyCallback, KeyHolder } from '../../../utils/proxy-key.utils';
+import { KeyHolder } from '../../../utils/proxy-key.utils';
+import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
 import type { TypedOrderByOptions } from '../../../types/extensions/typed-order-by.types';
 
 // declarations
@@ -49,7 +50,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	}
 
 	if (typeof selection === 'function') {
-		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias, options?.useQuotes) as string;
+		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes) as string;
 
 		return this.orderBy(key, order, nulls);
 	}
@@ -72,7 +73,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	}
 
 	if (typeof selection === 'function') {
-		const key = getSqlKeyFromProxyCallback<Type>(selection, this.alias, options?.useQuotes) as string;
+		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes) as string;
 
 		return this.addOrderBy(key, order, nulls);
 	}
