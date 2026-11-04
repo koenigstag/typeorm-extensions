@@ -38,3 +38,14 @@ query.selectTyped(user => [
 // same as `query.addSelect('user.createdAt', 'registeredAt')`
 query.addSelectTyped(user => user.createdAt, 'registeredAt')
 ```
+
+```typescript
+// before from(): address the column by its alias, the query has no main alias yet
+// same as `dataSource.createQueryBuilder().select('base.chatRoomId').from(ChatMessage, 'base')`
+dataSource
+  .createQueryBuilder()
+  .selectTyped<{ base: ChatMessage }>((q) => q.base.chatRoomId)
+  .from(ChatMessage, 'base')
+```
+
+See [KeyProxyCallback](./types/KeyProxyCallback.md#before-from) for keys before `from()`.

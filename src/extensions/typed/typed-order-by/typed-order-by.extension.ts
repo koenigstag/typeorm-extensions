@@ -46,7 +46,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
 	if (selection instanceof KeyHolder) {
-		return this.orderBy(selection.toSql(), order, nulls);
+		return this.orderBy(selection.toSql(undefined, options?.useQuotes), order, nulls);
 	}
 
 	if (typeof selection === 'function') {
@@ -69,7 +69,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
 	if (selection instanceof KeyHolder) {
-		return this.addOrderBy(selection.toSql(), order, nulls);
+		return this.addOrderBy(selection.toSql(undefined, options?.useQuotes), order, nulls);
 	}
 
 	if (typeof selection === 'function') {

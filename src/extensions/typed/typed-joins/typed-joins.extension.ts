@@ -141,7 +141,8 @@ function addJoin<
   condition?: string,
   parameters?: ObjectLiteral
 ) {
-  const key = getSqlKeyFromProxyCallback<Type>(selection, query.alias, false) as string;
+  // `() => query.alias`: `(q) => q.base.images` needs no main alias, only `(u) => u.images` does
+  const key = getSqlKeyFromProxyCallback<Type>(selection, () => query.alias, false) as string;
 
   return query[method](key, alias, condition, parameters);
 }

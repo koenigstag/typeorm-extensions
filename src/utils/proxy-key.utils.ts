@@ -134,9 +134,19 @@ export const getKey = <Type extends ObjectLiteral>(callback: KeyProxyCallback<Ty
 	return keyHolder.toString();
 };
 
+/**
+ * Alias to prefix a single-level key with: a string, or a function called only when it is needed,
+ * e.g. `() => query.alias`, which throws while the query has no main alias (before `from()`).
+ */
+export type KeyPrefix = string | (() => string | undefined);
+
+/**
+ * SQL key of a typed callback: `(u) => u.id` → `prefix.id`, `(u) => u.images.url` → `images.url`
+ * (an `alias.column` path keeps its own alias). Strings are returned as is.
+ */
 export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	callback: KeyProxyCallback<Type> | KeyHolder | string,
-	addPrefix?: string,
+	addPrefix?: KeyPrefix,
 	useQuotes?: boolean
 ): string | string[] => {
 	if (typeof callback === 'string') return callback;
@@ -144,7 +154,7 @@ export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	const keyHolder = getKeyHolder<Type>(callback);
 
 	if (Array.isArray(keyHolder)) {
-		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix) as string);
+		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix, useQuotes) as string);
 	}
 
 	// if select is like this: (proxy) => proxy.relation.column
@@ -154,9 +164,12 @@ export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	}
 
 	// else if select is one layer depth like this: (proxy) => proxy.column
-	// then add alias before the key
-	if (typeof addPrefix === 'string' && addPrefix.length >= 1) {
-		keyHolder.unshift(addPrefix);
+	// then add alias before the key; resolve the alias only now, a path above doesn't need it
+	const prefix = typeof addPrefix === 'function' ? addPrefix() : addPrefix;
+
+	if (typeof prefix === 'string' && prefix.length >= 1) {
+		// a new holder: a KeyHolder passed in by the caller must stay as it was
+		return new KeyHolder([prefix, ...keyHolder.getKeys()]).toSql(undefined, useQuotes);
 	}
 
 	return keyHolder.toSql(undefined, useQuotes);
