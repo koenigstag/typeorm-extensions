@@ -39,6 +39,28 @@ export function getDriverType(builder: WhereExpressionBuilder): DatabaseType | u
 }
 
 /**
+ * Quotes one identifier, whatever characters it has: `first-name` → `"first-name"`, a `"` inside is
+ * doubled. An already quoted identifier is kept. For names known to be identifiers (columns, aliases).
+ */
+export const quoteIdentifier = (name: string, driver?: DatabaseType): string => {
+  const mysql = isMysqlLikeDriver(driver);
+  const quote = mysql ? BACKTICK : '"';
+
+  if (name.length >= 2 && name.startsWith(quote) && name.endsWith(quote)) {
+    return name;
+  }
+
+  return `${quote}${name.split(quote).join(quote + quote)}${quote}`;
+};
+
+/**
+ * Quotes an alias or a table: as a path when it is one (`schema.table` → `"schema"."table"`),
+ * otherwise as one identifier (`user-1` → `"user-1"`).
+ */
+export const quoteIdentifierPath = (path: string, driver?: DatabaseType): string =>
+  IDENTIFIER_PATH.test(path) ? stringToSQLIdentifier(path, driver) : quoteIdentifier(path, driver);
+
+/**
  * Quotes an identifier path: `user.id` → `"user"."id"`, `user.*` → `"user".*`.
  * Already quoted segments are kept. Anything that isn't a path of identifiers
  * (`COALESCE(a.x, b.x)`, `LOWER(u.email)`, `u.id::text`, `*`) is returned as is.

@@ -6,12 +6,12 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { patchPrototype } from '../utils/prototype.utils';
+import { toFieldSql } from '../utils/query-builder.utils';
 import { ArgsType } from '../types/util-types';
 import { WhereMethods } from '../types/extensions';
 import {
   assertArrayType,
   createUniqueParameterName,
-  stringToSQLIdentifier,
 } from '../utils/sql.utils';
 
 // declarations
@@ -168,7 +168,7 @@ function attachWhereArray<QB extends WhereExpressionBuilder>(
   // the array is bound as is, empty arrays included: PostgreSQL's own semantics apply
   // ("table"."tags" @> :param, where :param is the whole array)
   return builder[method](
-    `${stringToSQLIdentifier(field)} ${operator} ${parameter}`,
+    `${toFieldSql(builder, field)} ${operator} ${parameter}`,
     { [paramName]: values }
   );
 }
