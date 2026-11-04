@@ -29,6 +29,10 @@
 - **`whereIsAny` / `andWhereIsAny` / `orWhereIsAny`** and typed `whereIsAnyTyped` / `andWhereIsAnyTyped` / `orWhereIsAnyTyped` (PostgreSQL): `column = ANY(:array)` with the whole array bound as one parameter, so the number of values isn't limited by the 65535 bind parameters that `IN` runs into. An empty array becomes `FALSE`. (#12)
 - **`typeorm-extensions/helpers`**: a side-effect-free entry point that exports `tableHelper` (and its types) without installing any QueryBuilder extension, unlike the package root. (#18)
 - **`whereIsAny` `arrayType`** (+ typed): an optional third argument casts the array parameter, `= ANY(CAST(:param AS uuid[]))`; the type name is validated. **`whereIsNotAny`** / `andWhereIsNotAny` / `orWhereIsNotAny` (+ typed) build `<> ALL(:param)`: the column differs from every value; an empty array becomes `TRUE`, like `NOT IN`. (#19)
+- **PostgreSQL array and JSON where methods** (+ `and` / `or` and typed variants, on Select, Update and Delete builders) (#21):
+  - `whereArrayContains` / `whereArrayContainedBy` / `whereArrayOverlaps`: `@>`, `<@`, `&&` on array columns, the values bound as one array parameter, with an optional `arrayType` cast.
+  - `whereJsonContains` / `whereJsonHasKey`: `@>` and `?` on the column cast to `jsonb`, so `json` and `simple-json` columns work too; on `jsonb` columns the cast is dropped and a GIN index is still used.
+- **`whereIsDistinctFrom` / `whereIsNotDistinctFrom`** (+ `and` / `or` and typed variants): null-safe comparisons, where `NULL` equals `NULL`. `IS [NOT] DISTINCT FROM` on PostgreSQL and most databases, `<=>` on MySQL / MariaDB, `IS [NOT]` on SQLite. (#21)
 
 ### Bug Fixes
 
@@ -40,6 +44,8 @@
 - Typed where methods on `UpdateQueryBuilder` / `DeleteQueryBuilder` no longer qualify the column with the alias: `WHERE "firstName" = …` instead of `WHERE "UserEntity"."firstName" = …`, which PostgreSQL accepted only when the alias equaled the table name and SQLite rejected. (#15)
 - Typed where methods (`whereTyped`, `whereIsInTyped` / `whereIsNotInTyped`, `whereIsAnyTyped`) map properties to their database column names (`@Column({ name })`) through the alias metadata. Previously they emitted the property name, so a condition on a renamed column hit a nonexistent (or wrong) column. (#17)
 - Typed keys on embedded columns (`p => p.address.city`) resolve to the main alias column (`"p"."addressCity"`) in where, select, orderBy and distinctOn, instead of being read as alias `address`. With `useQuotes`, `selectTyped` / `orderByTyped` emit database column names, and an array of callbacks in `selectTyped` honors `useQuotes`. (#20)
+- `whereTyped` / `andWhereTyped` / `orWhereTyped` bind a `Date` (or a `Buffer` / typed array) as the value. Previously it was read as a params object: a `Date` has no own keys, so `whereTyped(u => u.createdAt, '>', date)` compared with `NULL` and returned nothing, and a `Buffer` was bound as its first byte. An invalid `Date` compares with `NULL`, like `NaN`. Class instances with named placeholders still work as params objects. (#22)
+- `stringToSQLIdentifier` quotes with backticks for MariaDB too, not only `mysql` / `aurora-mysql`. (#21)
 
 ### Improvements
 
