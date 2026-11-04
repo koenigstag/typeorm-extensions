@@ -73,11 +73,12 @@ export default async () => {
 import 'typeorm-extensions';
 import { dataSource, User } from 'playground';
 
-// page 2 of 3, and the total of 6 users
+// page 2 of 3, and the total of 6 users;
+// createdAt is ordered by its column, created_at
 export default dataSource
   .getRepository(User)
   .createQueryBuilder('user')
-  .applyOrderFilter({ orderBy: [{ field: 'firstName', direction: 'asc' }] })
+  .applyOrderFilter({ orderBy: [{ field: 'createdAt', direction: 'desc' }] })
   .getManyWithTotals({ page: 2, pageSize: 2 });
 `,
   ),
