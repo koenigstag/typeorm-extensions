@@ -6,12 +6,12 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { patchPrototype } from '../utils/prototype.utils';
+import { toFieldSql } from '../utils/query-builder.utils';
 import { ArgsType } from '../types/util-types';
 import { WhereMethods } from '../types/extensions';
 import {
   assertArrayType,
   createUniqueParameterName,
-  stringToSQLIdentifier,
 } from '../utils/sql.utils';
 
 // declarations
@@ -250,7 +250,7 @@ function attachWhereIsAny<QB extends WhereExpressionBuilder>(
 
   // "table"."column" = ANY(:param) / <> ALL(:param), where :param is the whole array
   return builder[method](
-    `${stringToSQLIdentifier(field)} ${comparison}(${parameter})`,
+    `${toFieldSql(builder, field)} ${comparison}(${parameter})`,
     { [paramName]: array }
   );
 }

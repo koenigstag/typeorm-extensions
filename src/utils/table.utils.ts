@@ -1,5 +1,5 @@
 import { ObjectLiteral } from "typeorm";
-import { stringToSQLIdentifier } from './sql.utils';
+import { quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 
 export type TableHelperOptions = {
 	useQuotes?: boolean;
@@ -43,20 +43,23 @@ function buildJsonPath(fieldNames: string[], jsonOperator: '->>' | '->') {
  */
 export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}) => ({
 	alias,
-	/** Returns a quoted SQL column identifier, e.g. `"alias"."column"`. */
+	/**
+	 * Returns a quoted SQL column identifier, e.g. `"alias"."column"`. The column is always quoted as one
+	 * identifier, so names with other characters work too: `"user"."first-name"`.
+	 */
 	column(columnName: keyof T, alias?: string) {
 		const { useQuotes = true } = options;
 
-		const ids = [alias ?? this.alias, columnName].filter(Boolean); // [table, column]
+		const tableAlias = alias ?? this.alias;
+		const column = String(columnName);
 
-		// ["table", "column"] -> "table.column"
-		const id = ids.join('.');
-
-		if (useQuotes) {
-			return stringToSQLIdentifier(id);
+		if (!useQuotes) {
+			return [tableAlias, column].filter(Boolean).join('.');
 		}
 
-		return id;
+		return [tableAlias ? quoteIdentifierPath(tableAlias) : undefined, quoteIdentifier(column)]
+			.filter(Boolean)
+			.join('.');
 	},
 	/** Returns a column identifier optionally followed by an expression, e.g. `"user"."id" = :id`. */
 	where(columnName: keyof T, expression?: string) {
@@ -90,7 +93,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		if (columnName) {
 			target = this.column(columnName);
 		} else if (this.alias) {
-			target = `${useQuotes ? stringToSQLIdentifier(this.alias) : this.alias}.*`;
+			target = `${useQuotes ? quoteIdentifierPath(this.alias) : this.alias}.*`;
 		} else {
 			target = '*';
 		}

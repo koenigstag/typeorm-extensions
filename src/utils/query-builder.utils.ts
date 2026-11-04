@@ -1,6 +1,7 @@
 import type { EntityMetadata, ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
 import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import { getKeyHolder, KeyHolder } from './proxy-key.utils';
+import { getDriverType, stringToSQLIdentifier } from './sql.utils';
 
 /**
  * Whether single-level typed keys are qualified with the main alias (`user.firstName`).
@@ -59,6 +60,57 @@ export function getColumnDatabaseName(
   const metadata = getAliasMetadata(builder as unknown as QueryBuilder<ObjectLiteral>, aliasName);
 
   return metadata?.findColumnWithPropertyPath(propertyPath)?.databaseName;
+}
+
+/** A column of the entity by its database name (`first-name`) or its property path (`firstName`, `address.city`). */
+function findColumn(metadata: EntityMetadata, name: string) {
+  return (
+    metadata.columns.find((column) => column.databaseName === name) ??
+    metadata.findColumnWithPropertyPath(name)
+  );
+}
+
+/**
+ * SQL for a field passed as a string to the untyped methods (`whereIsIn('user.first-name', …)`).
+ *
+ * A string can't tell a column from an expression: `user.first-name` may be the column `first-name`
+ * or `user.first` minus `name`. The query builder knows its aliases and their entities, though:
+ * - `alias.column`, where `alias` is an alias of the query and `column` one of its entity's columns
+ *   (by database name or property path): the column, quoted by the driver, `"user"."first-name"`.
+ *   Property paths are mapped to their columns (`user.createdAt` → `"user"."created_at"`).
+ *   UPDATE / DELETE give the bare column, as they have no alias.
+ * - `column`, a database column name of the main entity: the quoted column, `"first-name"`. Property
+ *   names aren't mapped without an alias, as `status` may also be a column of a joined table.
+ * - anything else (unknown aliases, subqueries, expressions such as `LOWER(u.email)` or
+ *   `u.price - u.discount`): quoted only when it is a path of plain identifiers, as
+ *   `stringToSQLIdentifier` does, in the driver's quotes.
+ */
+export function toFieldSql(builder: WhereExpressionBuilder, field: string): string {
+  const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
+  const dot = field.indexOf('.');
+
+  if (dot > 0) {
+    const aliasName = field.slice(0, dot);
+    const metadata = queryBuilder.expressionMap?.aliases.some((alias) => alias.name === aliasName)
+      ? getAliasMetadata(queryBuilder, aliasName)
+      : undefined;
+    const column = metadata && findColumn(metadata, field.slice(dot + 1));
+
+    if (column) {
+      const columnSql = queryBuilder.escape(column.databaseName);
+      return isAliasPrefixingEnabled(queryBuilder) ? `${queryBuilder.escape(aliasName)}.${columnSql}` : columnSql;
+    }
+  } else {
+    // only by database name: an unqualified property name may mean another table's column
+    const metadata = getAliasMetadata(queryBuilder, undefined);
+    const column = metadata?.columns.find((candidate) => candidate.databaseName === field);
+
+    if (column) {
+      return queryBuilder.escape(column.databaseName);
+    }
+  }
+
+  return stringToSQLIdentifier(field, getDriverType(builder));
 }
 
 interface ResolvedTypedKey {
