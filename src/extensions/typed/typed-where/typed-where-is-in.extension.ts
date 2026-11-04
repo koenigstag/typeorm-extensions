@@ -7,7 +7,7 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereInMethods } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
@@ -361,15 +361,8 @@ function attachWhereIsIn<
   array?: ArgsType
 ): QB {
   if (typeof where === 'function') {
-    const key = getTypedColumnKey<Type>(builder, where);
-
-    if (Array.isArray(key)) {
-      for (const k of key) {
-        builder = builder[method](k, array);
-      }
-
-      return builder;
-    }
+    // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
+    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
 
     // .andWhere(`"table"."column"   IN (:...values)`, { values: ['value'] })
     return builder[method](key, array);

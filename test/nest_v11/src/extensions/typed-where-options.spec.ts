@@ -16,6 +16,14 @@ setupTest('typed-where.options', undefined, (context) => {
     expect(where.getQuery()).toMatch(/WHERE "user"\."id" = :where\w+/);
     expect(whereIn.getQuery()).toMatch(/WHERE "user"\."id" IN \(/);
 
+    // several columns: no single meaning, and `where…` used to keep only the last one
+    expect(() => query().whereTyped((u) => [u.id, u.email], '=', 1)).toThrow(
+      /whereTyped expects the callback to select a single column, got 2/,
+    );
+    expect(() => query().orWhereIsNotInTyped((u) => [u.id, u.email], [1])).toThrow(
+      /orWhereIsNotInTyped expects the callback to select a single column, got 2/,
+    );
+
     // addValue stays
     expect(query().whereTyped((u) => u.id, '= :id', { id: 1 }, { addValue: false }).getQuery()).toMatch(
       /WHERE "user"\."id" = :id/,

@@ -1,4 +1,7 @@
-export type GetManyWithTotalsOptions = {
+import type { ApplyPaginationOptions } from './pagination.types';
+
+/** Also takes the pagination options, e.g. `useTakeAndSkip` for queries with joined collections. */
+export type GetManyWithTotalsOptions = ApplyPaginationOptions & {
   disableTotalsCalculation?: boolean;
   loadAll?: boolean;
 };
