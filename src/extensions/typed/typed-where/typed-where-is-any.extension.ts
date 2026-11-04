@@ -7,7 +7,7 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereAnyMethods } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
@@ -329,14 +329,7 @@ function attachWhereIsAnyTyped<
     return builder;
   }
 
-  const key = getTypedColumnKey<Type>(builder, where);
-
-  if (Array.isArray(key)) {
-    // one ANY condition per column has no single obvious meaning (AND? OR?), so don't guess
-    throw new TypeError(
-      `${method}Typed expects the callback to select a single column, got ${key.length}: ${key.join(', ')}`
-    );
-  }
+  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
 
   // .andWhere(`"table"."column" = ANY(:param)`, { param: ['value'] })
   return builder[method](key, array, arrayType);
