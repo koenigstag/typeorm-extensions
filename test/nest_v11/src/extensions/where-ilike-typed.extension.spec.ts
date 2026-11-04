@@ -124,7 +124,8 @@ describe('where-search-typed.sql', () => {
           String.raw`OR "u"\."email" ILIKE \1 OR \(u\."firstName" \|\| ' ' \|\| u\."lastName"\) ILIKE \1\)$`,
       ),
     );
-    expect(params(query)).toEqual(['%jo%']);
+    // one named parameter; newer TypeORM binds it once, 0.3.12 once per use
+    expect(new Set(params(query))).toEqual(new Set(['%jo%']));
   });
 
   it('SHOULD skip the parentheses for a single column', () => {
@@ -154,7 +155,7 @@ describe('where-search-typed.sql', () => {
     expect(query.getQuery()).toMatch(
       /WHERE \(unaccent\("u"\."firstName"\) ILIKE unaccent\((:orWhere_\w+)\) OR unaccent\("u"\."lastName"\) ILIKE unaccent\(\1\)\)$/,
     );
-    expect(params(query)).toEqual(['a\\_b%']);
+    expect(new Set(params(query))).toEqual(new Set(['a\\_b%']));
   });
 
   it('SHOULD throw for no columns or an invalid selector, even for a blank value', () => {
