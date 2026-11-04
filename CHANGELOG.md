@@ -55,6 +55,9 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 - `whereTyped` / `andWhereTyped` / `orWhereTyped` bind a `Date` (or a `Buffer` / typed array) as the value. Previously it was read as a params object: a `Date` has no own keys, so `whereTyped(u => u.createdAt, '>', date)` compared with `NULL` and returned nothing, and a `Buffer` was bound as its first byte. An invalid `Date` compares with `NULL`, like `NaN`. Class instances with named placeholders still work as params objects. (#22)
 - `stringToSQLIdentifier` quotes with backticks for MariaDB too, not only `mysql` / `aurora-mysql`. (#21)
 - `applyOrder` / `applyOrderFilter` order by the database column of the field (`@Column({ name })`): `{ field: 'createdAt' }` with `@Column({ name: 'created_at' })` is ordered by `"created_at"`. Previously the property name was used and the query failed (`column user.createdAt does not exist`). An unquoted `alias.property` is still left to TypeORM, which maps it itself. (#26)
+- Typed methods work before `from()`: on a query created without an entity (`dataSource.createQueryBuilder()`, `qb.subQuery()`), `alias.column` keys (`selectTyped<{ base: Message }>(q => q.base.chatRoomId)`) no longer throw TypeORM's `Main alias is not set`; a single-level key there throws a `TypeError` that says to call `from()` first. (#24)
+- On UPDATE / DELETE, an `alias.column` key naming the main alias (`u => u.user.firstName`) gives the bare column `"firstName"`, like a single-level key; it used to give `"user"."firstName"`, which PostgreSQL rejects. (#24)
+- `selectTyped` with an array of callbacks keeps `useQuotes`, and no longer changes a `KeyHolder` passed in; `orderByTyped` / `addOrderByTyped` honor `options.useQuotes` for a `KeyHolder` selection. (#24)
 
 ### Improvements
 
@@ -66,6 +69,7 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 
 ### Internal
 
+- Removed `getKeyPrefixAlias`, an internal helper added after 1.3.5. (#24)
 - Removed the `Identifier` class (`src/utils/identifier.utils.ts`, never exported from the package); the order extension now builds identifiers with `tableHelper`.
 
 ## [1.3.5] - 2025-12-12
