@@ -1,4 +1,4 @@
-import type { ObjectLiteral, WhereExpressionBuilder } from 'typeorm';
+import type { ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
 import type { WhereMethods } from '../types/extensions/where.types';
 import { createUniqueParameterName, stringToSQLIdentifier } from './sql.utils';
 
@@ -106,4 +106,25 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   }
 
   return builder;
+}
+
+/**
+ * Adds an AND condition that narrows the whole WHERE clause. TypeORM's `andWhere` doesn't group
+ * the conditions before it, so after `.where(a).orWhere(b)` it gives `a OR b AND c`, i.e.
+ * `a OR (b AND c)`. Existing conditions with an OR are wrapped first: `(a OR b) AND c`.
+ */
+export function andWhereNarrowing<QB extends WhereExpressionBuilder>(
+  builder: QB,
+  condition: string,
+  parameters?: ObjectLiteral
+): QB {
+  const expressionMap = (builder as unknown as QueryBuilder<ObjectLiteral>).expressionMap;
+  const wheres = expressionMap?.wheres;
+
+  if (wheres?.some((where) => where.type === 'or')) {
+    // a nested clause list is rendered in parentheses
+    expressionMap.wheres = [{ type: 'simple', condition: wheres }];
+  }
+
+  return builder.andWhere(condition, parameters);
 }

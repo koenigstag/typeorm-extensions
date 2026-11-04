@@ -5,16 +5,13 @@ import type {
   OrderFilter,
   OrderType,
 } from '../types/interfaces/ordering.interface';
-import {
-  defaultNullsOrder,
-  defaultOrderDirection,
-  defaultUseQuotes,
-} from '../constants';
+import { defaultNullsOrder, defaultUseQuotes } from '../constants';
 import { ObjectLiteral } from 'typeorm';
 import { isNil } from '../utils/common.utils';
 import type { ApplyOrderOptions } from '../types/extensions/order.types';
 import { patchPrototype } from '../utils/prototype.utils';
 import { tableHelper } from '../utils/table.utils';
+import { toSqlOrderDirection } from '../utils/order.utils';
 
 // declarations
 
@@ -103,13 +100,7 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
   const order =
     typeof isReversed === 'boolean' && isNil(direction)
       ? (isReversed ? 'DESC' : 'ASC')
-      : typeof direction === 'boolean'
-        ? (direction ? 'ASC' : 'DESC')
-        : typeof direction === 'number'
-          ? (direction === -1 ? 'DESC' : 'ASC')
-          : typeof direction === 'string' && /asc|desc/i.test(direction)
-            ? (direction.toUpperCase() as 'ASC' | 'DESC')
-            : defaultOrderDirection;
+      : toSqlOrderDirection(direction);
 
   const nulls =
     typeof nullsOrder === 'string' && /first|last/i.test(nullsOrder)
