@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.4.0] - Unreleased
+## [2.0.0] - Unreleased
+
+A major version: the changes under **Breaking Changes** need code changes when upgrading from 1.x
+(`^1.3.5` ranges don't pick 2.0.0 up). Most of the **Bug Fixes** make SQL correct that used to fail,
+e.g. typed keys and `applyOrder` now use database column names (`@Column({ name })`).
 
 ### Breaking Changes
 
