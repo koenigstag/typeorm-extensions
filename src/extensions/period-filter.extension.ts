@@ -7,7 +7,7 @@ import {
 import { patchPrototype } from '../utils/prototype.utils';
 import type { PeriodFilter } from '../types/interfaces/period.interface';
 import type { ApplyPeriodOptions } from '../types/extensions/period.types';
-import { stringToSQLIdentifier } from '../utils/sql.utils';
+import { toFieldSql } from '../utils/query-builder.utils';
 import { attachPeriodFilter } from '../utils/period.utils';
 
 // declarations
@@ -55,7 +55,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       periodFilter: PeriodFilter | null | undefined,
       options?: ApplyPeriodOptions
     ): SelectQueryBuilder<Entity> {
-      return attachPeriodFilter(this, stringToSQLIdentifier(field), periodFilter, options);
+      return attachPeriodFilter(this, toFieldSql(this, field), periodFilter, options);
     },
   },
 };
