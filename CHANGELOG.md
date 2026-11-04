@@ -24,6 +24,7 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 
 ### New Features
 
+- **TypeORM 1.x support**: the peer dependency is `"typeorm": "^0.3.12 || ^1.0.0"`, so the package installs next to TypeORM 1.x without `--legacy-peer-deps`. CI tests TypeORM 0.3.12, the latest 0.3.x and the latest 1.x; every release from 0.3.24 to 1.1.2 was tested on SQLite and PostgreSQL. (#30, #31)
 - **`tableHelper` utility**, exported from the package root (`import { tableHelper } from 'typeorm-extensions'`) — type-safe SQL helper for building column references, WHERE expressions, JOIN clauses, and JSONB accessors. (#5)
   - `column()` — quoted SQL column identifier
   - `where()` — column with expression
