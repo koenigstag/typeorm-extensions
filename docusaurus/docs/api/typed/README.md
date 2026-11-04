@@ -14,6 +14,9 @@ This category provides a set of extensions for typed features. Instead of column
 - [whereTyped](./whereTyped): add typesafe condition to a query.
 - [whereIsInTyped](./whereIsInTyped): add typesafe IN / NOT IN condition to a query.
 - [whereIsAnyTyped](./whereIsAnyTyped): add typesafe `= ANY(array)` condition to a query (only PostgreSQL).
+- [whereArrayContainsTyped / ContainedByTyped / OverlapsTyped](./whereArrayTyped): add typesafe array column conditions to a query (only PostgreSQL).
+- [whereJsonContainsTyped / whereJsonHasKeyTyped](./whereJsonTyped): add typesafe JSON column conditions to a query (only PostgreSQL).
+- [whereIsDistinctFromTyped](./whereIsDistinctFromTyped): add typesafe null-safe comparison to a query.
 - [orderByTyped](./orderByTyped): add typesafe order to a query.
 - [distinctOnTyped](./distinctOnTyped): add typesafe distinct on to a query (only PostgreSQL).
 
