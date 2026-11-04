@@ -11,18 +11,20 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 - **Renamed `useDoubleQuotes` to `useQuotes`** in the options types `ApplyOrderOptions`, `TypedWhereOptions` and `TypedWhereIsInOptions`. The positional `useDoubleQuotes` parameter of `selectTyped` / `addSelectTyped` is renamed to `useQuotes` as well (positional calls keep working).
 - **`addOrderByTyped` takes an options object as its 4th argument**: `useDoubleQuotes?: boolean` became `options?: TypedOrderByOptions`. Migrate `addOrderByTyped(cb, 'ASC', undefined, true)` to `addOrderByTyped(cb, 'ASC', undefined, { useQuotes: true })`. In plain JS a boolean passed there is now ignored, so `true` silently stops quoting the key (`user.name` instead of `"user"."name"`).
 - **Typed key paths are limited to `column` / `alias.column`** (#16). A callback reaching a third level (`u => u.images.user.email`, `u => u.metadata.settings.theme`) is a compile error and throws a `TypeError` at runtime. Previously the path was cut to its first two keys without notice: typed where failed in the database, while select / orderBy / distinctOn used the relation's join column, so `x => x.images.user.id` happened to return the foreign key and any other field returned it too. Migrate `x.rel.rel2.id` to the foreign key property (`x => x.images.userId`); for other columns of nested relations, join them and address the join alias with an alias-keyed type (`(j: { imageUser: UserEntity }) => j.imageUser.email`).
+- **String fields are quoted only when they are paths of identifiers** (#14): `whereIsIn` / `whereIsNotIn` / `whereIsAny` (and the other untyped where methods) quote `user.id` as `"user"."id"` and leave an expression such as `LOWER(u.email)` as it is. A column name with other characters (`user.first-name`, a space) used to be quoted piece by piece and is now passed as is, which isn't valid SQL. Quote such a name yourself: `'user."first-name"'`. (Typed methods aren't affected: they quote through TypeORM.)
+- **`ArgsType` is `readonly unknown[]`** (#11), so the IN / ANY methods accept readonly arrays. Code that used the exported `ArgsType` for its own arrays and changes them (`push`, assignment by index) needs `unknown[]` instead.
 
 ### New Features
 
-- **`tableHelper` utility**, exported from the package root (`import { tableHelper } from 'typeorm-extensions'`) — type-safe SQL helper for building column references, WHERE expressions, JOIN clauses, and JSONB accessors.
+- **`tableHelper` utility**, exported from the package root (`import { tableHelper } from 'typeorm-extensions'`) — type-safe SQL helper for building column references, WHERE expressions, JOIN clauses, and JSONB accessors. (#5)
   - `column()` — quoted SQL column identifier
   - `where()` — column with expression
   - `join()` / `joinOn()` — join path helpers
   - `isNull()` / `isNotNull()` — null check expressions
-  - `count()` / `cast()` — aggregate and cast helpers (`count()` without a column counts `alias.*`, or `*` without an alias)
+  - `count()` / `cast()` — aggregate and cast helpers (`count()` without a column counts `alias.*`, or `*` without an alias; #7)
   - `jsonColumn()` — full JSONB column access expression with typed field names
   - `jsonPath()` — JSONB operator fragment for use in `whereTyped` conditions strings
-- **JSONB access via `tableHelper`** with nested paths as rest params. Field names are inferred from the column's TypeScript type (autocomplete up to 4 levels deep) and escaped as SQL string literals:
+- **JSONB access via `tableHelper`** with nested paths as rest params. Field names are inferred from the column's TypeScript type (autocomplete up to 4 levels deep) and escaped as SQL string literals (#8):
   ```ts
   const t = tableHelper<User>('user');
   t.jsonColumn('metadata', '->>', 'role')               // "user"."metadata" ->> 'role'
@@ -54,7 +56,7 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 - `whereIsNotInTyped` / `andWhereIsNotInTyped` / `orWhereIsNotInTyped` on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder` now default `Type` to the builder's entity, like the `IsIn` variants. Previously the callback accepted any property. (#4)
 - `whereTyped` / `andWhereTyped` / `orWhereTyped`: when `options.addValue` is not set, it now defaults to `false` if `condition` already references a key of `params` (`'= :id'` with `{ id }`, `'IN (:...ids)'` with `{ ids }`). Previously a second placeholder was appended and the SQL was invalid. `::type` casts and colons inside literals are not treated as placeholders. (#6)
 - `whereIsIn` / `whereIsNotIn` and their `and` / `or` and typed variants accept readonly arrays and `as const` constants: the values argument (`ArgsType`) is now `readonly unknown[]`. Previously they failed to type-check with TS2345. (#11)
-- Fields of `whereIsIn` / `whereIsNotIn` / `whereIsAny` and of the typed where methods: only a path of identifiers is quoted (`user.id` → `"user"."id"`, `user.*` → `"user".*`); an expression such as `COALESCE(ts."instructorId", e."instructorId")`, `LOWER(u.email)` or `u.id::text` is used as is. Previously it was split on dots and quoted piece by piece into invalid SQL. (#14)
+- Fields of `whereIsIn` / `whereIsNotIn` / `whereIsAny` and of the typed where methods: only a path of identifiers is quoted (`user.id` → `"user"."id"`, `user.*` → `"user".*`); an expression such as `COALESCE(ts."instructorId", e."instructorId")`, `LOWER(u.email)` or `u.id::text` is used as is. Previously it was split on dots and quoted piece by piece into invalid SQL. See also Breaking Changes. (#14)
 - Typed where methods on `UpdateQueryBuilder` / `DeleteQueryBuilder` no longer qualify the column with the alias: `WHERE "firstName" = …` instead of `WHERE "UserEntity"."firstName" = …`, which PostgreSQL accepted only when the alias equaled the table name and SQLite rejected. (#15)
 - Typed where methods (`whereTyped`, `whereIsInTyped` / `whereIsNotInTyped`, `whereIsAnyTyped`) map properties to their database column names (`@Column({ name })`) through the alias metadata. Previously they emitted the property name, so a condition on a renamed column hit a nonexistent (or wrong) column. (#17)
 - Typed keys on embedded columns (`p => p.address.city`) resolve to the main alias column (`"p"."addressCity"`) in where, select, orderBy and distinctOn, instead of being read as alias `address`. With `useQuotes`, `selectTyped` / `orderByTyped` emit database column names, and an array of callbacks in `selectTyped` honors `useQuotes`. (#20)
@@ -72,6 +74,7 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
 - Added test coverage for `tableHelper`, typed key resolution (`getKey`), JSONB `whereTyped` conditions and `addValue` placeholder detection.
 - Added `UserMetadata` typed JSONB column to test entity.
 - Added `CLAUDE.md` project overview for AI-assisted development.
+- The test suite passes on PostgreSQL as well as SQLite and no longer fails now and then: unique fake e-mails, id-independent order assertions, and a `distinctOn` test that never ran before. (#13)
 
 ### Internal
 
