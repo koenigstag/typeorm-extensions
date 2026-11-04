@@ -7,6 +7,8 @@
 - **Renamed `useDoubleQuotes` to `useQuotes`** in the options types `ApplyOrderOptions`, `TypedWhereOptions` and `TypedWhereIsInOptions`. The positional `useDoubleQuotes` parameter of `selectTyped` / `addSelectTyped` is renamed to `useQuotes` as well (positional calls keep working).
 - **`addOrderByTyped` takes an options object as its 4th argument**: `useDoubleQuotes?: boolean` became `options?: TypedOrderByOptions`. Migrate `addOrderByTyped(cb, 'ASC', undefined, true)` to `addOrderByTyped(cb, 'ASC', undefined, { useQuotes: true })`. In plain JS a boolean passed there is now ignored, so `true` silently stops quoting the key (`user.name` instead of `"user"."name"`).
 
+- **Typed key paths are limited to `column` / `alias.column`** (#16). A callback reaching a third level (`u => u.images.user.email`, `u => u.metadata.settings.theme`) is a compile error and throws a `TypeError` at runtime. Previously the path was cut to its first two keys without notice: typed where failed in the database, while select / orderBy / distinctOn used the relation's join column, so `x => x.images.user.id` happened to return the foreign key and any other field returned it too. Migrate `x.rel.rel2.id` to the foreign key property (`x => x.images.userId`); for other columns of nested relations, join them and address the join alias with an alias-keyed type (`(j: { imageUser: UserEntity }) => j.imageUser.email`).
+
 ### New Features
 
 - **`tableHelper` utility**, exported from the package root (`import { tableHelper } from 'typeorm-extensions'`) — type-safe SQL helper for building column references, WHERE expressions, JOIN clauses, and JSONB accessors.
@@ -27,6 +29,7 @@
 - **`TypedOrderByOptions`** — options for `orderByTyped` and `addOrderByTyped` with `useQuotes` support (`orderByTyped` had no quoting option before).
 - **`whereIsAny` / `andWhereIsAny` / `orWhereIsAny`** and typed `whereIsAnyTyped` / `andWhereIsAnyTyped` / `orWhereIsAnyTyped` (PostgreSQL): `column = ANY(:array)` with the whole array bound as one parameter, so the number of values isn't limited by the 65535 bind parameters that `IN` runs into. An empty array becomes `FALSE`. (#12)
 - **`typeorm-extensions/helpers`**: a side-effect-free entry point that exports `tableHelper` (and its types) without installing any QueryBuilder extension, unlike the package root. (#18)
+- **`whereIsAny` `arrayType`** (+ typed): an optional third argument casts the array parameter, `= ANY(CAST(:param AS uuid[]))`; the type name is validated. **`whereIsNotAny`** / `andWhereIsNotAny` / `orWhereIsNotAny` (+ typed) build `<> ALL(:param)`: the column differs from every value; an empty array becomes `TRUE`, like `NOT IN`. (#19)
 
 ### Bug Fixes
 
@@ -37,6 +40,7 @@
 - Fields of `whereIsIn` / `whereIsNotIn` / `whereIsAny` and of the typed where methods: only a path of identifiers is quoted (`user.id` → `"user"."id"`, `user.*` → `"user".*`); an expression such as `COALESCE(ts."instructorId", e."instructorId")`, `LOWER(u.email)` or `u.id::text` is used as is. Previously it was split on dots and quoted piece by piece into invalid SQL. (#14)
 - Typed where methods on `UpdateQueryBuilder` / `DeleteQueryBuilder` no longer qualify the column with the alias: `WHERE "firstName" = …` instead of `WHERE "UserEntity"."firstName" = …`, which PostgreSQL accepted only when the alias equaled the table name and SQLite rejected. (#15)
 - Typed where methods (`whereTyped`, `whereIsInTyped` / `whereIsNotInTyped`, `whereIsAnyTyped`) map properties to their database column names (`@Column({ name })`) through the alias metadata. Previously they emitted the property name, so a condition on a renamed column hit a nonexistent (or wrong) column. (#17)
+- Typed keys on embedded columns (`p => p.address.city`) resolve to the main alias column (`"p"."addressCity"`) in where, select, orderBy and distinctOn, instead of being read as alias `address`. With `useQuotes`, `selectTyped` / `orderByTyped` emit database column names, and an array of callbacks in `selectTyped` honors `useQuotes`. (#20)
 
 ### Improvements
 
