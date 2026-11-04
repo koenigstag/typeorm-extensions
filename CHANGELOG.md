@@ -38,7 +38,7 @@ e.g. typed keys and `applyOrder` now use database column names (`@Column({ name 
   - `whereJsonContains` / `whereJsonHasKey`: `@>` and `?` on the column cast to `jsonb`, so `json` and `simple-json` columns work too; on `jsonb` columns the cast is dropped and a GIN index is still used.
 - **`whereIsDistinctFrom` / `whereIsNotDistinctFrom`** (+ `and` / `or` and typed variants): null-safe comparisons, where `NULL` equals `NULL`. `IS [NOT] DISTINCT FROM` on PostgreSQL and most databases, `<=>` on MySQL / MariaDB, `IS [NOT]` on SQLite. (#21)
 - **String search methods** (typed, with `and` / `or` variants, on Select, Update and Delete builders) (#27):
-  - `whereILikeTyped(sel, value, { match, escape, unaccent })`: `ILIKE` with `%` / `_` / `\\` escaped and `contains` / `prefix` / `suffix` / `exact` matching (`LIKE` on MySQL / MariaDB, `LIKE … ESCAPE` on SQLite); a blank value adds nothing.
+  - `whereILikeTyped(sel, value, { match, escape, unaccent })`: `ILIKE` with `%` / `_` / `\` escaped and `contains` / `prefix` / `suffix` / `exact` matching (`LIKE` on MySQL / MariaDB, `LIKE … ESCAPE` on SQLite); a blank value adds nothing.
   - `whereSearchTyped([...selectors], value, options)`: one parenthesized `OR` group of `ILIKE`s over several columns or SQL expressions, with a single parameter.
   - `whereLowerEqualsTyped` / `whereIsInLowerTyped`: `LOWER(col) = LOWER(:p)` / `LOWER(col) IN (…)`, with a `normalize` wrapper to match an expression index.
   - `whereSimilarTyped` / `addSimilarityScoreTyped` (PostgreSQL + `pg_trgm`): `%`, `%>`, `<%` and `similarity()` scores.
