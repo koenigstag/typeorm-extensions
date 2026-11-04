@@ -1,6 +1,7 @@
 import type { ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
 import type { WhereMethods } from '../types/extensions/where.types';
-import { createUniqueParameterName, stringToSQLIdentifier } from './sql.utils';
+import { createUniqueParameterName } from './sql.utils';
+import { toFieldSql } from './query-builder.utils';
 
 export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   if (value === undefined || value === null || paramName === undefined) {
@@ -70,7 +71,7 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   let { addValue } = options || {};
 
   if (method && typeof field === 'string' && typeof conditions === 'string') {
-    field = stringToSQLIdentifier(field);
+    field = toFieldSql(builder, field);
 
     const hasParams = typeof params !== 'undefined';
     // `addValue` defaults to `true` unless `conditions` already references one of the `params` keys

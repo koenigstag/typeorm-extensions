@@ -7,13 +7,13 @@ import {
   DatabaseType,
 } from 'typeorm';
 import { patchPrototype } from '../utils/prototype.utils';
+import { toFieldSql } from '../utils/query-builder.utils';
 import { WhereMethods } from '../types/extensions';
 import {
   createUniqueParameterName,
   getDriverType,
   isMysqlLikeDriver,
   isSqliteLikeDriver,
-  stringToSQLIdentifier,
 } from '../utils/sql.utils';
 
 // declarations
@@ -147,7 +147,7 @@ function attachWhereDistinct<QB extends WhereExpressionBuilder>(
   }
 
   const driver = getDriverType(builder);
-  const column = stringToSQLIdentifier(field, driver);
+  const column = toFieldSql(builder, field);
 
   if (value === null || value === undefined) {
     // compare with the NULL literal, no parameter to bind

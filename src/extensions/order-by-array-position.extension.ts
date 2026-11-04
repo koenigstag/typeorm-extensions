@@ -2,7 +2,7 @@ import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { patchPrototype } from '../utils/prototype.utils';
 import type { ArgsType } from '../types/util-types';
-import { stringToSQLIdentifier } from '../utils/sql.utils';
+import { toFieldSql } from '../utils/query-builder.utils';
 import { attachOrderByArrayPosition } from '../utils/order.utils';
 
 // declarations
@@ -42,7 +42,7 @@ const createOrderByArrayPositionMethod = (replace: boolean) =>
     values: ArgsType,
     arrayType?: string
   ): SelectQueryBuilder<Entity> {
-    return attachOrderByArrayPosition(this, stringToSQLIdentifier(field), values, arrayType, replace);
+    return attachOrderByArrayPosition(this, toFieldSql(this, field), values, arrayType, replace);
   };
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {

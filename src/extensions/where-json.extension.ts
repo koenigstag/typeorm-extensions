@@ -6,10 +6,10 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { patchPrototype } from '../utils/prototype.utils';
+import { toFieldSql } from '../utils/query-builder.utils';
 import { WhereMethods } from '../types/extensions';
 import {
   createUniqueParameterName,
-  stringToSQLIdentifier,
 } from '../utils/sql.utils';
 
 // declarations
@@ -123,8 +123,8 @@ queryBuilders.forEach((builder) => {
  * `CAST("table"."column" AS jsonb)`: makes `json` and `simple-json` (text) columns work, and is dropped by PostgreSQL
  * for `jsonb` columns, so it doesn't stop a GIN index from being used.
  */
-function toJsonbOperand(field: string): string {
-  return `CAST(${stringToSQLIdentifier(field)} AS jsonb)`;
+function toJsonbOperand(builder: WhereExpressionBuilder, field: string): string {
+  return `CAST(${toFieldSql(builder, field)} AS jsonb)`;
 }
 
 function attachWhereJsonContains<QB extends WhereExpressionBuilder>(
@@ -148,7 +148,7 @@ function attachWhereJsonContains<QB extends WhereExpressionBuilder>(
 
   // CAST("table"."column" AS jsonb) @> CAST(:param AS jsonb), where :param is the JSON text
   return builder[method](
-    `${toJsonbOperand(field)} @> CAST(:${paramName} AS jsonb)`,
+    `${toJsonbOperand(builder, field)} @> CAST(:${paramName} AS jsonb)`,
     { [paramName]: json }
   );
 }
@@ -171,7 +171,7 @@ function attachWhereJsonHasKey<QB extends WhereExpressionBuilder>(
 
   // the `?` operator, not jsonb_exists(): only the operator can use a GIN index
   return builder[method](
-    `${toJsonbOperand(field)} ? :${paramName}`,
+    `${toJsonbOperand(builder, field)} ? :${paramName}`,
     { [paramName]: key }
   );
 }
