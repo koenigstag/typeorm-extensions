@@ -28,7 +28,7 @@ addOrderByTyped(
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects fields of entity.
 - order?: 'ASC' | 'DESC': Order direction. Default is 'ASC'.
 - nulls?: 'NULLS FIRST' | 'NULLS LAST': NULLS ordering.
-- options?: `TypedOrderByOptions`: `{ useQuotes?: boolean }`. With `useQuotes: true` the key is quoted (`"user"."name"`). Default `false` (`user.name`).
+- options?: `TypedOrderByOptions`: `{ useQuotes?: boolean }`. With `useQuotes: true` the key is the quoted database column name (`"user"."name"`, `@Column({ name })` applied). Default `false` (`user.name`, which TypeORM maps to the column itself).
 
 ## Usage
 
