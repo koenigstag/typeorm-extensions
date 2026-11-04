@@ -17,6 +17,7 @@ This package provides a set of extensions for [TypeORM](https://www.npmjs.com/pa
   - `whereTyped` - apply where conditions.
   - `whereIsInTyped` - apply where IN / NOT IN conditions.
   - `whereIsAnyTyped` - apply where `= ANY(array)` conditions (only PostgreSQL).
+  - `whereILikeTyped` / `whereSearchTyped` / `whereLowerEqualsTyped` - case-insensitive search with escaped wildcards; `whereSimilarTyped` - trigram similarity (only PostgreSQL).
   - `orderByTyped` - apply order conditions.
   - `distinctOnTyped` - apply distinct on conditions (only PostgreSQL).
   - `returningTyped` - return columns from INSERT / UPDATE / DELETE.

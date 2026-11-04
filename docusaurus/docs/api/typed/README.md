@@ -18,6 +18,10 @@ This category provides a set of extensions for typed features. Instead of column
 - [whereJsonContainsTyped / whereJsonHasKeyTyped](./whereJsonTyped): add typesafe JSON column conditions to a query (only PostgreSQL).
 - [whereIsDistinctFromTyped](./whereIsDistinctFromTyped): add typesafe null-safe comparison to a query.
 - [applyPeriodFilterTyped](./applyPeriodFilterTyped): filter by a period of a typesafe date / time property.
+- [whereILikeTyped](./whereILikeTyped): add typesafe case-insensitive `LIKE` with escaped wildcards (`ILIKE` on PostgreSQL).
+- [whereSearchTyped](./whereSearchTyped): search several columns for one value, as one `OR` group.
+- [whereLowerEqualsTyped / whereIsInLowerTyped](./whereLowerTyped): add typesafe case-insensitive equality / `IN` (`LOWER(…)`).
+- [whereSimilarTyped / addSimilarityScoreTyped](./whereSimilarTyped): add typesafe trigram similarity conditions and scores (PostgreSQL + `pg_trgm`).
 - [orderByTyped](./orderByTyped): add typesafe order to a query.
 - [distinctOnTyped](./distinctOnTyped): add typesafe distinct on to a query (only PostgreSQL).
 - [orderByArrayPositionTyped](./orderByArrayPositionTyped): order by the position of a property's value in an array (only PostgreSQL).
