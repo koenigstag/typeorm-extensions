@@ -29,6 +29,17 @@ setupTest('period-filter.sql', undefined, (context) => {
     expect(Object.values(query.getParameters())).toEqual([from, to]);
   });
 
+  it('SHOULD narrow existing OR conditions instead of joining the last of them', () => {
+    const query = queryUsers()
+      .where('user.id = 1')
+      .orWhere('user.id = 2')
+      .applyPeriodFilter('user.createdAt', { periodFrom: '2024-01-01', periodTo: '2024-01-31' });
+
+    expect(query.getQuery()).toMatch(
+      /WHERE \("user"\."id" = 1 OR "user"\."id" = 2\) AND "user"\."createdAt" >= :periodFrom_\w+ AND "user"\."createdAt" < :periodTo_\w+/,
+    );
+  });
+
   it('SHOULD include the whole day of a date-only periodTo', () => {
     expect(conditionsAndValues({ periodFrom: '2024-01-01', periodTo: '2024-01-31' })).toEqual([
       expect.stringMatching(/^"user"\."createdAt" >= :periodFrom_\w+ AND "user"\."createdAt" < :periodTo_\w+$/),
