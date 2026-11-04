@@ -16,7 +16,8 @@ export interface PeriodFilterMethods {
   /**
    * Adds AND WHERE conditions for a period: `field >= :periodFrom AND field <= :periodTo`.
    * Missing, `null` or empty ends are skipped, so an empty filter adds nothing.
-   * A date-only `periodTo` (`'2024-01-31'`) includes that whole day: `field < '2024-02-01'`.
+   * Both ends are inclusive unless `options.includeFrom` / `options.includeTo` is `false`.
+   * A date-only string (`'2024-01-31'`) stands for the whole day: `periodTo: '2024-01-31'` → `field < '2024-02-01'`.
    * Invalid dates (`new Date('x')`, `'2024-02-30'`) throw a `TypeError`.
    */
   applyPeriodFilter(

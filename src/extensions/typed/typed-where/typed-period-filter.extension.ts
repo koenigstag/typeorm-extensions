@@ -19,7 +19,8 @@ export interface TypedPeriodFilterMethods<Entity extends ObjectLiteral> {
    * Adds AND WHERE conditions for a period on an entity property:
    * `column >= :periodFrom AND column <= :periodTo`.
    * Missing, `null` or empty ends are skipped, so an empty filter adds nothing.
-   * A date-only `periodTo` (`'2024-01-31'`) includes that whole day: `column < '2024-02-01'`.
+   * Both ends are inclusive unless `options.includeFrom` / `options.includeTo` is `false`.
+   * A date-only string (`'2024-01-31'`) stands for the whole day: `periodTo: '2024-01-31'` → `column < '2024-02-01'`.
    */
   applyPeriodFilterTyped<Type extends ObjectLiteral = Entity>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,

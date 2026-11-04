@@ -1,6 +1,7 @@
 import 'typeorm-extensions/extensions/period-filter.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-period-filter.extension';
 import type { PeriodFilter } from 'typeorm-extensions/types/interfaces/period.interface';
+import type { ApplyPeriodOptions } from 'typeorm-extensions/types/extensions/period.types';
 import { setupTest, createFakeUsers } from '../test-utils';
 import { UserEntity } from '../models';
 
@@ -8,10 +9,8 @@ setupTest('period-filter.sql', undefined, (context) => {
   const queryUsers = () =>
     context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
 
-  const conditionsAndValues = (period: PeriodFilter, exclusive?: boolean) => {
-    const query = queryUsers().applyPeriodFilterTyped((u) => u.createdAt, period, {
-      periodToExclusive: exclusive,
-    });
+  const conditionsAndValues = (period: PeriodFilter, options?: ApplyPeriodOptions) => {
+    const query = queryUsers().applyPeriodFilterTyped((u) => u.createdAt, period, options);
 
     return [query.getQuery().replace(/^.*?WHERE /s, '').replace(/ ORDER BY.*$/s, ''), Object.values(query.getParameters())];
   };
@@ -55,10 +54,34 @@ setupTest('period-filter.sql', undefined, (context) => {
     ]);
   });
 
-  it('SHOULD make periodTo exclusive with periodToExclusive', () => {
-    expect(conditionsAndValues({ periodFrom: '2024-01-01', periodTo: '2024-02-01' }, true)).toEqual([
+  it('SHOULD exclude the end with includeTo: false', () => {
+    // half-open period
+    expect(conditionsAndValues({ periodFrom: '2024-01-01', periodTo: '2024-02-01' }, { includeTo: false })).toEqual([
       expect.stringMatching(/>= :periodFrom_\w+ AND "user"\."createdAt" < :periodTo_\w+$/),
       ['2024-01-01', '2024-02-01'],
+    ]);
+
+    const to = new Date('2024-01-31T00:00:00.000Z');
+    expect(conditionsAndValues({ periodTo: to }, { includeTo: false })).toEqual([
+      expect.stringMatching(/< :periodTo_\w+$/),
+      [to],
+    ]);
+  });
+
+  it('SHOULD exclude the start with includeFrom: false, a date-only start as a whole day', () => {
+    expect(conditionsAndValues({ periodFrom: '2024-01-01' }, { includeFrom: false })).toEqual([
+      expect.stringMatching(/^"user"\."createdAt" >= :periodFrom_\w+$/),
+      ['2024-01-02'],
+    ]);
+
+    const from = new Date('2024-01-01T10:00:00.000Z');
+    expect(conditionsAndValues({ periodFrom: from }, { includeFrom: false })).toEqual([
+      expect.stringMatching(/^"user"\."createdAt" > :periodFrom_\w+$/),
+      [from],
+    ]);
+    expect(conditionsAndValues({ periodFrom: '2024-01-01 10:00:00' }, { includeFrom: false })).toEqual([
+      expect.stringMatching(/^"user"\."createdAt" > :periodFrom_\w+$/),
+      ['2024-01-01 10:00:00'],
     ]);
   });
 
@@ -114,12 +137,12 @@ setupTest('period-filter.rows', undefined, (context) => {
     return users;
   };
 
-  const filterIds = async (period: PeriodFilter | null, exclusive?: boolean) =>
+  const filterIds = async (period: PeriodFilter | null, options?: ApplyPeriodOptions) =>
     (
       await context.dataSource
         .getRepository(UserEntity)
         .createQueryBuilder('user')
-        .applyPeriodFilterTyped((u) => u.createdAt, period, { periodToExclusive: exclusive })
+        .applyPeriodFilterTyped((u) => u.createdAt, period, options)
         .getMany()
     ).map((user) => user.id);
 
@@ -132,7 +155,7 @@ setupTest('period-filter.rows', undefined, (context) => {
     ]);
   });
 
-  it('SHOULD support open-ended periods, Dates and exclusive ends', async () => {
+  it('SHOULD support open-ended periods, Dates and excluded ends', async () => {
     const users = await seed();
 
     expect(await filterIds({ periodFrom: '2024-01-31' })).toEqual([users[2].id, users[3].id]);
@@ -146,8 +169,14 @@ setupTest('period-filter.rows', undefined, (context) => {
       }),
     ).toEqual([users[1].id, users[2].id]);
 
-    expect(await filterIds({ periodFrom: '2024-01-01', periodTo: '2024-01-31' }, true)).toEqual([
+    expect(await filterIds({ periodFrom: '2024-01-01', periodTo: '2024-01-31' }, { includeTo: false })).toEqual([
       users[1].id,
+    ]);
+
+    // the whole first day is excluded, the whole last day included
+    expect(await filterIds({ periodFrom: '2024-01-15', periodTo: '2024-02-01' }, { includeFrom: false })).toEqual([
+      users[2].id,
+      users[3].id,
     ]);
   });
 

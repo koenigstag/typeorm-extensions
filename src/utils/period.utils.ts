@@ -42,8 +42,8 @@ function normalizeBoundary(value: unknown, name: string): Date | string | undefi
 }
 
 /** The day after a date-only string, or `undefined` past year 9999. */
-function getNextDay(value: string): string | undefined {
-  const day = parseDateOnly(value, 'periodTo');
+function getNextDay(value: string, name: string): string | undefined {
+  const day = parseDateOnly(value, name);
   day.setUTCDate(day.getUTCDate() + 1);
 
   const next = day.toISOString().slice(0, 10);
@@ -52,9 +52,36 @@ function getNextDay(value: string): string | undefined {
 }
 
 /**
- * Adds `column >= :from` and `column <= :to` (or `column < :to`) conditions with AND,
- * so the filter narrows whatever WHERE conditions the query already has.
- * `column` is already quoted.
+ * The comparison for one end of the period. A date-only string stands for the whole day,
+ * so excluding the start or including the end moves the bound to the next day:
+ * `> '2024-01-01'` would still match timestamps later on January 1st.
+ */
+function getBoundCondition(
+  boundary: Date | string,
+  name: 'periodFrom' | 'periodTo',
+  include: boolean
+): { operator: '>=' | '>' | '<=' | '<'; value: Date | string } {
+  const isFrom = name === 'periodFrom';
+  const nextDay =
+    typeof boundary === 'string' && DATE_ONLY.test(boundary) && include !== isFrom
+      ? getNextDay(boundary, name)
+      : undefined;
+
+  if (nextDay !== undefined) {
+    // excluded start day: `>= next day`; included end day: `< next day`
+    return { operator: isFrom ? '>=' : '<', value: nextDay };
+  }
+
+  if (isFrom) {
+    return { operator: include ? '>=' : '>', value: boundary };
+  }
+
+  return { operator: include ? '<=' : '<', value: boundary };
+}
+
+/**
+ * Adds `column >= :periodFrom` and `column <= :periodTo` conditions (or their exclusive versions) with
+ * AND, so the filter narrows whatever WHERE conditions the query already has. `column` is already quoted.
  */
 export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
   builder: QB,
@@ -62,32 +89,24 @@ export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
   periodFilter: PeriodFilter | null | undefined,
   options?: ApplyPeriodOptions
 ): QB {
-  const { periodToExclusive = false } = options ?? {};
+  const { includeFrom = true, includeTo = true } = options ?? {};
 
-  const periodFrom = normalizeBoundary(periodFilter?.periodFrom, 'periodFrom');
-  const periodTo = normalizeBoundary(periodFilter?.periodTo, 'periodTo');
+  const bounds = [
+    { name: 'periodFrom' as const, include: includeFrom },
+    { name: 'periodTo' as const, include: includeTo },
+  ];
 
-  if (periodFrom !== undefined) {
-    const paramName = createUniqueParameterName('periodFrom');
-    builder.andWhere(`${column} >= :${paramName}`, { [paramName]: periodFrom });
-  }
+  for (const { name, include } of bounds) {
+    const boundary = normalizeBoundary(periodFilter?.[name], name);
 
-  if (periodTo !== undefined) {
-    const paramName = createUniqueParameterName('periodTo');
-
-    // '2024-01-31' means the whole day: `< '2024-02-01'` also covers timestamps within it
-    const nextDay =
-      !periodToExclusive && typeof periodTo === 'string' && DATE_ONLY.test(periodTo)
-        ? getNextDay(periodTo)
-        : undefined;
-
-    if (nextDay !== undefined) {
-      builder.andWhere(`${column} < :${paramName}`, { [paramName]: nextDay });
-    } else {
-      builder.andWhere(`${column} ${periodToExclusive ? '<' : '<='} :${paramName}`, {
-        [paramName]: periodTo,
-      });
+    if (boundary === undefined) {
+      continue;
     }
+
+    const { operator, value } = getBoundCondition(boundary, name, include);
+    const paramName = createUniqueParameterName(name);
+
+    builder.andWhere(`${column} ${operator} :${paramName}`, { [paramName]: value });
   }
 
   return builder;
