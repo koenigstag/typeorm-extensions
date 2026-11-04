@@ -5,16 +5,14 @@ import type {
   OrderFilter,
   OrderType,
 } from '../types/interfaces/ordering.interface';
-import {
-  defaultNullsOrder,
-  defaultOrderDirection,
-  defaultUseQuotes,
-} from '../constants';
+import { defaultNullsOrder, defaultUseQuotes } from '../constants';
 import { ObjectLiteral } from 'typeorm';
 import { isNil } from '../utils/common.utils';
 import type { ApplyOrderOptions } from '../types/extensions/order.types';
 import { patchPrototype } from '../utils/prototype.utils';
 import { tableHelper } from '../utils/table.utils';
+import { toSqlOrderDirection } from '../utils/order.utils';
+import { getColumnDatabaseName } from '../utils/query-builder.utils';
 
 // declarations
 
@@ -75,10 +73,11 @@ const alwaysAliasWhiteList = [
 ];
 
 function getOrderOption<OrderEntity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<any>,
   orderBy: OrderParam<OrderEntity>,
-  defaultAlias: string,
   options?: ApplyOrderOptions
 ): OrderType {
+  const defaultAlias = builder.alias;
   const {
     useQuotes = defaultUseQuotes,
     alias: customAlias,
@@ -98,18 +97,19 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
 
   const table = tableHelper<OrderEntity>(alias, { useQuotes });
 
-  const selector = table.column(field);
+  // TypeORM maps an unquoted `alias.property` to the column itself; anything else must name the
+  // column: `@Column({ name: 'created_at' }) createdAt` is ordered by "created_at", not "createdAt"
+  const column =
+    alias && !useQuotes
+      ? field
+      : getColumnDatabaseName(builder, alias, field as string) ?? field;
+
+  const selector = table.column(column as keyof OrderEntity);
 
   const order =
     typeof isReversed === 'boolean' && isNil(direction)
       ? (isReversed ? 'DESC' : 'ASC')
-      : typeof direction === 'boolean'
-        ? (direction ? 'ASC' : 'DESC')
-        : typeof direction === 'number'
-          ? (direction === -1 ? 'DESC' : 'ASC')
-          : typeof direction === 'string' && /asc|desc/i.test(direction)
-            ? (direction.toUpperCase() as 'ASC' | 'DESC')
-            : defaultOrderDirection;
+      : toSqlOrderDirection(direction);
 
   const nulls =
     typeof nullsOrder === 'string' && /first|last/i.test(nullsOrder)
@@ -130,7 +130,7 @@ function applyOrder<QB extends SelectQueryBuilder<any>, OrderEntity extends Obje
 ): QB {
   const { resetPreviousOrder = false } = options ?? {};
 
-  const orderOption = getOrderOption(orderBy, builder.alias, options);
+  const orderOption = getOrderOption(builder, orderBy, options);
 
   const query = resetPreviousOrder ? builder.orderBy() : builder;
 

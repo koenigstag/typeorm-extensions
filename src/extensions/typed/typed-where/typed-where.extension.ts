@@ -6,7 +6,7 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
+import { getTypedColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
@@ -257,11 +257,10 @@ function attachTypedWhere<
   parameters?: unknown,
   options?: TypedWhereOptions
 ): QB {
-  const { useQuotes, addValue = true } = options || {};
+  const { addValue } = options || {};
 
   if (typeof where === 'function') {
-    const alias = (builder as unknown as SelectQueryBuilder<Type>).alias;
-    const key = getSqlKeyFromProxyCallback<Type>(where, alias, useQuotes);
+    const key = getTypedColumnKey<Type>(builder, where);
 
     if (Array.isArray(key)) {
       for (const k of key) {

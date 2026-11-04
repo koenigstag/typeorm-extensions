@@ -7,20 +7,57 @@ export const wrapWithDoubleQoutes = (str: string) =>
 export const wrapWithBackQoutes = (str: string) =>
   str.includes('`') ? str : '`' + str + '`';
 
+const BACKTICK = '`';
+// one identifier: unquoted (user, firstName) or already quoted ("user", `user`, "a""b")
+const UNQUOTED_IDENTIFIER = '[\\p{L}_][\\p{L}\\p{N}_$]*';
+const DOUBLE_QUOTED_IDENTIFIER = '"(?:[^"]|"")+"';
+const BACK_QUOTED_IDENTIFIER = `${BACKTICK}(?:[^${BACKTICK}]|${BACKTICK}${BACKTICK})+${BACKTICK}`;
+const IDENTIFIER = `(?:${UNQUOTED_IDENTIFIER}|${DOUBLE_QUOTED_IDENTIFIER}|${BACK_QUOTED_IDENTIFIER})`;
+
+// `id`, `user.id`, `"user"."id"`, `schema.table.column`, optionally ending with `.*`
+const IDENTIFIER_PATH = new RegExp(`^${IDENTIFIER}(?:\\.${IDENTIFIER})*(?:\\.\\*)?$`, 'u');
+const IDENTIFIER_PATH_SEGMENT = new RegExp(`${IDENTIFIER}|\\*`, 'gu');
+
+/** MySQL, MariaDB and Aurora MySQL: backtick identifiers, `<=>` null-safe comparison. */
+export const isMysqlLikeDriver = (driver?: DatabaseType): boolean =>
+  driver === 'mysql' || driver === 'mariadb' || driver === 'aurora-mysql';
+
+/** SQLite drivers: `IS` / `IS NOT` are null-safe comparisons. */
+export const isSqliteLikeDriver = (driver?: DatabaseType): boolean =>
+  driver === 'sqlite' ||
+  driver === 'better-sqlite3' ||
+  driver === 'sqljs' ||
+  driver === 'capacitor' ||
+  driver === 'cordova' ||
+  driver === 'expo' ||
+  driver === 'nativescript' ||
+  driver === 'react-native';
+
+/**
+ * Quotes an identifier path: `user.id` → `"user"."id"`, `user.*` → `"user".*`.
+ * Already quoted segments are kept. Anything that isn't a path of identifiers
+ * (`COALESCE(a.x, b.x)`, `LOWER(u.email)`, `u.id::text`, `*`) is returned as is.
+ */
 export const stringToSQLIdentifier = (
   str: string,
   driver?: DatabaseType
-): string =>
-  str.includes('.')
-    ? str
-        .split('.')
-        .map((val) =>
-          driver?.includes('mysql')
-            ? wrapWithBackQoutes(val)
-            : wrapWithDoubleQoutes(val)
-        )
-        .join('.')
-    : wrapWithDoubleQoutes(str);
+): string => {
+  if (!IDENTIFIER_PATH.test(str)) {
+    return str;
+  }
+
+  const quote = isMysqlLikeDriver(driver)
+    ? wrapWithBackQoutes
+    : wrapWithDoubleQoutes;
+
+  return (str.match(IDENTIFIER_PATH_SEGMENT) ?? [])
+    .map((segment) =>
+      segment === '*' || segment.startsWith('"') || segment.startsWith(BACKTICK)
+        ? segment
+        : quote(segment)
+    )
+    .join('.');
+};
 
 export const stringToSQLValue = (str: string): string => `'${str}'`;
 
@@ -29,3 +66,23 @@ export const createUniqueParameterName = (prefix?: string): string => {
 
   return `${prefix || 'param'}_${uniqueCode}`;
 };
+
+// a type name, optionally schema-qualified, multi-word (`character varying`), with a
+// modifier (`varchar(255)`) and array brackets: `uuid[]`, `public.order_status[]`, `"MyEnum"[]`
+const TYPE_NAME_PART = '(?:[A-Za-z_][\\w$]*|"(?:[^"]|"")+")';
+const ARRAY_TYPE_PATTERN = new RegExp(
+  `^${TYPE_NAME_PART}(?:\\.${TYPE_NAME_PART})*(?: ${TYPE_NAME_PART})*` +
+    `(?:\\(\\d+(?:, ?\\d+)?\\))?(?:\\[\\d*\\])*$`
+);
+
+/**
+ * Returns `arrayType` if it is a type name (`uuid[]`, `public.order_status[]`, `varchar(36)[]`),
+ * throws a `TypeError` otherwise: the type is inserted into the SQL as is.
+ */
+export function assertArrayType(arrayType: string): string {
+  if (typeof arrayType !== 'string' || !ARRAY_TYPE_PATTERN.test(arrayType)) {
+    throw new TypeError(`Invalid array type "${arrayType}": expected a type name like "uuid[]"`);
+  }
+
+  return arrayType;
+}

@@ -7,7 +7,7 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
+import { getTypedColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereInMethods } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
@@ -396,17 +396,12 @@ function attachWhereIsIn<
   method: WhereInMethods,
   where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
   array?: ArgsType,
+  // kept for the public signature: the key is always quoted, so `useQuotes` has no effect
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options?: TypedWhereIsInOptions
 ): QB {
-  const { useQuotes } = options || {};
-
   if (typeof where === 'function') {
-    const alias = (builder as unknown as SelectQueryBuilder<Type>).alias;
-    const key = getSqlKeyFromProxyCallback<Type>(
-      where,
-      alias,
-      useQuotes
-    );
+    const key = getTypedColumnKey<Type>(builder, where);
 
     if (Array.isArray(key)) {
       for (const k of key) {
