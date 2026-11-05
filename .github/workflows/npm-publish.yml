@@ -20,7 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '26'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org/'
 
       - name: Update npm (trusted publishing needs npm >= 11.5.1)

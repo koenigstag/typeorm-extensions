@@ -26,7 +26,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '26'
+          node-version: '24'
 
       - name: Install nest dependencies
         run: npm clean-install
@@ -47,7 +47,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '26'
+          node-version: '24'
 
       - name: Install nest dependencies
         run: npm clean-install
@@ -84,7 +84,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '26'
+          node-version: '24'
 
       - name: Install nest dependencies
         run: npm clean-install
