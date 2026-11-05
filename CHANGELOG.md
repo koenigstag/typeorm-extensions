@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-11-05
 
 A major version: the changes under **Breaking Changes** need code changes when upgrading from 1.x
 (`^1.3.5` ranges don't pick 2.0.0 up). Most of the **Bug Fixes** make SQL correct that used to fail,
