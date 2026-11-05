@@ -91,7 +91,12 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 
 		return `${tableAlias}.${String(relation)}`;
 	},
-	/** Returns a column with a JOIN ON expression, e.g. `"user"."id" = image.userId`. */
+	/**
+	 * Returns a column with a JOIN ON expression, e.g. `"user"."id" = "images"."userId"`.
+	 * The expression is inserted as is: build its columns with another `tableHelper`
+	 * (`t.joinOn('id', '= ' + images.column('userId'))`), since unquoted camelCase names
+	 * like `images.userId` are folded to lowercase by PostgreSQL unless TypeORM rewrites them.
+	 */
 	joinOn(thisColumn: keyof T, expression: string) {
 		return this.where(thisColumn, expression);
 	},

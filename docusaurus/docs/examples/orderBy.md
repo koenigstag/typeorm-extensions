@@ -8,7 +8,7 @@ This category provides a set of examples for order features.
 
 ## applyOrderFilter
 
-`applyOrderFilter` is a method that applies pagination to a query.
+`applyOrderFilter` is a method that applies order to a query.
 
 [API reference](/docs/api/order/applyOrderFilter)
 

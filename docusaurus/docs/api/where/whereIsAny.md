@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Description
 
-`whereIsAny` adds a `column = ANY(:array)` condition. Unlike `whereIsIn`, which expands the array into one bind parameter per value (`IN ($1, $2, …)`), the whole array is bound as **one** array parameter.
+`whereIsAny` adds a `column = ANY(:array)` condition. Unlike [whereIsIn](./whereIsIn.md), which expands the array into one bind parameter per value (`IN ($1, $2, …)`), the whole array is bound as **one** array parameter.
 
 - Works for any number of values. PostgreSQL allows at most 65535 bind parameters per query, so `IN` with more values fails, e.g. with `bind message has 4464 parameter formats but 0 parameters` for 70 000 values.
 - The SQL text is the same for any array length, which helps prepared statements and `pg_stat_statements`.
@@ -30,7 +30,7 @@ orWhereIsNotAny(field: string, array?: readonly unknown[], arrayType?: string): 
 
 ## Arguments
 
-- field: string: Column to compare, e.g. `'user.id'`. It is quoted as an SQL identifier: `"user"."id"`.
+- field: string: Column to compare, e.g. `'user.id'`, which is quoted as an SQL identifier: `"user"."id"` (already quoted parts are kept). An expression such as `LOWER(u.email)`, `COALESCE(a."x", b."x")` or `u.id::text` is used as is.
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 - arrayType?: string: Type to cast the array parameter to, e.g. `'uuid[]'`, `'text[]'`, `'public.order_status[]'`: `= ANY(CAST(:param AS uuid[]))`. PostgreSQL usually infers the type from the column, so it's optional. Only a type name is accepted (optionally schema-qualified, with a modifier like `varchar(36)` and `[]`); anything else throws a `TypeError`, since it goes into the SQL as is.
 

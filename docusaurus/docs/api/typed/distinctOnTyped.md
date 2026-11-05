@@ -1,5 +1,5 @@
 ---
-sidebar_position: 6
+sidebar_position: 7
 ---
 
 # distinctOnTyped
@@ -10,12 +10,12 @@ sidebar_position: 6
 ## Signature
 ```typescript
 distinctOnTyped(
-  ...distinctOn: KeyProxyCallback<Entity>
+  ...distinctOn: Array<KeyProxyCallback<Entity>>
 ): SelectQueryBuilder<Entity>
 ```
 
 ## Arguments
-- distinctOn: [KeyProxyCallback&lt;Entity&gt;](../types/KeyProxyCallback): The array of callbacks which selects fields of entity for distingt rule.
+- distinctOn: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callbacks which select fields of entity for the DISTINCT ON rule. PostgreSQL only.
 
 ## Usage
 
@@ -25,7 +25,7 @@ query.distinctOnTyped(user => user.name)
 ```
 
 ```typescript
-// same as `query.distinctOn(['user.id', 'user.name'])`
+// same as `query.distinctOn(['user.createdAt', 'user.name'])`
 query.distinctOnTyped(user => [
   user.createdAt,
   user.name,
