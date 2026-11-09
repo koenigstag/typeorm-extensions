@@ -86,6 +86,11 @@ const config: Config = {
           position: 'left',
       },
         {
+          to: '/playground',
+          label: 'Playground',
+          position: 'left',
+        },
+        {
           href: `https://github.com/${organizationName}/${repositoryName}`,
           label: 'GitHub',
           position: 'right',

@@ -126,6 +126,34 @@ describe('getSqlKeyFromProxyCallback', () => {
     expect(key).toBe('raw.key');
   });
 
+  it('SHOULD keep useQuotes for every key of an array callback', () => {
+    const key = getSqlKeyFromProxyCallback<UserEntity>(
+      (u) => [u.id, u.images.url],
+      'user',
+      true
+    );
+
+    expect(key).toEqual(['"user"."id"', '"images"."url"']);
+  });
+
+  it('SHOULD resolve a prefix function only for single-level keys', () => {
+    const prefix = jest.fn(() => 'user');
+
+    expect(getSqlKeyFromProxyCallback<UserEntity>((u) => u.images.url, prefix)).toBe('images.url');
+    expect(prefix).not.toHaveBeenCalled();
+
+    expect(getSqlKeyFromProxyCallback<UserEntity>((u) => u.id, prefix)).toBe('user.id');
+    expect(prefix).toHaveBeenCalledTimes(1);
+  });
+
+  it('SHOULD not modify a KeyHolder passed in', () => {
+    const holder = new KeyHolder(['id']);
+
+    expect(getSqlKeyFromProxyCallback<UserEntity>(holder, 'user')).toBe('user.id');
+    expect(getSqlKeyFromProxyCallback<UserEntity>(holder, 'other')).toBe('other.id');
+    expect(holder.getKeys()).toEqual(['id']);
+  });
+
   it('SHOULD work without prefix for single-level column', () => {
     const key = getSqlKeyFromProxyCallback<UserEntity>((u) => u.email);
 

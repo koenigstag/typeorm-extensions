@@ -62,9 +62,18 @@ docusaurus/                           # Documentation site source
 
 ## Git Workflow
 
-- **Main branch:** `main`
-- **Development branch:** `dev`
+- **Development branch:** `dev` — where all new work lands.
+- **Main branch:** `main` — receives only commits that were already tested on `dev`.
 - **Docs branch:** `docs` (auto-deployed Docusaurus build)
+
+Flow for a change:
+
+1. Branch off `dev` (`feat/…`, `fix/…`, `chore/…`) and open the pull request against `dev`.
+2. Test it on `dev`.
+3. Promote it to `main` only once tested — either cherry-pick the commits onto `main`, or open a pull request from `dev` into `main`.
+
+Never open a pull request for new work straight against `main`, and never commit new work to `main` directly.
+
 - Commit messages are short, imperative style (e.g., "Add table helper util", "Refactor useDoubleQuotes to useQuotes")
 
 ## Key Patterns

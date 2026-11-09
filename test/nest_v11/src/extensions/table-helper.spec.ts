@@ -1,5 +1,7 @@
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 import { UserEntity } from '../models';
+import { setupTest, createFakeUsers } from '../test-utils';
+import { sqliteDrivers } from '../constants/database';
 
 describe('tableHelper', () => {
   describe('column', () => {
@@ -53,6 +55,8 @@ describe('tableHelper', () => {
       const table = tableHelper<UserEntity>('user');
 
       expect(table.join('images')).toBe('user.images');
+      expect(table.join('images', 'u')).toBe('u.images');
+      expect(() => tableHelper<UserEntity>().join('images')).toThrow(/needs an alias/);
     });
   });
 
@@ -87,18 +91,61 @@ describe('tableHelper', () => {
       expect(table.count('id')).toBe('CAST(COUNT("user"."id") AS integer)');
     });
 
-    it('SHOULD return COUNT with alias.* when no column', () => {
+    it('SHOULD return COUNT(*) when no column, with or without an alias', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.count()).toBe('CAST(COUNT("user".*) AS integer)');
+      // not COUNT("user".*), which only PostgreSQL accepts
+      expect(table.count()).toBe('CAST(COUNT(*) AS integer)');
     });
 
-    it('SHOULD include count expression', () => {
+    it('SHOULD return COUNT(*) when no column and no alias', () => {
+      const table = tableHelper<UserEntity>();
+
+      expect(table.count()).toBe('CAST(COUNT(*) AS integer)');
+    });
+
+    it('SHOULD return COUNT(*) when useQuotes is false too', () => {
+      const table = tableHelper<UserEntity>('user', { useQuotes: false });
+
+      expect(table.count()).toBe('CAST(COUNT(*) AS integer)');
+    });
+
+    it('SHOULD count distinct values of a column', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.count('id', 'FILTER (WHERE "user"."id" > 5)')).toBe(
-        'CAST(COUNT("user"."id" FILTER (WHERE "user"."id" > 5)) AS integer)'
+      expect(table.count('email', { distinct: true })).toBe('CAST(COUNT(DISTINCT "user"."email") AS integer)');
+      expect(() => table.count(undefined, { distinct: true })).toThrow(/needs a column/);
+    });
+
+    it('SHOULD count rows matching a condition with CASE by default', () => {
+      const table = tableHelper<UserEntity>('user');
+      const filter = table.where('firstName', "= 'Ann'");
+
+      expect(table.count(undefined, { filter })).toBe(
+        `CAST(COUNT(CASE WHEN "user"."firstName" = 'Ann' THEN 1 END) AS integer)`
       );
+      expect(table.count('email', { filter, distinct: true })).toBe(
+        `CAST(COUNT(DISTINCT CASE WHEN "user"."firstName" = 'Ann' THEN "user"."email" END) AS integer)`
+      );
+    });
+
+    it('SHOULD count rows matching a condition with FILTER on request', () => {
+      const table = tableHelper<UserEntity>('user');
+      const filter = table.where('firstName', "= 'Ann'");
+
+      expect(table.count(undefined, { filter, syntax: 'filter' })).toBe(
+        `CAST(COUNT(*) FILTER (WHERE "user"."firstName" = 'Ann') AS integer)`
+      );
+      expect(table.count('email', { filter, distinct: true, syntax: 'filter' })).toBe(
+        `CAST(COUNT(DISTINCT "user"."email") FILTER (WHERE "user"."firstName" = 'Ann') AS integer)`
+      );
+    });
+
+    it('SHOULD reject the old string argument and unknown syntaxes', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(() => table.count('id', 'DISTINCT' as never)).toThrow(/options object/);
+      expect(() => table.count('id', { filter: 'x', syntax: 'where' as never })).toThrow(/'case' or 'filter'/);
     });
   });
 
@@ -146,6 +193,24 @@ describe('tableHelper', () => {
         '"user"."firstName" -> \'a\' -> \'b\''
       );
     });
+
+    it('SHOULD escape single quotes in keys', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonColumn('firstName', '->>', "o'brien")).toBe(
+        '"user"."firstName" ->> \'o\'\'brien\''
+      );
+    });
+
+    it('SHOULD keep a quote-injection attempt inside the key literal', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(
+        table.jsonColumn('firstName', '->>', "x' OR '1'='1", 'y'),
+      ).toBe(
+        '"user"."firstName" -> \'x\'\' OR \'\'1\'\'=\'\'1\' ->> \'y\''
+      );
+    });
   });
 
   describe('jsonPath', () => {
@@ -170,5 +235,63 @@ describe('tableHelper', () => {
         "-> 'a' -> 'b' ->> 'c'"
       );
     });
+
+    it('SHOULD escape single quotes in keys', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonPath('firstName', '->>', "it's", 'ok')).toBe(
+        "-> 'it''s' ->> 'ok'"
+      );
+    });
+  });
+});
+
+setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
+  // `metadata` is a `simple-json` (text) column: SQLite's `->>` works on JSON text,
+  // PostgreSQL's needs a json/jsonb column
+  if (!sqliteDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only runs on sqlite (JSON operators on a text column)', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  // Loosely typed JSON column so arbitrary keys are allowed
+  const t = tableHelper<{ metadata: Record<string, unknown> }>('user');
+
+  it('SHOULD match a JSON key that contains a single quote', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+
+    let fakeUsers = await createFakeUsers({ count: 3 });
+    fakeUsers[0].metadata = {
+      ...fakeUsers[0].metadata,
+      "o'brien": 'yes',
+    } as UserEntity['metadata'];
+    fakeUsers = await usersRepository.save(fakeUsers);
+
+    const result = await usersRepository
+      .createQueryBuilder('user')
+      .where(`${t.jsonColumn('metadata', '->>', "o'brien")} = :value`, {
+        value: 'yes',
+      })
+      .getMany();
+
+    expect(result.map((user) => user.id)).toEqual([fakeUsers[0].id]);
+  });
+
+  it('SHOULD not let a key break out of its literal and widen the WHERE', async () => {
+    const usersRepository = context.dataSource.getRepository(UserEntity);
+
+    await usersRepository.save(await createFakeUsers({ count: 3 }));
+
+    const result = await usersRepository
+      .createQueryBuilder('user')
+      .where(
+        `${t.jsonColumn('metadata', '->>', "x' OR 1=1 OR '")} = :value`,
+        { value: 'yes' },
+      )
+      .getMany();
+
+    expect(result).toHaveLength(0);
   });
 });

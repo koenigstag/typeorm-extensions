@@ -2,7 +2,7 @@ name: Lint commit
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'src/**'
 
@@ -12,12 +12,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
-      - name: Set up Node.js 20 (LTS)
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies
         run: npm clean-install

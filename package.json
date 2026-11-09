@@ -1,10 +1,10 @@
 {
   "name": "typeorm-extensions",
-  "version": "1.4.0",
+  "version": "2.2.0",
   "description": "typeorm commonly used extensions",
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "LICENSE", "README.md", "package.json"],
+  "files": ["dist", "helpers", "LICENSE", "README.md", "package.json"],
   "type": "commonjs",
   "homepage": "https://koenigstag.github.io/typeorm-extensions/",
   "repository": {
@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "test:types": "tsc -p test/types"
   },
   "keywords": [
     "typeorm",
@@ -23,9 +24,9 @@
     "utils"
   ],
   "author": "koenigstag",
-  "license": "ISC",
+  "license": "MIT",
   "peerDependencies": {
-    "typeorm": "^0.3.12"
+    "typeorm": "^0.3.12 || ^1.0.0"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.1.1",

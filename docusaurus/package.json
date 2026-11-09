@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
+    "prestart": "node playground/build.mjs",
     "start": "docusaurus start",
+    "prebuild": "node playground/build.mjs",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
@@ -12,7 +14,9 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "build:playground": "node playground/build.mjs",
+    "typecheck:playground": "tsc -p playground"
   },
   "dependencies": {
     "@docusaurus/core": "^3.8.0",
@@ -27,6 +31,14 @@
     "@docusaurus/module-type-aliases": "^3.8.0",
     "@docusaurus/tsconfig": "^3.8.0",
     "@docusaurus/types": "^3.8.0",
+    "@electric-sql/pglite": "^0.5.15",
+    "esbuild": "^0.28.2",
+    "lz-string": "^1.5.0",
+    "monaco-editor": "^0.57.0",
+    "reflect-metadata": "^0.2.2",
+    "sql-formatter": "^15.9.0",
+    "typeorm": "^0.3.31",
+    "typeorm-pglite": "^0.3.4",
     "typescript": "~5.2.2"
   },
   "browserslist": {

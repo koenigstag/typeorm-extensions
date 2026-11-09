@@ -1,12 +1,12 @@
 import 'typeorm-extensions/extensions/typed/typed-distinct/typed-distinct.extension';
-import { createFakeImages, createFakeUsers, setupTest } from '../test-utils';
+import { createFakeImages, createFakeUsers, setupTest, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
 const distinctOnSupportedDrivers = postgresLikeDrivers;
 
 setupTest('distinct-typed', undefined, (context) => {
-  if (!distinctOnSupportedDrivers.includes(context.typeormOptions.driver)) {
+  if (!distinctOnSupportedDrivers.includes(context.typeormOptions.type as never)) {
     it.skip('only supported on postgres', () => {
       expect(true).toBeTruthy();
     });
@@ -45,14 +45,18 @@ setupTest('distinct-typed', undefined, (context) => {
       .clone()
       .distinctOnTyped((u) => u.email);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain(
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain(
       'DISTINCT ON ("user"."email")',
     );
 
-    const result = await selectTypedQuery.getMany();
+    // DISTINCT ON must match the leading ORDER BY; without one the entity's
+    // default order ("user"."id") is used and postgres rejects the query
+    const result = await selectTypedQuery.orderBy('user.email', 'ASC').getMany();
 
     expect(result).toHaveLength(10);
-    expect(result[0]?.images).toBeInstanceOf(Array);
+    expect(new Set(result.map((user) => user.email))).toEqual(
+      new Set(fakeUsers.map((user) => user.email)),
+    );
   });
 });

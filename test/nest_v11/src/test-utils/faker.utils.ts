@@ -8,13 +8,19 @@ export const createRandomId = (min?: number, max?: number): number => {
   return faker.number.int({ min: min ?? 1, max: max ?? 1000 });
 }
 
+// users.email is UNIQUE, and faker emails collide often enough to fail a seed now and then
+// (e.g. `Olaf54@mail.com` twice in one batch), so append a sequence number
+let fakeEmailSequence = 0;
+
 export const createFakeUser = (
   overrides: Partial<UserEntity> = {},
 ): UserEntity => {
   const user = new UserEntity({
-    email: faker.internet.email({
-      provider: 'mail.com',
-    }),
+    email: faker.internet
+      .email({
+        provider: 'mail.com',
+      })
+      .replace('@', `.${++fakeEmailSequence}@`),
     firstName: faker.person.firstName(),
     lastName: faker.person.lastName(),
     metadata: {
@@ -43,7 +49,7 @@ export const createFakeUsers = async (
   const users: UserEntity[] = [];
 
   for (let i = 0; i < props.count; i++) {
-    const userOverrides = (await props?.getOverrides?.(i)) ?? { id: i };
+    const userOverrides = (await props?.getOverrides?.(i)) ?? { id: i + 1 };
 
     const user = createFakeUser(userOverrides);
 
@@ -81,7 +87,7 @@ export const createFakeImages = async (
   const images: ImageEntity[] = [];
 
   for (let i = 0; i < props.count; i++) {
-    const imageOverrides = (await props?.getOverrides?.(i)) ?? { id: i };
+    const imageOverrides = (await props?.getOverrides?.(i)) ?? { id: i + 1 };
 
     const image = createFakeImage(imageOverrides);
 

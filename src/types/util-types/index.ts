@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type ArgsType = unknown[];
+/** Values for IN / NOT IN conditions. Readonly so `as const` arrays are accepted; the array is only read. */
+export type ArgsType = readonly unknown[];
 
 export type FunctionPropertyNames<T> = { [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never }[keyof T] &
 	string;

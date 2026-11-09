@@ -1,4 +1,4 @@
-import { ObjectLiteral } from 'typeorm';
+import { DatabaseType, ObjectLiteral } from 'typeorm';
 import { stringToSQLIdentifier } from './sql.utils';
 import { DeepUnwrapArray, KeyProxyCallback } from '../types/modules/proxy-callback.types';
 
@@ -7,9 +7,9 @@ export class KeyHolder {
     this._keys = [..._keys];
   }
 
-  toSql(length: number = 2, useQuotes?: boolean) {
+  toSql(length: number = 2, useQuotes?: boolean, driver?: DatabaseType) {
     const string = this.toString(length);
-    const sql = useQuotes ? stringToSQLIdentifier(string) : string;
+    const sql = useQuotes ? stringToSQLIdentifier(string, driver) : string;
 
     return sql;
   }
@@ -94,18 +94,46 @@ export class KeyProxy {
   }
 }
 
+/** Typed keys are `column` or `alias.column`: a deeper path can't be mapped to a query alias. */
+export const MAX_KEY_DEPTH = 2;
+
+export const createKeyTooDeepError = (keys: string[]): TypeError =>
+	new TypeError(
+		`Typed key "${keys.join('.')}" is ${keys.length} levels deep, but typed methods support only ` +
+			`"column" or "alias.column", or a path into a JSON column in where methods. Join the nested relation and ` +
+			`address it by its alias with an alias-keyed type, e.g. type Joins = { someAlias: SomeEntity }; (j) => j.someAlias.column`
+	);
+
+const assertKeyDepth = (keyHolder: KeyHolder): KeyHolder => {
+	const keys = keyHolder.getKeys();
+
+	if (keys.length > MAX_KEY_DEPTH) {
+		throw createKeyTooDeepError(keys);
+	}
+
+	return keyHolder;
+};
+
+/**
+ * Keys of a typed callback. Paths deeper than `alias.column` throw, unless `allowDeepPaths` is set by a caller
+ * that checks them against the query's metadata (paths into JSON columns).
+ */
 export const getKeyHolder = <Type extends ObjectLiteral>(
-	callback: KeyProxyCallback<Type> | KeyHolder
+	callback: KeyProxyCallback<Type> | KeyHolder,
+	allowDeepPaths = false
 ): KeyHolder | Array<KeyHolder> => {
+	const check = allowDeepPaths ? (keyHolder: KeyHolder) => keyHolder : assertKeyDepth;
+
 	if (typeof callback !== 'function') {
 		if (callback instanceof KeyHolder) {
-			return callback;
+			return check(callback);
 		}
 	}
 
-	const keyHolder = callback(KeyProxy.create<DeepUnwrapArray<Type>>()) as KeyHolder;
+	const keyHolder = callback(KeyProxy.create<DeepUnwrapArray<Type>>()) as KeyHolder | Array<KeyHolder>;
 
-	return keyHolder;
+	// fail loudly instead of silently dropping levels beyond `alias.column`
+	return Array.isArray(keyHolder) ? keyHolder.map(check) : check(keyHolder);
 };
 
 export const getKey = <Type extends ObjectLiteral>(callback: KeyProxyCallback<Type> | KeyHolder | string): string => {
@@ -116,32 +144,46 @@ export const getKey = <Type extends ObjectLiteral>(callback: KeyProxyCallback<Ty
 	return keyHolder.toString();
 };
 
+/**
+ * Alias to prefix a single-level key with: a string, or a function called only when it is needed,
+ * e.g. `() => query.alias`, which throws while the query has no main alias (before `from()`).
+ */
+export type KeyPrefix = string | (() => string | undefined);
+
+/**
+ * SQL key of a typed callback: `(u) => u.id` → `prefix.id`, `(u) => u.images.url` → `images.url`
+ * (an `alias.column` path keeps its own alias). Strings are returned as is.
+ */
 export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	callback: KeyProxyCallback<Type> | KeyHolder | string,
-	addPrefix?: string,
-	useQuotes?: boolean
+	addPrefix?: KeyPrefix,
+	useQuotes?: boolean,
+	driver?: DatabaseType
 ): string | string[] => {
 	if (typeof callback === 'string') return callback;
 
 	const keyHolder = getKeyHolder<Type>(callback);
 
 	if (Array.isArray(keyHolder)) {
-		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix) as string);
+		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix, useQuotes, driver) as string);
 	}
 
 	// if select is like this: (proxy) => proxy.relation.column
 	if (keyHolder.getKeys().length > 1) {
 		// return unchanged
-		return keyHolder.toSql(undefined, useQuotes);
+		return keyHolder.toSql(undefined, useQuotes, driver);
 	}
 
 	// else if select is one layer depth like this: (proxy) => proxy.column
-	// then add alias before the key
-	if (typeof addPrefix === 'string' && addPrefix.length >= 1) {
-		keyHolder.unshift(addPrefix);
+	// then add alias before the key; resolve the alias only now, a path above doesn't need it
+	const prefix = typeof addPrefix === 'function' ? addPrefix() : addPrefix;
+
+	if (typeof prefix === 'string' && prefix.length >= 1) {
+		// a new holder: a KeyHolder passed in by the caller must stay as it was
+		return new KeyHolder([prefix, ...keyHolder.getKeys()]).toSql(undefined, useQuotes, driver);
 	}
 
-	return keyHolder.toSql(undefined, useQuotes);
+	return keyHolder.toSql(undefined, useQuotes, driver);
 };
 
 // example of typed select

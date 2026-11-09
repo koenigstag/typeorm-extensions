@@ -3,5 +3,7 @@
   "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
     "baseUrl": "."
-  }
+  },
+  // the playground bundle has its own tsconfig (playground/tsconfig.json)
+  "exclude": ["node_modules", "build", ".docusaurus", "static", "playground"]
 }

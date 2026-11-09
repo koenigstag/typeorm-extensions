@@ -27,23 +27,25 @@ npm install typeorm-extensions
 ## Usage
 
 ```typescript
-import 'typeorm-extensions'; // Import the library root to extend the QueryBuilder with all extensions
+import 'typeorm-extensions'; // Importing the library root extends the QueryBuilder with all extensions
 
 // Or init specific extension: import 'typeorm-extensions/dist/extensions/pagination.extension';
 
 const query = myDataSource
-  .createQueryBuilder()
-  .from(UserEntity, 'users')
+  .getRepository(UserEntity)
+  .createQueryBuilder('users')
   // Join relation defined in entity model
   .leftJoinTyped(user => user.images, 'images')
   // Select type-safe properties
-  .selectTyped(user => ([
-    id: user.id,
-    name: user.name,
-    email: user.email,
-  ]))
+  .selectTyped(user => [
+    user.id,
+    user.name,
+    user.email,
+    user.images.url,
+  ])
   .whereTyped(user => user.name, 'ILIKE', 'John')
-  .andWhereTyped(user => user.metadata, ` ->> 'jsonField' =`, 'some-value')
+  // Paths into JSON columns: "users"."metadata" ->> 'role' = :param
+  .andWhereTyped(user => user.metadata.role, '=', 'admin')
   // Order by type-safe own and relation properties
   .orderByTyped(user => user.images.url, 'ASC', 'NULLS LAST')
   // Use pagination as simple as that
@@ -56,7 +58,11 @@ For more information, please refer to the [documentation](https://koenigstag.git
 
 ## ToDo list
 
-- [ ] Add tests for pagination and order extensions
+- [x] Add tests for pagination and order extensions
 - [ ] Virtual column decorator and its query-builder methods (`addSelectVirtual`, `orderByVirtual`, `getManyWithVirtual`, `getOneWithVirtual`)
 - [ ] Add `withVirtualColumns` option to `findManyWithTotals` method to use `getManyWithVirtual` instead of `getMany`
 - [ ] Add `isVirtual` option to `OrderParam` to indicate usage of `orderByVirtual` method
+
+## License
+
+[MIT](./LICENSE)
