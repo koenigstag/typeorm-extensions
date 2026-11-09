@@ -41,22 +41,38 @@ query
   .andWhereTyped(user => user.createdAt, 'BETWEEN :from AND :to', { from, to })
 ```
 
-## JSONB with tableHelper
+## JSON columns
 
-[API reference](/docs/api/utils/tableHelper)
+[API reference](/docs/api/typed/whereTyped#paths-into-json-columns)
+
+```typescript
+import { Json } from 'typeorm-extensions';
+
+@Entity()
+class UserEntity {
+  // Json<T> lets typed callbacks go deeper than `metadata.role`
+  @Column({ type: 'jsonb' })
+  metadata: Json<{ role: string; loginCount: number; settings: { theme: string } }>;
+}
+
+query
+  // "user"."metadata" ->> 'role' = :param
+  .whereTyped(user => user.metadata.role, '=', 'admin')
+  // "user"."metadata" -> 'settings' ->> 'theme' = :param
+  .andWhereTyped(user => user.metadata.settings.theme, '=', 'dark')
+  // CAST("user"."metadata" ->> 'loginCount' AS numeric) >= :param, compared as a number
+  .andWhereTyped(user => user.metadata.loginCount, '>=', 10)
+```
+
+Select, order and distinct take columns: for a JSON value there, use [tableHelper](/docs/api/utils/tableHelper#jsonb).
 
 ```typescript
 import { tableHelper } from 'typeorm-extensions';
 
 const t = tableHelper<UserEntity>('user');
 
-query
-  .whereTyped(
-    user => user.metadata,
-    `${t.jsonPath('metadata', '->>', 'role')} =`,
-    'admin',
-  )
-  .andWhere(`${t.jsonColumn('metadata', '->>', 'settings', 'theme')} = :theme`, { theme: 'dark' })
+// SELECT "user"."metadata" ->> 'role' AS "role" …
+query.addSelect(t.jsonColumn('metadata', '->>', 'role'), 'role')
 ```
 
 ## Join condition with tableHelper

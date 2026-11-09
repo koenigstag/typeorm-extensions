@@ -172,6 +172,8 @@ const rows = await usersRepository
 
 `jsonColumn` returns the full accessor for a JSON/JSONB column; `jsonPath` returns only the operator part, for use in [whereTyped](../typed/whereTyped.md) conditions, where the column comes from the callback.
 
+Typed where methods go into JSON columns themselves (`user => user.metadata.settings.theme`, see [Paths into JSON columns](../typed/whereTyped.md#paths-into-json-columns)), so these helpers are for the places that take an expression: select, group by, order, untyped where.
+
 - `operator` is applied to the last key: `->>` returns text, `->` returns JSON. Keys before the last one always use `->`.
 - Keys are inferred from the column's TypeScript type (autocomplete up to 4 levels deep). For untyped JSON columns any strings are accepted.
 - Keys are escaped as SQL string literals (`o'brien` → `'o''brien'`), so a key can't break out of the literal.
@@ -209,10 +211,10 @@ const rows = await dataSource
 ```
 
 ```typescript
-// JSONB condition with whereTyped
-query.whereTyped(
-  user => user.metadata,
-  `${t.jsonPath('metadata', '->>', 'role')} =`,
-  'admin',
-)
+// a JSON value in select and group by, which take expressions
+const rows = await query
+  .select(t.jsonColumn('metadata', '->>', 'role'), 'role')
+  .addSelect(t.count('id'), 'users')
+  .groupBy(t.jsonColumn('metadata', '->>', 'role'))
+  .getRawMany();
 ```
