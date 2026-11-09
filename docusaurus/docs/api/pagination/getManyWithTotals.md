@@ -12,6 +12,8 @@ It runs two queries one after another:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
 2. `getMany()` with [applyPaginationFilter](./applyPaginationFilter.md) applied, to get the page.
 
+With `disableTotalsCalculation` only the second query runs, and it asks for `pageSize + 1` rows: the extra row is dropped from `list` and only tells `hasMore`, the way [getManyWithCursor](./getManyWithCursor.md) does it.
+
 ## Signature
 
 ```typescript
@@ -43,12 +45,13 @@ const { list, total, limit, offset, hasMore, orderBy } = await usersRepository
 // total   - number of all users matching the condition
 // limit   - 20
 // offset  - 20
-// hasMore - true while rows follow the page, null without a total or an offset
+// hasMore - true while rows follow the page, null only with loadAll
 // orderBy - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
 ```
 
 ```typescript
-// Only the page, without the count query: total and hasMore are null
+// Only the page, without the count query: total is null, hasMore still known
+// (11 rows are read, the 11th is dropped and only answers hasMore)
 await query.getManyWithTotals({ page: 1, pageSize: 10 }, { disableTotalsCalculation: true });
 ```
 

@@ -3,6 +3,7 @@ import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { getLimitAndOffset } from '../utils/pagination.utils';
+import { defaultUseTakeAndSkip } from '../constants';
 import type {
   ApplyPaginationOptions,
   GetManyWithTotalsOptions,
@@ -61,18 +62,44 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
     requests[0] = await builder.getCount();
   }
 
+  // without a total, one row past the page is what tells whether more rows follow
+  const probeForMore = disableTotalsCalculation && !loadAll && limit !== null;
+
   if (loadAll) {
     requests[1] = await builder.getMany();
   } else {
-    requests[1] = await builder
-      .applyPaginationFilter(paginationFilter, paginationOptions)
-      .getMany();
+    const paged = builder.applyPaginationFilter(
+      paginationFilter,
+      paginationOptions
+    );
+
+    if (probeForMore) {
+      const probeLimit = limit + 1;
+      const { useTakeAndSkip = defaultUseTakeAndSkip } = paginationOptions;
+
+      // replaces the limit applyPaginationFilter just set, keeping its offset
+      if (useTakeAndSkip) {
+        paged.take(probeLimit);
+      } else {
+        paged.limit(probeLimit);
+      }
+    }
+
+    requests[1] = await paged.getMany();
   }
 
-  const [total, list] = requests;
+  const [total, rows] = requests;
 
-  const hasMore =
-    total !== null && offset !== null ? offset + list.length < total : null;
+  let list = rows;
+  let hasMore: boolean | null;
+
+  if (probeForMore) {
+    hasMore = rows.length > limit;
+    list = hasMore ? rows.slice(0, limit) : rows;
+  } else {
+    hasMore =
+      total !== null && offset !== null ? offset + rows.length < total : null;
+  }
 
   // allOrderBys, not orderBys: it is what the SQL is built from, so without an explicit order it
   // falls back to the `orderBy` of @Entity, and respects the `disable-global-order` option

@@ -24,7 +24,7 @@
   - Select, order and distinct take columns only: a JSON path there throws a `TypeError`.
   - `applyPeriodFilterTyped` compares a JSON path as a timestamp: `CAST(… AS timestamptz)` on PostgreSQL, `strftime` on SQLite. As text, a date stored as `'…T12:00:00.000Z'` didn't match a `Date` bound on its own day.
 
-- **`hasMore` on both paginated results**: `getManyWithTotals` returns `offset + list.length < total`, or `null` when the total or the offset is unknown (`loadAll`, `disableTotalsCalculation`); `getManyWithCursor` returns a boolean, always known, since the keyset query already loads `pageSize + 1` rows.
+- **`hasMore` on both paginated results**: `getManyWithTotals` returns `offset + list.length < total`, and with `disableTotalsCalculation` reads the page one row longer instead of counting — the extra row is dropped from `list` and only answers `hasMore`, so no `COUNT` query runs and the flag is still known. `null` only with `loadAll`, where the page is every row. `getManyWithCursor` returns a boolean the same way, from the `pageSize + 1` rows its keyset query already loads.
 
 - **`orderBy` on `ListWithTotals`**: the ORDER BY the page was read in, as `OrderType[]`, for logs and debugging. These are SQL selectors (`"user"."created_at"`, a generated `array_position_…` alias, a raw expression), not properties of the entity. Without an explicit order it is the `orderBy` of `@Entity`, like the SQL; empty with the `disable-global-order` option.
 

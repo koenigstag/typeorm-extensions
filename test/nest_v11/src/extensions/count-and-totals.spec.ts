@@ -72,17 +72,56 @@ setupTest('getManyWithTotals.hasMore', undefined, (context) => {
     expect(last.list).toHaveLength(1);
   });
 
-  it('SHOULD report hasMore as null when the total or the offset is unknown', async () => {
+  it('SHOULD report hasMore as null only with loadAll', async () => {
     await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
-    const users = context.dataSource.getRepository(UserEntity);
 
-    const all = await users.createQueryBuilder('user').getManyWithTotals({}, { loadAll: true });
-    const untotalled = await users
+    const all = await context.dataSource
+      .getRepository(UserEntity)
       .createQueryBuilder('user')
-      .getManyWithTotals({ page: 1, pageSize: 2 }, { disableTotalsCalculation: true });
+      .getManyWithTotals({}, { loadAll: true });
 
     expect(all).toMatchObject({ total: 3, limit: null, offset: null, hasMore: null });
-    expect(untotalled).toMatchObject({ total: null, offset: 0, hasMore: null });
+    expect(all.list).toHaveLength(3);
+  });
+
+  // without a total, the page is read one row longer and the extra row is dropped
+  it('SHOULD know hasMore without a count query, and not return the probe row', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    const users = context.dataSource.getRepository(UserEntity);
+    const options = { disableTotalsCalculation: true };
+
+    const first = await users.createQueryBuilder('user').getManyWithTotals({ page: 1, pageSize: 2 }, options);
+    const last = await users.createQueryBuilder('user').getManyWithTotals({ page: 2, pageSize: 2 }, options);
+
+    expect(first).toMatchObject({ total: null, limit: 2, offset: 0, hasMore: true });
+    expect(first.list).toHaveLength(2);
+    expect(last).toMatchObject({ total: null, limit: 2, offset: 2, hasMore: false });
+    expect(last.list).toHaveLength(1);
+
+    // the pages stay the pages: no row is skipped or repeated by the probe
+    const all = await users.createQueryBuilder('user').orderBy('user.id', 'ASC').getMany();
+    expect([...first.list, ...last.list].map((user) => user.id)).toEqual(all.map((user) => user.id));
+  });
+
+  it('SHOULD drop the probe row with useTakeAndSkip and a joined collection', async () => {
+    const users = await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    await context.dataSource.getRepository(ImageEntity).save(
+      await createFakeImages({ count: 4, getOverrides: (i) => ({ id: i + 1, userId: users[0].id }) }),
+    );
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .leftJoinAndSelectTyped((u) => u.images, 'images')
+      .orderBy('user.id', 'ASC')
+      .getManyWithTotals(
+        { page: 1, pageSize: 2 },
+        { disableTotalsCalculation: true, useTakeAndSkip: true },
+      );
+
+    expect(page).toMatchObject({ total: null, hasMore: true });
+    expect(page.list.map((user) => user.id)).toEqual([users[0].id, users[1].id]);
+    expect(page.list[0].images).toHaveLength(4);
   });
 });
 

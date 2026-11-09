@@ -12,7 +12,11 @@ export interface ListWithTotals<Entity> {
   total: number | null;
   limit: number | null;
   offset: number | null;
-  /** `null` when the total or the offset is unknown, e.g. with `loadAll` or `disableTotalsCalculation`. */
+  /**
+   * Whether rows follow the page. `null` only with `loadAll`, where the page is every row.
+   * With `disableTotalsCalculation` it is still known: one row past the page is loaded and dropped,
+   * instead of counting.
+   */
   hasMore: boolean | null;
   /** The ORDER BY clauses the query was built with, in the order they were applied. */
   orderBy: OrderType[];

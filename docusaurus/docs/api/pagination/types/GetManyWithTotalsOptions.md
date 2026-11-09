@@ -21,7 +21,7 @@ type GetManyWithTotalsOptions = {
 };
 ```
 
-- `disableTotalsCalculation`: skip the `getCount()` query; `total` is returned as `null`.
+- `disableTotalsCalculation`: skip the `getCount()` query; `total` is returned as `null`. The page query then asks for `pageSize + 1` rows, so `hasMore` is still known; the extra row is dropped from `list`.
 - `loadAll`: load all matching rows without applying pagination; `limit` and `offset` are returned as `null`.
 
 ## Example
