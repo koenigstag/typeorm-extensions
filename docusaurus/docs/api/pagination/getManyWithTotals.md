@@ -30,6 +30,19 @@ getManyWithTotals(
 - paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Invalid or missing values fall back to page `1` and page size `10`.
 - options?: [GetManyWithTotalsOptions](./types/GetManyWithTotalsOptions.md): Skip the count query, or load all rows without pagination.
 
+## What the count counts
+
+The count runs on the query **as it is**, so every condition already on the builder applies to it too. Only the pagination is left out: the clone is taken before `limit` / `offset` are applied, and TypeORM additionally drops `limit`, `offset`, `take`, `skip`, `groupBy` and the order from the count query.
+
+That makes one mistake easy to miss: a condition that belongs to a single page — the boundary of a cursor, `user.id > :lastId` — narrows the count as well, and `total` then counts the rows of that page's tail instead of the whole list (a first page reporting 60 and a second 35). Apply such a condition to a separate builder, or page with [getManyWithCursor](./getManyWithCursor.md), which is built for it.
+
+## Cost
+
+- The count is often as expensive as the page itself — on a text search with `COUNT(DISTINCT …)` the two take about the same time — and the call can only be as fast as the slower of the two.
+- Running them together takes two connections from the pool instead of one, for the length of the call.
+- If the count fails, for instance on a statement timeout, the whole call fails, even though the page was already read; `Promise.all` reports the first error and the other result is dropped. Nothing is logged by the extension itself.
+- For a query where the count is the expensive part, `disableTotalsCalculation` costs nothing in information except `total`: `hasMore` is still known, from one row past the page.
+
 ## Returns
 
 [ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, limit, offset, hasMore, orderBy }`.

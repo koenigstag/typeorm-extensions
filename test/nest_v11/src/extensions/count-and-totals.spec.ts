@@ -168,7 +168,7 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
 });
 
 setupTest('getManyWithTotals.concurrency', undefined, (context) => {
-  const seed = async () =>
+  const seed = async (): Promise<UserEntity[]> =>
     context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
 
   it('SHOULD count the whole query while the page is read, not the page itself', async () => {
@@ -182,6 +182,23 @@ setupTest('getManyWithTotals.concurrency', undefined, (context) => {
     // the count runs on a clone taken before the page query applies its limit
     expect(page).toMatchObject({ total: 3, limit: 2, offset: 0, hasMore: true });
     expect(page.list).toHaveLength(2);
+  });
+
+  // the count sees every condition already on the builder, pagination aside: a condition that
+  // belongs to one page narrows the total too, which is a trap worth pinning down
+  it('SHOULD count the query as it is, conditions included', async () => {
+    const users = await seed();
+    const after = users[0].id;
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .where('user.id > :after', { after })
+      .getManyWithTotals({ page: 1, pageSize: 1 });
+
+    // 3 users were seeded, 2 are past the boundary: the count follows the WHERE, not the table
+    expect(page).toMatchObject({ total: 2, limit: 1, offset: 0, hasMore: true });
+    expect(page.list).toHaveLength(1);
   });
 
   // a transaction is one connection: the two queries have to run one after another there
