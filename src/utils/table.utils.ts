@@ -1,5 +1,6 @@
 import { ObjectLiteral } from "typeorm";
 import { quoteIdentifier, quoteIdentifierPath } from './sql.utils';
+import { buildJsonPath } from './json-path.utils';
 
 export type TableHelperOptions = {
 	useQuotes?: boolean;
@@ -29,20 +30,6 @@ export type TableHelperCountOptions = {
 export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
-
-/** Wraps a JSON key in single quotes, doubling any quote inside it (standard SQL string literal). */
-function toJsonKeyLiteral(fieldName: string) {
-	return `'${String(fieldName).replace(/'/g, "''")}'`;
-}
-
-function buildJsonPath(fieldNames: string[], jsonOperator: '->>' | '->') {
-	let result = '';
-	for (let i = 0; i < fieldNames.length; i++) {
-		const op = i === fieldNames.length - 1 ? jsonOperator : '->';
-		result += `${result ? ' ' : ''}${op} ${toJsonKeyLiteral(fieldNames[i])}`;
-	}
-	return result;
-}
 
 /**
  * Creates a type-safe SQL helper for building column references, WHERE expressions,

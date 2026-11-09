@@ -11,7 +11,7 @@ import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
-import { attachWhere } from '../../../utils/where.utils';
+import { attachWhere, isParamsObject } from '../../../utils/where.utils';
 
 // declarations
 
@@ -139,7 +139,9 @@ function attachTypedWhere<
 
   if (typeof where === 'function') {
     // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
-    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
+    // a path into a JSON column is cast to the type of the value it is compared with
+    const value = isParamsObject(parameters) ? Object.values(parameters)[0] : parameters;
+    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
 
     return attachWhere<QB>(builder, method, key, conditions, parameters, {
       addValue,

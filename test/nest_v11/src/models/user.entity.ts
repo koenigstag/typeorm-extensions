@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ImageEntity } from './image.entity';
+import type { Json } from 'typeorm-extensions/types/modules/proxy-callback.types';
 import { dateColumn } from '../constants/columns';
 
 export type UserMetadata = {
@@ -56,7 +57,7 @@ export class UserEntity {
     type: 'simple-json',
     nullable: true,
   })
-  public metadata: UserMetadata;
+  public metadata: Json<UserMetadata>;
 
   @CreateDateColumn({
     type: dateColumn,

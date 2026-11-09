@@ -19,8 +19,13 @@
 
   `whereIsInTyped` / `whereIsAnyTyped` and their `Not`, `and` / `or` variants take an array of the column's values. Conditions written as SQL (`'BETWEEN :from AND :to'`, `'= true'`) and calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked. Without the option nothing changes.
 
+- **Typed keys into JSON columns**: in typed where methods a callback may go into a `json` / `jsonb` / `simple-json` column, `exec => exec.details.meta.endTs` → `"exec"."details" -> 'meta' ->> 'endTs'`, on the main entity or a joined alias. On PostgreSQL the path is cast to the type of the compared value (`numeric`, `boolean`, `timestamptz`), since `->>` gives text and text compares `'9' >= '10'` as true; `whereJsonContainsTyped` / `whereJsonHasKeyTyped` take the JSON value (`->`). PostgreSQL and SQLite 3.38+, other databases throw a `TypeError`.
+  - Two levels work with any JSON column. For deeper paths mark the property with the new `Json<T>` type (`details: Json<ExecutionDetails>`): TypeScript can't tell a JSON object from a relation, and relations still stop at `alias.column`.
+  - Select, order and distinct take columns only: a JSON path there throws a `TypeError`.
+
 ### Bug Fixes
 
+- **A typed key into a JSON column built a wrong column**: `u => u.metadata.role` gave `"metadata"."role"`, as if `metadata` were an alias, which failed in the database. Where methods now build the JSON path, select / order / distinct throw a `TypeError`.
 - **Typed callbacks give a `Date` (or `Buffer`) column its own type**: the proxy used to treat it as an object to go into, so `u => u.createdAt` was typed as a mapped `Date`, and a date column of a relation (`u => u.images.createdAt`) as the end of the key path.
 
 ## [2.0.0] - 2026-11-05

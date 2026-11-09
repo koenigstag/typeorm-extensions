@@ -31,6 +31,32 @@ orWhereTyped(selection, condition?, params?, options?): SelectQueryBuilder<Entit
 
 Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; use `andWhereTyped` / `orWhereTyped` to add to them.
 
+## Paths into JSON columns
+
+A callback may go into a JSON column (`json`, `jsonb` or `simple-json`): the keys after the column become a JSON path.
+
+```typescript
+// "exec"."details" ->> 'outcome' = 'executed'
+query.andWhereTyped(exec => exec.details.outcome, `= 'executed'`)
+
+// CAST("exec"."details" -> 'meta' ->> 'endTs' AS numeric) >= :param
+query.andWhereTyped(exec => exec.details.meta.endTs, '>=', { endTime: endDate.getTime() })
+```
+
+- **Depth.** Two levels (`column.key`, or `alias.column` on a joined entity) work with any JSON column. To go deeper, mark the property with `Json<T>`; without it TypeScript can't tell a JSON object from a relation, and relations stop at `alias.column`:
+
+  ```typescript
+  import { Json } from 'typeorm-extensions';
+
+  @Column({ type: 'jsonb' })
+  details: Json<ExecutionDetails>; // values stay assignable both ways
+  ```
+
+  Arrays inside the JSON are values: `e => e.details.tags` compares the whole array.
+- **Types of values.** `->>` gives text on PostgreSQL, and text compares `'9' >= '10'` as true. So the path is cast to the type of the value it is compared with: a number to `numeric`, a boolean to `boolean`, a `Date` to `timestamptz`. A string, or a condition without a value (`= 'executed'`), stays text. On SQLite `->>` gives SQL values and nothing is cast.
+- **Indexes.** An expression index is used only for the same expression: `((details ->> 'outcome'))`, or `((details -> 'meta' ->> 'endTs')::numeric)` for the cast one. For equality on a hot path, `whereJsonContainsTyped` (`@>`, a GIN index) is the better fit.
+- **Where it works.** In `whereTyped` and the other typed where methods (`whereIsInTyped`, `whereIsAnyTyped`, `whereIsDistinctFromTyped`, …); `whereJsonContainsTyped` / `whereJsonHasKeyTyped` use `->`, the JSON value. Select, order and distinct take columns only and throw a `TypeError` for a JSON path. PostgreSQL (a `simple-json` column is read as `jsonb` there) and SQLite 3.38+; other databases throw a `TypeError`.
+
 ## Checking parameters: `strictParams`
 
 By default `params` is `unknown`. Augment `TypeormExtensionsConfig` once in your project to check it against the type of the column the callback selects:

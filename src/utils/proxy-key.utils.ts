@@ -97,33 +97,43 @@ export class KeyProxy {
 /** Typed keys are `column` or `alias.column`: a deeper path can't be mapped to a query alias. */
 export const MAX_KEY_DEPTH = 2;
 
+export const createKeyTooDeepError = (keys: string[]): TypeError =>
+	new TypeError(
+		`Typed key "${keys.join('.')}" is ${keys.length} levels deep, but typed methods support only ` +
+			`"column" or "alias.column", or a path into a JSON column in where methods. Join the nested relation and ` +
+			`address it by its alias with an alias-keyed type, e.g. type Joins = { someAlias: SomeEntity }; (j) => j.someAlias.column`
+	);
+
 const assertKeyDepth = (keyHolder: KeyHolder): KeyHolder => {
 	const keys = keyHolder.getKeys();
 
 	if (keys.length > MAX_KEY_DEPTH) {
-		throw new TypeError(
-			`Typed key "${keys.join('.')}" is ${keys.length} levels deep, but typed methods support only ` +
-				`"column" or "alias.column". Join the nested relation and address it by its alias ` +
-				`with an alias-keyed type, e.g. type Joins = { someAlias: SomeEntity }; (j) => j.someAlias.column`
-		);
+		throw createKeyTooDeepError(keys);
 	}
 
 	return keyHolder;
 };
 
+/**
+ * Keys of a typed callback. Paths deeper than `alias.column` throw, unless `allowDeepPaths` is set by a caller
+ * that checks them against the query's metadata (paths into JSON columns).
+ */
 export const getKeyHolder = <Type extends ObjectLiteral>(
-	callback: KeyProxyCallback<Type> | KeyHolder
+	callback: KeyProxyCallback<Type> | KeyHolder,
+	allowDeepPaths = false
 ): KeyHolder | Array<KeyHolder> => {
+	const check = allowDeepPaths ? (keyHolder: KeyHolder) => keyHolder : assertKeyDepth;
+
 	if (typeof callback !== 'function') {
 		if (callback instanceof KeyHolder) {
-			return assertKeyDepth(callback);
+			return check(callback);
 		}
 	}
 
 	const keyHolder = callback(KeyProxy.create<DeepUnwrapArray<Type>>()) as KeyHolder | Array<KeyHolder>;
 
 	// fail loudly instead of silently dropping levels beyond `alias.column`
-	return Array.isArray(keyHolder) ? keyHolder.map(assertKeyDepth) : assertKeyDepth(keyHolder);
+	return Array.isArray(keyHolder) ? keyHolder.map(check) : check(keyHolder);
 };
 
 export const getKey = <Type extends ObjectLiteral>(callback: KeyProxyCallback<Type> | KeyHolder | string): string => {

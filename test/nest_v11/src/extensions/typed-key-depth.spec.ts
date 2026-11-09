@@ -29,7 +29,7 @@ describe('typed key depth', () => {
     // @ts-expect-error nested relation column: 3 levels
     expect(() => getKey<UserEntity>((u) => u.images.user.email)).toThrow(tooDeep);
 
-    // @ts-expect-error nested JSON key: 3 levels
+    // a Json<> column is open at any depth, but getKey has no query to tell it from a relation
     expect(() => getKey<UserEntity>((u) => u.metadata.settings.theme)).toThrow(tooDeep);
   });
 
