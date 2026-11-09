@@ -6,6 +6,7 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where-json.extensi
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
 import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
+import 'typeorm-extensions/extensions/typed/typed-where/typed-period-filter.extension';
 import { createFakeUser, setupTest } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 import { ArticleEntity } from '../models/postgres/article.entity';
@@ -57,6 +58,30 @@ setupTest('typed JSON paths', undefined, (context) => {
 
     expect(admins.map((user) => user.id)).toEqual([darkAdmin.id]);
     expect(light.map((user) => user.id)).toEqual([lightAdmin.id]);
+  });
+
+  it('SHOULD compare a JSON path in a period filter as a timestamp', async () => {
+    const repository = context.dataSource.getRepository(UserEntity);
+    // midday UTC, so the day is the same in any time zone within ±11 hours
+    const rows = await repository.save(
+      ['2024-01-15', '2024-01-31', '2024-02-01'].map((day) =>
+        createFakeUser({
+          metadata: { role: 'user', settings: { theme: 'dark', status: 'active' }, seenAt: `${day}T12:00:00.000Z` },
+        }),
+      ),
+    );
+
+    const seenIn = async (periodFrom: Date | string, periodTo: Date | string) =>
+      (await users().applyPeriodFilterTyped((u) => u.metadata.seenAt, { periodFrom, periodTo }).getMany()).map(
+        (user) => user.id,
+      );
+
+    // as text '2024-01-31T12:00:00.000Z' <= the bound Date is false on the last day
+    expect(await seenIn(new Date('2024-01-15T12:00:00.000Z'), new Date('2024-01-31T12:00:00.000Z'))).toEqual([
+      rows[0].id,
+      rows[1].id,
+    ]);
+    expect(await seenIn('2024-01-16', '2024-01-31')).toEqual([rows[1].id]);
   });
 
   it('SHOULD address a JSON column of a joined entity by its alias', () => {

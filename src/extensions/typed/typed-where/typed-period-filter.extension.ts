@@ -57,7 +57,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       periodFilter: PeriodFilter | null | undefined,
       options?: ApplyPeriodOptions
     ): SelectQueryBuilder<Entity> {
-      const column = getTypedSingleColumnKey<Type>(this, selection, 'applyPeriodFilterTyped');
+      const column = getTypedSingleColumnKey<Type>(this, selection, 'applyPeriodFilterTyped', { asTimestamp: true });
 
       return attachPeriodFilter(this, column, periodFilter, options);
     },

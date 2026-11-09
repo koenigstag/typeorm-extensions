@@ -17,6 +17,7 @@ export type UserMetadata = {
     theme: string;
     status: string;
   };
+  seenAt?: string;
 };
 
 @Entity({
