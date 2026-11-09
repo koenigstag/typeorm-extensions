@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Description
 
-`getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`, whether more rows follow (`hasMore`) and the order the query was built with (`orderBy`).
+`getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
 
 It runs two queries one after another:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
@@ -44,7 +44,7 @@ const { list, total, limit, offset, hasMore, orderBy } = await usersRepository
 // limit   - 20
 // offset  - 20
 // hasMore - true while rows follow the page, null without a total or an offset
-// orderBy - [{ selector: 'user.lastName', order: 'ASC' }]
+// orderBy - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
 ```
 
 ```typescript

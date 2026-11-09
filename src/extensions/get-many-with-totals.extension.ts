@@ -74,8 +74,10 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
   const hasMore =
     total !== null && offset !== null ? offset + list.length < total : null;
 
+  // allOrderBys, not orderBys: it is what the SQL is built from, so without an explicit order it
+  // falls back to the `orderBy` of @Entity, and respects the `disable-global-order` option
   const orderBy: OrderType[] = Object.entries(
-    builder.expressionMap.orderBys ?? {}
+    builder.expressionMap.allOrderBys ?? {}
   ).map(([selector, value]) =>
     typeof value === 'string'
       ? { selector, order: value }

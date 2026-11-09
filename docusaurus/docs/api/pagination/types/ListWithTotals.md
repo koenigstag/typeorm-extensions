@@ -26,7 +26,8 @@ interface ListWithTotals<Entity> {
 - `limit`: page size that was applied, or `null` with `loadAll`.
 - `offset`: number of skipped rows, or `null` with `loadAll`.
 - `hasMore`: whether rows follow the page (`offset + list.length < total`), or `null` when the total or the offset is unknown — with `loadAll` or `disableTotalsCalculation`. [getManyWithCursor](../getManyWithCursor.md) always knows it.
-- `orderBy`: the ORDER BY clauses the query was built with, in the order they were applied; empty when the query sets no explicit order.
+- `orderBy`: the ORDER BY of the query, as SQL — useful for logs and debugging. Its `selector` is the SQL selector, not a property of the entity: `orderByTyped` gives `"user"."created_at"`, `orderByArrayPosition` a generated `array_position_…` alias, and a raw `.orderBy('CASE …')` the expression itself. Don't put it in an API response for the client to send back as an [OrderParam](../../order/types/OrderParam.md); the names are the database's, not the entity's.
+  Without an explicit order it is the `orderBy` of `@Entity`, which is what the SQL falls back to; empty only when the query also sets the `disable-global-order` option.
 
 ## Example
 
@@ -35,8 +36,11 @@ const result: ListWithTotals<UserEntity> = await query.getManyWithTotals({ page:
 
 const pagesCount = result.total === null ? undefined : Math.ceil(result.total / 10);
 
-// `hasMore` saves comparing the total yourself, and the applied order comes back for the response
+// `hasMore` saves comparing the total yourself
 if (result.hasMore) {
   // … render a "load more" control
 }
+
+// `orderBy` is the SQL order, for a log line — not for the API response
+logger.debug('page ordered by', result.orderBy.map(({ selector, order }) => `${selector} ${order}`));
 ```

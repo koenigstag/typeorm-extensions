@@ -103,7 +103,8 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
     ]);
   });
 
-  it('SHOULD return an empty orderBy when the query sets no explicit order', async () => {
+  // UserEntity is @Entity({ orderBy: { id: 'ASC' } }), which the SQL falls back to
+  it("SHOULD return the entity's default order when the query sets none", async () => {
     await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
 
     const page = await context.dataSource
@@ -111,14 +112,32 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
       .createQueryBuilder('user')
       .getManyWithTotals({ page: 1, pageSize: 2 });
 
-    expect(page.orderBy).toEqual([]);
+    expect(page.orderBy).toEqual([{ selector: 'user.id', order: 'ASC' }]);
   });
 
-  it('SHOULD carry the nulls ordering through', async () => {
-    if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
-      return;
-    }
+  it('SHOULD return an empty orderBy when the global order is disabled', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
 
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .setOption('disable-global-order')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    expect(page.orderBy).toEqual([]);
+  });
+});
+
+// NULLS FIRST / LAST: PostgreSQL only
+setupTest('getManyWithTotals.orderBy.postgres', undefined, (context) => {
+  if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  it('SHOULD carry the nulls ordering through', async () => {
     await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
 
     const page = await context.dataSource
