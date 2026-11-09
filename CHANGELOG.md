@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.1] - 2026-11-09
+
+### Improvements
+
+- **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.1.1 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
+
 ## [2.1.0] - 2026-11-09
 
 A minor version: nothing needs changing when upgrading from 2.0.0. `strictParams` is opt-in, and a typed key
