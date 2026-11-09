@@ -12,7 +12,7 @@ It runs two queries:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
 2. `getMany()` with [applyPaginationFilter](./applyPaginationFilter.md) applied, to get the page.
 
-They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. Inside a transaction, or on a builder from a transactional manager, they run one after another instead: there is a single connection, on which the driver would serialise them anyway.
+They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — they run one after another instead: there is a single connection, on which the driver would serialise them anyway, and on `pg` that queue is deprecated.
 
 With `disableTotalsCalculation` only the second query runs, and it asks for `pageSize + 1` rows: the extra row is dropped from `list` and only tells `hasMore`, the way [getManyWithCursor](./getManyWithCursor.md) does it.
 
@@ -41,7 +41,15 @@ That makes one mistake easy to miss: a condition that belongs to a single page �
 - The count is often as expensive as the page itself — on a text search with `COUNT(DISTINCT …)` the two take about the same time — and the call can only be as fast as the slower of the two.
 - Running them together takes two connections from the pool instead of one, for the length of the call.
 - If the count fails, for instance on a statement timeout, the whole call fails, even though the page was already read; `Promise.all` reports the first error and the other result is dropped. Nothing is logged by the extension itself.
-- For a query where the count is the expensive part, `disableTotalsCalculation` costs nothing in information except `total`: `hasMore` is still known, from one row past the page.
+- `disableTotalsCalculation` costs nothing in information except `total` itself: `hasMore` is still known, from one row past the page. If the page only needs a "load more" control rather than a page count, this is the path to take — not a last resort for queries that turned out slow.
+
+:::tip Do you need the total, or only `hasMore`?
+
+A list that renders "load more" needs `hasMore`, not `total`, and then the count query is pure cost — often as much again as the page. Pass `disableTotalsCalculation` and read `hasMore`.
+
+Reach for `total` when the interface shows a count or numbered pages. Note that a client computing `hasMore` from `total` (`list.length < total`) breaks on `total: null`, silently: it reads as "no more rows". Read `hasMore` instead, which is a boolean whenever a page was requested.
+
+:::
 
 ## Returns
 

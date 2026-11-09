@@ -46,7 +46,12 @@ patchPrototype(SelectQueryBuilder, extension);
 /**
  * Whether the count and the page query may run at the same time. Each needs a connection of its
  * own, so a builder bound to one query runner — inside a transaction, or from a transactional
- * manager — runs them one after another: on a single connection the driver serialises them anyway.
+ * manager — runs them one after another: on a single connection the driver serialises them anyway,
+ * and on `pg` that queue is deprecated.
+ *
+ * `useTransaction` is not consulted: without a query runner of its own each call obtains one and
+ * opens its own transaction, whether the two run together or one after another, so the flag never
+ * made them share anything.
  */
 function canCountConcurrently<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>
@@ -55,7 +60,7 @@ function canCountConcurrently<Entity extends ObjectLiteral>(
     queryRunner?: QueryRunner;
   };
 
-  return !queryBuilder.expressionMap.useTransaction && !queryBuilder.queryRunner;
+  return !queryBuilder.queryRunner;
 }
 
 async function getManyWithTotals<Entity extends ObjectLiteral>(

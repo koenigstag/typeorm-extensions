@@ -213,6 +213,8 @@ setupTest('getManyWithTotals.concurrency', undefined, (context) => {
     expect(page.list).toHaveLength(2);
   });
 
+  // useTransaction gives each call its own query runner and its own transaction, so the two still
+  // run together; the flag never made them share a transaction
   it('SHOULD count and page with useTransaction on the builder', async () => {
     await seed();
 

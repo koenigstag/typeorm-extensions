@@ -30,7 +30,7 @@
 
 ### Improvements
 
-- **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. Inside a transaction, or on a builder bound to a query runner, the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
+- **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
 
 ### Bug Fixes
 
