@@ -28,6 +28,10 @@
 
 - **`orderBy` on `ListWithTotals`**: the ORDER BY the page was read in, as `OrderType[]`, for logs and debugging. These are SQL selectors (`"user"."created_at"`, a generated `array_position_…` alias, a raw expression), not properties of the entity. Without an explicit order it is the `orderBy` of `@Entity`, like the SQL; empty with the `disable-global-order` option.
 
+### Improvements
+
+- **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. Inside a transaction, or on a builder bound to a query runner, the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
+
 ### Bug Fixes
 
 - **A typed key into a JSON column built a wrong column**: `u => u.metadata.role` gave `"metadata"."role"`, as if `metadata` were an alias, which failed in the database. Where methods now build the JSON path, select / order / distinct throw a `TypeError`.

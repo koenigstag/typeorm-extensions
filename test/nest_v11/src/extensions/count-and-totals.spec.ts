@@ -167,6 +167,49 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
   });
 });
 
+setupTest('getManyWithTotals.concurrency', undefined, (context) => {
+  const seed = async () =>
+    context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+
+  it('SHOULD count the whole query while the page is read, not the page itself', async () => {
+    await seed();
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    // the count runs on a clone taken before the page query applies its limit
+    expect(page).toMatchObject({ total: 3, limit: 2, offset: 0, hasMore: true });
+    expect(page.list).toHaveLength(2);
+  });
+
+  // a transaction is one connection: the two queries have to run one after another there
+  it('SHOULD count and page inside a transaction', async () => {
+    await seed();
+
+    const page = await context.dataSource.transaction((manager) =>
+      manager.createQueryBuilder(UserEntity, 'user').getManyWithTotals({ page: 1, pageSize: 2 }),
+    );
+
+    expect(page).toMatchObject({ total: 3, limit: 2, offset: 0, hasMore: true });
+    expect(page.list).toHaveLength(2);
+  });
+
+  it('SHOULD count and page with useTransaction on the builder', async () => {
+    await seed();
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .useTransaction(true)
+      .getManyWithTotals({ page: 2, pageSize: 2 });
+
+    expect(page).toMatchObject({ total: 3, limit: 2, offset: 2, hasMore: false });
+    expect(page.list).toHaveLength(1);
+  });
+});
+
 // NULLS FIRST / LAST: PostgreSQL only
 setupTest('getManyWithTotals.orderBy.postgres', undefined, (context) => {
   if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {

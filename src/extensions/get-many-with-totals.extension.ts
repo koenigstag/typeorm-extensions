@@ -1,5 +1,7 @@
 import './pagination.extension';
 import { ObjectLiteral } from 'typeorm';
+import type { QueryRunner } from 'typeorm';
+import type { QueryBuilder } from 'typeorm/query-builder/QueryBuilder';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
 import { getLimitAndOffset } from '../utils/pagination.utils';
@@ -41,6 +43,21 @@ patchPrototype(SelectQueryBuilder, extension);
 
 // implementation
 
+/**
+ * Whether the count and the page query may run at the same time. Each needs a connection of its
+ * own, so a builder bound to one query runner — inside a transaction, or from a transactional
+ * manager — runs them one after another: on a single connection the driver serialises them anyway.
+ */
+function canCountConcurrently<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>
+): boolean {
+  const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral> & {
+    queryRunner?: QueryRunner;
+  };
+
+  return !queryBuilder.expressionMap.useTransaction && !queryBuilder.queryRunner;
+}
+
 async function getManyWithTotals<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   paginationFilter: PaginationFilter,
@@ -56,18 +73,14 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
     ? { limit: null, offset: null }
     : getLimitAndOffset(paginationFilter);
 
-  const requests: [number | null, Entity[]] = [null, []];
-
-  if (!disableTotalsCalculation) {
-    requests[0] = await builder.getCount();
-  }
-
   // without a total, one row past the page is what tells whether more rows follow
   const probeForMore = disableTotalsCalculation && !loadAll && limit !== null;
 
-  if (loadAll) {
-    requests[1] = await builder.getMany();
-  } else {
+  const readPage = (): Promise<Entity[]> => {
+    if (loadAll) {
+      return builder.getMany();
+    }
+
     const paged = builder.applyPaginationFilter(
       paginationFilter,
       paginationOptions
@@ -85,10 +98,22 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
       }
     }
 
-    requests[1] = await paged.getMany();
-  }
+    return paged.getMany();
+  };
 
-  const [total, rows] = requests;
+  let total: number | null = null;
+  let rows: Entity[];
+
+  if (disableTotalsCalculation) {
+    rows = await readPage();
+  } else if (canCountConcurrently(builder)) {
+    // the count goes on a clone, taken before readPage mutates the builder: the two queries would
+    // otherwise share one expression map, which each of them writes to
+    [total, rows] = await Promise.all([builder.clone().getCount(), readPage()]);
+  } else {
+    total = await builder.getCount();
+    rows = await readPage();
+  }
 
   let list = rows;
   let hasMore: boolean | null;

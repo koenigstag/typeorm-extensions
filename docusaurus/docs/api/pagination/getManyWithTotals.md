@@ -8,9 +8,11 @@ sidebar_position: 3
 
 `getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
 
-It runs two queries one after another:
+It runs two queries:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
 2. `getMany()` with [applyPaginationFilter](./applyPaginationFilter.md) applied, to get the page.
+
+They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. Inside a transaction, or on a builder from a transactional manager, they run one after another instead: there is a single connection, on which the driver would serialise them anyway.
 
 With `disableTotalsCalculation` only the second query runs, and it asks for `pageSize + 1` rows: the extra row is dropped from `list` and only tells `hasMore`, the way [getManyWithCursor](./getManyWithCursor.md) does it.
 
