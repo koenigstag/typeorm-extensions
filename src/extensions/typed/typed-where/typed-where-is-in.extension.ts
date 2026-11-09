@@ -132,7 +132,7 @@ function attachWhereIsIn<
 ): QB {
   if (typeof where === 'function') {
     // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
-    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
+    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value: array });
 
     // .andWhere(`"table"."column"   IN (:...values)`, { values: ['value'] })
     return builder[method](key, array);

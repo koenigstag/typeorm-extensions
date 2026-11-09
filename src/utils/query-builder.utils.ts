@@ -1,6 +1,8 @@
 import type { EntityMetadata, ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
+import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
-import { getKeyHolder, KeyHolder } from './proxy-key.utils';
+import { createKeyTooDeepError, getKeyHolder, KeyHolder, MAX_KEY_DEPTH } from './proxy-key.utils';
+import { isJsonColumn, JsonPathSqlOptions, toJsonPathSql } from './json-path.utils';
 import { getDriverType, stringToSQLIdentifier } from './sql.utils';
 
 /**
@@ -119,6 +121,37 @@ interface ResolvedTypedKey {
   /** Property path within the alias' entity: `status`, `url`, `address.city` (embedded). */
   propertyPath: string;
   metadata: EntityMetadata | undefined;
+  /** The column of `propertyPath`, when the alias has metadata and the property is a column. */
+  column?: ColumnMetadata;
+  /** Keys inside the JSON column `column`: `['meta', 'endTs']` for `e => e.details.meta.endTs`. */
+  jsonPath?: string[];
+}
+
+type ColumnPath = Pick<ResolvedTypedKey, 'propertyPath' | 'column' | 'jsonPath'>;
+
+/**
+ * The column that `keys` name in an entity: the longest prefix of the keys that is a column's property path
+ * (`address.city` for an embedded entity). The keys after it are a path inside the column, allowed only in a
+ * JSON column (`details` + `['meta', 'endTs']`). `undefined` when no prefix is a column, or a column that isn't
+ * JSON is followed by more keys (a relation's join column, `user` in `user.email`).
+ */
+function findColumnPath(metadata: EntityMetadata | undefined, keys: string[]): ColumnPath | undefined {
+  for (let length = keys.length; metadata && length >= 1; length--) {
+    const propertyPath = keys.slice(0, length).join('.');
+    const column = metadata.findColumnWithPropertyPath(propertyPath);
+
+    if (!column) {
+      continue;
+    }
+
+    if (length === keys.length) {
+      return { propertyPath, column };
+    }
+
+    return isJsonColumn(column) ? { propertyPath, column, jsonPath: keys.slice(length) } : undefined;
+  }
+
+  return undefined;
 }
 
 /**
@@ -127,6 +160,8 @@ interface ResolvedTypedKey {
  * - `j => j.t.status`, `u => u.images.url` → the first key, when it is an alias of the query;
  * - `p => p.address.city` → when the first key isn't an alias but the main entity has a column
  *   with that path (an embedded entity), the main alias + `address.city`;
+ * - `e => e.details.meta.endTs`, `j => j.e.details.outcome` → a JSON column of the alias' entity
+ *   followed by the keys inside it (`jsonPath`), at any depth;
  * - anything else → the first key as the alias (an alias the query builder doesn't know yet,
  *   e.g. `q => q.base.chatRoomId` before `.from(…, 'base')`).
  *
@@ -135,6 +170,20 @@ interface ResolvedTypedKey {
  * before `from()` the property name is used as the column name.
  */
 function resolveTypedKey(
+  queryBuilder: QueryBuilder<ObjectLiteral>,
+  keys: string[]
+): ResolvedTypedKey {
+  const resolved = resolveTypedKeyPath(queryBuilder, keys);
+
+  // deeper than `alias.column` only inside a JSON column: a nested relation can't be mapped to an alias
+  if (!resolved.jsonPath && keys.length > MAX_KEY_DEPTH) {
+    throw createKeyTooDeepError(keys);
+  }
+
+  return resolved;
+}
+
+function resolveTypedKeyPath(
   queryBuilder: QueryBuilder<ObjectLiteral>,
   keys: string[]
 ): ResolvedTypedKey {
@@ -156,10 +205,13 @@ function resolveTypedKey(
 
   // UPDATE / DELETE have no alias to qualify with: `u => u.user.firstName` is `"firstName"` there
   if (!prefixing && mainAlias?.name === firstKey) {
+    const metadata = getAliasMetadata(queryBuilder, undefined);
+
     return {
       aliasName: undefined,
       propertyPath: restKeys.join('.'),
-      metadata: getAliasMetadata(queryBuilder, undefined),
+      metadata,
+      ...findColumnPath(metadata, restKeys),
     };
   }
 
@@ -167,35 +219,51 @@ function resolveTypedKey(
 
   if (!queryAlias && mainAlias) {
     const mainMetadata = getAliasMetadata(queryBuilder, undefined);
-    const embeddedPath = keys.join('.');
+    const columnPath = findColumnPath(mainMetadata, keys);
 
-    if (mainMetadata?.findColumnWithPropertyPath(embeddedPath)) {
+    if (columnPath) {
       return {
         aliasName: prefixing ? mainAlias.name : undefined,
-        propertyPath: embeddedPath,
         metadata: mainMetadata,
+        ...columnPath,
       };
     }
   }
 
+  const metadata = queryAlias?.hasMetadata ? queryAlias.metadata : undefined;
+
   return {
     aliasName: firstKey,
     propertyPath: restKeys.join('.'),
-    metadata: queryAlias?.hasMetadata ? queryAlias.metadata : undefined,
+    metadata,
+    ...findColumnPath(metadata, restKeys),
   };
 }
 
-/** `"alias"."column"` (or `"column"` without an alias) with the database column name. */
+/**
+ * `"alias"."column"` (or `"column"` without an alias) with the database column name, followed by the path
+ * inside a JSON column: `"exec"."details" -> 'meta' ->> 'endTs'` (see `toJsonPathSql`).
+ */
 function toQuotedColumnKey(
   queryBuilder: QueryBuilder<ObjectLiteral>,
-  { aliasName, propertyPath, metadata }: ResolvedTypedKey
+  { aliasName, propertyPath, metadata, column, jsonPath }: ResolvedTypedKey,
+  jsonOptions?: JsonPathSqlOptions
 ): string {
-  const column =
-    metadata?.findColumnWithPropertyPath(propertyPath)?.databaseName ?? propertyPath;
+  const columnName =
+    (column ?? metadata?.findColumnWithPropertyPath(propertyPath))?.databaseName ?? propertyPath;
 
-  return aliasName === undefined
-    ? queryBuilder.escape(column)
-    : `${queryBuilder.escape(aliasName)}.${queryBuilder.escape(column)}`;
+  const columnSql =
+    aliasName === undefined
+      ? queryBuilder.escape(columnName)
+      : `${queryBuilder.escape(aliasName)}.${queryBuilder.escape(columnName)}`;
+
+  if (!column || !jsonPath) {
+    return columnSql;
+  }
+
+  const driver = getDriverType(queryBuilder as unknown as WhereExpressionBuilder);
+
+  return toJsonPathSql(driver, columnSql, column, jsonPath, jsonOptions);
 }
 
 /**
@@ -203,18 +271,21 @@ function toQuotedColumnKey(
  *
  * The property is mapped to its database column name (`@Column({ name })`, embedded columns)
  * through the metadata of the alias it belongs to (see `resolveTypedKey`). Aliases without
- * metadata (subqueries) and unknown properties keep the property name.
+ * metadata (subqueries) and unknown properties keep the property name. A path into a JSON column
+ * gives its JSON accessor, cast on PostgreSQL to the type of `jsonOptions.value`.
  */
 export function getTypedColumnKey<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
-  callback: KeyProxyCallback<Type>
+  callback: KeyProxyCallback<Type>,
+  jsonOptions?: JsonPathSqlOptions
 ): string | string[] {
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
 
   const toKey = (keyHolder: KeyHolder): string =>
-    toQuotedColumnKey(queryBuilder, resolveTypedKey(queryBuilder, keyHolder.getKeys()));
+    toQuotedColumnKey(queryBuilder, resolveTypedKey(queryBuilder, keyHolder.getKeys()), jsonOptions);
 
-  const keyHolder = getKeyHolder<Type>(callback);
+  // the depth is checked against the query's metadata, where a JSON column may be deeper
+  const keyHolder = getKeyHolder<Type>(callback, true);
 
   return Array.isArray(keyHolder) ? keyHolder.map(toKey) : toKey(keyHolder);
 }
@@ -227,9 +298,10 @@ export function getTypedColumnKey<Type extends ObjectLiteral>(
 export function getTypedSingleColumnKey<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
   callback: KeyProxyCallback<Type>,
-  methodName: string
+  methodName: string,
+  jsonOptions?: JsonPathSqlOptions
 ): string {
-  const key = getTypedColumnKey<Type>(builder, callback);
+  const key = getTypedColumnKey<Type>(builder, callback, jsonOptions);
 
   if (Array.isArray(key)) {
     throw new TypeError(
@@ -260,6 +332,13 @@ export function getTypedSelectionKey<Type extends ObjectLiteral>(
 
   const toKey = (keyHolder: KeyHolder): string => {
     const resolved = resolveTypedKey(queryBuilder, keyHolder.getKeys());
+
+    if (resolved.jsonPath) {
+      throw new TypeError(
+        `Typed key "${keyHolder.getKeys().join('.')}" points into the JSON column "${resolved.propertyPath}": ` +
+          `select, order and distinct take columns only. For an expression use tableHelper().jsonColumn()`
+      );
+    }
 
     if (useQuotes) {
       return toQuotedColumnKey(queryBuilder, resolved);

@@ -151,7 +151,7 @@ function attachWhereIsAnyTyped<
     return builder;
   }
 
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
+  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value: array });
 
   // .andWhere(`"table"."column" = ANY(:param)`, { param: ['value'] })
   return builder[method](key, array, arrayType);

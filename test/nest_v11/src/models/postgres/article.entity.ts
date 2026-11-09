@@ -1,9 +1,12 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import type { Json } from 'typeorm-extensions/types/modules/proxy-callback.types';
 
 export type ArticleMeta = {
   status: string;
   author?: { name: string };
   flags?: string[];
+  score?: number;
+  published?: boolean;
 };
 
 /**
@@ -36,7 +39,7 @@ export class ArticleEntity {
   public reviewerIds: number[] | null;
 
   @Column({ type: 'jsonb', nullable: true })
-  public meta: ArticleMeta | null;
+  public meta: Json<ArticleMeta> | null;
 
   @Column({ type: 'json', name: 'legacy_meta', nullable: true })
   public legacyMeta: ArticleMeta | null;

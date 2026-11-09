@@ -136,7 +136,7 @@ function attachWhereDistinctTyped<
     return builder;
   }
 
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
+  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
 
   // .andWhereIsDistinctFrom(`"table"."column"`, value)
   return builder[method](key, value);
