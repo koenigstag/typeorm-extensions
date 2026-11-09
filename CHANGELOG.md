@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [2.2.0] - 2026-11-10
+
+A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
 ### New Features
 
@@ -10,13 +12,8 @@
 
 ### Improvements
 
+- **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.2.0 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
 - **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
-
-## [2.1.1] - 2026-11-09
-
-### Improvements
-
-- **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.1.1 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
 
 ## [2.1.0] - 2026-11-09
 
