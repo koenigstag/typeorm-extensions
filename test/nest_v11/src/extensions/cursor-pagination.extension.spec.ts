@@ -94,12 +94,35 @@ setupTest('cursor-pagination', undefined, (context) => {
       .getManyWithCursor({ pageSize: 4 }, { orderBy: [{ field: 'id' }] });
     expect(first.list).toHaveLength(4);
     expect(first.nextCursor).toBeNull();
+    expect(first.hasMore).toBe(false);
 
     const empty = await users()
       .createQueryBuilder('user')
       .where('1 = 0')
       .getManyWithCursor(null, { orderBy: [] });
-    expect(empty).toEqual({ list: [], nextCursor: null });
+    expect(empty).toEqual({ list: [], nextCursor: null, hasMore: false });
+  });
+
+  it('SHOULD report hasMore on every page, in step with nextCursor', async () => {
+    await seedUsers(5);
+    const query = () => users().createQueryBuilder('user');
+    const options = { orderBy: [{ field: 'id' as const }] };
+
+    const seen: Array<{ hasMore: boolean; hasCursor: boolean }> = [];
+    let cursor: string | null = null;
+
+    do {
+      const page = await query().getManyWithCursor({ cursor, pageSize: 2 }, options);
+      seen.push({ hasMore: page.hasMore, hasCursor: page.nextCursor !== null });
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    // 5 rows at 2 per page: two full pages with a next one, then the last page of one row
+    expect(seen).toEqual([
+      { hasMore: true, hasCursor: true },
+      { hasMore: true, hasCursor: true },
+      { hasMore: false, hasCursor: false },
+    ]);
   });
 
   it('SHOULD keep the conditions of the query, OR included', async () => {

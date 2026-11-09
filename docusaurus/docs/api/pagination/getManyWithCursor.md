@@ -22,7 +22,7 @@ How it works:
 
 - The rows are ordered by `options.orderBy`, and the primary key is appended when it isn't listed, so the order is total even when the other keys repeat. It replaces any ORDER BY of the query.
 - With the same direction on every key, the condition is a row comparison `(a, b) < (:a, :b)` (PostgreSQL, MySQL, SQLite); with mixed directions it is `a <= :a AND (a < :a OR (a = :a AND b > :b))`.
-- `pageSize + 1` rows are loaded; the extra one only tells whether there is a next page.
+- `pageSize + 1` rows are loaded; the extra one only tells whether there is a next page, which is what `hasMore` reports. It is always a boolean here, never `null` as in [ListWithTotals](./types/ListWithTotals.md), because the keyset query needs no total to know it.
 - The cursor is opaque (base64url JSON of the key values of the last row). Date / time keys are read from the database as text, so PostgreSQL's microsecond timestamps keep their precision; a JS `Date` has only milliseconds and would skip rows.
 - The cursor condition narrows the whole WHERE clause: existing OR conditions are put in parentheses first.
 - The query builder itself is not changed.
@@ -50,6 +50,7 @@ type GetManyWithCursorOptions<Entity> = {
 interface ListWithCursor<Entity> {
   list: Entity[];
   nextCursor: string | null; // null on the last page
+  hasMore: boolean;          // whether a next page follows; same as nextCursor !== null
 }
 ```
 
@@ -79,7 +80,7 @@ const page = await repository
     { orderBy: [{ field: 'createdAt', direction: 'DESC' }] },
   );
 
-// { list: Post[], nextCursor: 'eyJrIjpb…' | null }
+// { list: Post[], nextCursor: 'eyJrIjpb…' | null, hasMore: true | false }
 ```
 
 ```typescript

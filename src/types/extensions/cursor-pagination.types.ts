@@ -15,4 +15,9 @@ export interface ListWithCursor<Entity> {
   list: Entity[];
   /** Cursor of the next page, `null` on the last page. */
   nextCursor: string | null;
+  /**
+   * Whether a next page follows. Always known, unlike the `hasMore` of `getManyWithTotals`: the
+   * keyset query loads `pageSize + 1` rows, so it needs no total. Equivalent to `nextCursor !== null`.
+   */
+  hasMore: boolean;
 }

@@ -31,7 +31,8 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * deep they are, and rows inserted meanwhile don't shift them.
      *
      * Orders the query by `options.orderBy` (the primary key is appended), replacing its ORDER BY,
-     * loads `pageSize + 1` rows to know whether there is a next page, and returns `nextCursor`.
+     * loads `pageSize + 1` rows to know whether there is a next page, and returns `nextCursor`
+     * together with `hasMore`.
      * The query builder itself is not changed. Throws `InvalidCursorError` for a cursor that can't
      * be decoded or was made for another order.
      */
@@ -171,7 +172,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
   const list = entities.slice(0, pageSize);
 
   if (entities.length <= pageSize) {
-    return { list, nextCursor: null };
+    return { list, nextCursor: null, hasMore: false };
   }
 
   // with joined collections there are several raw rows per entity: find one of the last entity's
@@ -198,5 +199,5 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     return value;
   });
 
-  return { list, nextCursor: encodeCursor(fields, values) };
+  return { list, nextCursor: encodeCursor(fields, values), hasMore: true };
 }
