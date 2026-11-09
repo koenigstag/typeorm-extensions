@@ -4,6 +4,27 @@
 
 ### New Features
 
+- **`hasMore` on both paginated results**: `getManyWithTotals` returns `offset + list.length < total`, and with `disableTotalsCalculation` reads the page one row longer instead of counting — the extra row is dropped from `list` and only answers `hasMore`, so no `COUNT` query runs and the flag is still known. `null` only with `loadAll`, where the page is every row. `getManyWithCursor` returns a boolean the same way, from the `pageSize + 1` rows its keyset query already loads.
+
+- **`orderBy` on `ListWithTotals`**: the ORDER BY the page was read in, as `OrderType[]`, for logs and debugging. These are SQL selectors (`"user"."created_at"`, a generated `array_position_…` alias, a raw expression), not properties of the entity. Without an explicit order it is the `orderBy` of `@Entity`, like the SQL; empty with the `disable-global-order` option.
+
+### Improvements
+
+- **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
+
+## [2.1.1] - 2026-11-09
+
+### Improvements
+
+- **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.1.1 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
+
+## [2.1.0] - 2026-11-09
+
+A minor version: nothing needs changing when upgrading from 2.0.0. `strictParams` is opt-in, and a typed key
+into a JSON column used to build SQL that failed, so no working query changes.
+
+### New Features
+
 - **`strictParams`: typed where parameters checked against the column type**, opt-in through module augmentation:
   ```ts
   declare module 'typeorm-extensions' {
@@ -23,14 +44,6 @@
   - Two levels work with any JSON column. For deeper paths mark the property with the new `Json<T>` type (`details: Json<ExecutionDetails>`): TypeScript can't tell a JSON object from a relation, and relations still stop at `alias.column`.
   - Select, order and distinct take columns only: a JSON path there throws a `TypeError`.
   - `applyPeriodFilterTyped` compares a JSON path as a timestamp: `CAST(… AS timestamptz)` on PostgreSQL, `strftime` on SQLite. As text, a date stored as `'…T12:00:00.000Z'` didn't match a `Date` bound on its own day.
-
-- **`hasMore` on both paginated results**: `getManyWithTotals` returns `offset + list.length < total`, and with `disableTotalsCalculation` reads the page one row longer instead of counting — the extra row is dropped from `list` and only answers `hasMore`, so no `COUNT` query runs and the flag is still known. `null` only with `loadAll`, where the page is every row. `getManyWithCursor` returns a boolean the same way, from the `pageSize + 1` rows its keyset query already loads.
-
-- **`orderBy` on `ListWithTotals`**: the ORDER BY the page was read in, as `OrderType[]`, for logs and debugging. These are SQL selectors (`"user"."created_at"`, a generated `array_position_…` alias, a raw expression), not properties of the entity. Without an explicit order it is the `orderBy` of `@Entity`, like the SQL; empty with the `disable-global-order` option.
-
-### Improvements
-
-- **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
 
 ### Bug Fixes
 
