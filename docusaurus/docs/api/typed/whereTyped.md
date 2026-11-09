@@ -141,15 +141,7 @@ query
 ```
 
 ```typescript
-// JSONB fields with tableHelper
-import { tableHelper } from 'typeorm-extensions';
-
-const t = tableHelper<UserEntity>('user');
-
+// a key of a JSON column, see "Paths into JSON columns" above
 // same as `query.where("user.metadata ->> 'role' = :role", { role: 'admin' })`
-query.whereTyped(
-  user => user.metadata,
-  `${t.jsonPath('metadata', '->>', 'role')} =`,
-  'admin',
-)
+query.whereTyped(user => user.metadata.role, '=', 'admin')
 ```

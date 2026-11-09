@@ -24,7 +24,7 @@ addSelectTyped(...): SelectQueryBuilder<Entity> // same overloads
 ```
 
 ## Arguments
-- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects one field, or an array of fields. Can also be an array of callbacks.
+- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects one field, or an array of fields. Can also be an array of callbacks. A path into a JSON column (`user => user.metadata.role`) throws a `TypeError`: for a JSON value use [tableHelper](../utils/tableHelper.md#jsonb) `jsonColumn`.
 - alias?: string: Alias for the selection.
 - useQuotes?: boolean: Quote the selected key with its database column name (`"user"."name"`, `@Column({ name })` applied). Default `false` (`user.name`, which TypeORM maps to the column itself).
 

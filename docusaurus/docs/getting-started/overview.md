@@ -14,7 +14,7 @@ This package provides a set of extensions for [TypeORM](https://www.npmjs.com/pa
 - **Typed**: typesafe methods for the query builder.
   - `selectTyped` - select fields.
   - `joinTyped` - apply join conditions.
-  - `whereTyped` - apply where conditions.
+  - `whereTyped` - apply where conditions, also on keys inside JSON columns; parameters can be checked against the column type (`strictParams`).
   - `whereIsInTyped` - apply where IN / NOT IN conditions.
   - `whereIsAnyTyped` - apply where `= ANY(array)` conditions (only PostgreSQL).
   - `whereILikeTyped` / `whereSearchTyped` / `whereLowerEqualsTyped` - case-insensitive search with escaped wildcards; `whereSimilarTyped` - trigram similarity (only PostgreSQL).

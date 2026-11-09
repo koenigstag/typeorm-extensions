@@ -27,12 +27,9 @@ npm install typeorm-extensions
 ## Usage
 
 ```typescript
-import { tableHelper } from 'typeorm-extensions'; // Importing the library root extends the QueryBuilder with all extensions
+import 'typeorm-extensions'; // Importing the library root extends the QueryBuilder with all extensions
 
 // Or init specific extension: import 'typeorm-extensions/dist/extensions/pagination.extension';
-
-// Type-safe SQL fragments for an entity alias
-const t = tableHelper<UserEntity>('users');
 
 const query = myDataSource
   .getRepository(UserEntity)
@@ -47,7 +44,8 @@ const query = myDataSource
     user.images.url,
   ])
   .whereTyped(user => user.name, 'ILIKE', 'John')
-  .andWhereTyped(user => user.metadata, `${t.jsonPath('metadata', '->>', 'role')} =`, 'admin')
+  // Paths into JSON columns: "users"."metadata" ->> 'role' = :param
+  .andWhereTyped(user => user.metadata.role, '=', 'admin')
   // Order by type-safe own and relation properties
   .orderByTyped(user => user.images.url, 'ASC', 'NULLS LAST')
   // Use pagination as simple as that

@@ -16,7 +16,7 @@ type KeyProxyCallback<Entity> = (
 ) => ProxyColumnValueType | Array<ProxyColumnValueType>;
 ```
 
-`DeepUnwrapArray<Entity>` is the entity type with array relations unwrapped and optional properties made required, so `user.images.url` type-checks when `images` is `ImageEntity[] | undefined`.
+`DeepUnwrapArray<Entity>` is the entity type with array relations unwrapped and optional properties made required, so `user.images.url` type-checks when `images` is `ImageEntity[] | undefined`. A property marked with [`Json<T>`](../whereTyped.md#paths-into-json-columns) is open at any depth.
 
 ## How keys are built
 
@@ -25,6 +25,7 @@ type KeyProxyCallback<Entity> = (
 | `user => user.name` | `user.name`: a column of the query's main entity is prefixed with the query alias |
 | `user => user.images.url` | `images.url`: a column of a relation uses the relation name as the alias (the query must have that alias) |
 | `person => person.address.city` | `person.address.city`: an embedded column of the main entity (the first key isn't a query alias, and the entity has a column with that path) |
+| `exec => exec.details.meta.endTs` | `"exec"."details" -> 'meta' ->> 'endTs'`: the keys after a JSON column are a path inside it, in where methods only (see [Paths into JSON columns](../whereTyped.md#paths-into-json-columns)) |
 | `user => [user.id, user.name]` | `['user.id', 'user.name']`: several keys (for `selectTyped`, `distinctOnTyped`) |
 
 The property is mapped to its database column (`@Column({ name })`, embedded columns) through the metadata of its alias: where methods and `useQuotes` emit the quoted column, e.g. `"user"."created_at"`.
@@ -38,7 +39,9 @@ query
   .orderByTyped(user => user.images.url, 'ASC')
 ```
 
-Paths are limited to two levels, `column` or `alias.column`: `user => user.images.user.email` is a compile error (the second level of a nested relation or JSON object is a `KeyPathEnd`, which can be selected as a whole but not dereferenced) and throws a `TypeError` at runtime. For columns of nested relations, join them and address the join alias with an alias-keyed type, see [Typing joined aliases](#typing-joined-aliases). For a foreign key, use its property (`user => user.images.userId`).
+Paths are limited to two levels, `column` or `alias.column`: `user => user.images.user.email` is a compile error (the second level of a nested relation is a `KeyPathEnd`, which can be selected as a whole but not dereferenced) and throws a `TypeError` at runtime. For columns of nested relations, join them and address the join alias with an alias-keyed type, see [Typing joined aliases](#typing-joined-aliases). For a foreign key, use its property (`user => user.images.userId`).
+
+JSON columns are the exception. In where methods the keys after a JSON column become a JSON path: `user => user.metadata.role` works with any JSON column, and a column marked with [`Json<T>`](../whereTyped.md#paths-into-json-columns) goes deeper (`exec => exec.details.meta.endTs`). Select, order and distinct take columns only and throw a `TypeError` for a path into a JSON column.
 
 
 ## Typing joined aliases
