@@ -6,6 +6,7 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
+import { TypedWhereArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
@@ -14,223 +15,100 @@ import { attachWhere } from '../../../utils/where.utils';
 
 // declarations
 
+/**
+ * Typesafe WHERE conditions: the column comes from an entity property.
+ * `Type` defaults to the query builder's entity; with the `strictParams` option (see `TypeormExtensionsConfig`)
+ * the parameter is checked against the type of the selected column.
+ */
+export interface TypedWhereMethods<Entity extends ObjectLiteral> {
+  /**
+   * Sets WHERE condition in the query builder.
+   * If you had previously WHERE expression defined,
+   * calling this function will override previously set WHERE conditions.
+   * Additionally you can add parameters used in where expression.
+   */
+  whereTyped<
+    Type extends ObjectLiteral = UnsetType,
+    Value extends ProxyColumnValueType = ProxyColumnValueType,
+    Operator extends string = string,
+  >(
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    conditions: Operator,
+    ...args: TypedWhereArgs<Type, Operator, Value>
+  ): this;
+
+  /**
+   * Adds new AND WHERE condition in the query builder.
+   * Additionally you can add parameters used in where expression.
+   */
+  andWhereTyped<
+    Type extends ObjectLiteral = UnsetType,
+    Value extends ProxyColumnValueType = ProxyColumnValueType,
+    Operator extends string = string,
+  >(
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    conditions: Operator,
+    ...args: TypedWhereArgs<Type, Operator, Value>
+  ): this;
+
+  /**
+   * Adds new OR WHERE condition in the query builder.
+   * Additionally you can add parameters used in where expression.
+   */
+  orWhereTyped<
+    Type extends ObjectLiteral = UnsetType,
+    Value extends ProxyColumnValueType = ProxyColumnValueType,
+    Operator extends string = string,
+  >(
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    conditions: Operator,
+    ...args: TypedWhereArgs<Type, Operator, Value>
+  ): this;
+}
+
+/* eslint-disable @typescript-eslint/no-empty-interface */
 declare module 'typeorm/query-builder/WhereExpressionBuilder' {
-  interface WhereExpressionBuilder {
-    /**
-     * Sets WHERE condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     * Additionally you can add parameters used in where expression.
-     */
-    whereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    andWhereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    orWhereTyped<Type extends ObjectLiteral>(
-      subQuery: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-  }
+  interface WhereExpressionBuilder extends TypedWhereMethods<ObjectLiteral> {}
 }
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity> {
-    /**
-     * Sets WHERE condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     * Additionally you can add parameters used in where expression.
-     */
-    whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-  }
+  interface SelectQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereMethods<Entity> {}
 }
 
 declare module 'typeorm/query-builder/UpdateQueryBuilder' {
-  interface UpdateQueryBuilder<Entity> {
-    /**
-     * Sets WHERE condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     * Additionally you can add parameters used in where expression.
-     */
-    whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-  }
+  interface UpdateQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereMethods<Entity> {}
 }
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
-  interface DeleteQueryBuilder<Entity> {
-    /**
-     * Sets WHERE condition in the query builder.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     * Additionally you can add parameters used in where expression.
-     */
-    whereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new AND WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    andWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-
-    /**
-     * Adds new OR WHERE condition in the query builder.
-     * Additionally you can add parameters used in where expression.
-     */
-    orWhereTyped<Type extends ObjectLiteral = Entity>(
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      conditions: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): this;
-  }
+  interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereMethods<Entity> {}
 }
+/* eslint-enable @typescript-eslint/no-empty-interface */
 
 // patching
 
+const createWhereTypedMethod = (method: WhereMethods) =>
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+    this: SelectQueryBuilder<Entity>,
+    where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+    conditions: string,
+    parameters?: unknown,
+    options?: TypedWhereOptions
+  ): SelectQueryBuilder<Entity> {
+    return attachTypedWhere<Type, SelectQueryBuilder<Entity>>(
+      this,
+      method,
+      where,
+      conditions,
+      parameters,
+      options
+    );
+  };
+
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
-    whereTyped: function <
-      Entity extends ObjectLiteral,
-      Type extends ObjectLiteral = Entity
-    >(
-      this: SelectQueryBuilder<Entity>,
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      operator: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): SelectQueryBuilder<Entity> {
-      return attachTypedWhere<Type, SelectQueryBuilder<Entity>>(
-        this,
-        'where',
-        where,
-        operator,
-        parameters,
-        options
-      );
-    },
-    andWhereTyped: function <
-      Entity extends ObjectLiteral,
-      Type extends ObjectLiteral = Entity
-    >(
-      this: SelectQueryBuilder<Entity>,
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      operator: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): SelectQueryBuilder<Entity> {
-      return attachTypedWhere<Type, SelectQueryBuilder<Entity>>(
-        this,
-        'andWhere',
-        where,
-        operator,
-        parameters,
-        options
-      );
-    },
-    orWhereTyped: function <
-      Entity extends ObjectLiteral,
-      Type extends ObjectLiteral = Entity
-    >(
-      this: SelectQueryBuilder<Entity>,
-      where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-      operator: string,
-      parameters?: unknown,
-      options?: TypedWhereOptions
-    ): SelectQueryBuilder<Entity> {
-      return attachTypedWhere<Type, SelectQueryBuilder<Entity>>(
-        this,
-        'orWhere',
-        where,
-        operator,
-        parameters,
-        options
-      );
-    },
+    whereTyped: createWhereTypedMethod('where'),
+    andWhereTyped: createWhereTypedMethod('andWhere'),
+    orWhereTyped: createWhereTypedMethod('orWhere'),
   },
 };
 

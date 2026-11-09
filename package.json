@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "test:types": "tsc -p test/types"
   },
   "keywords": [
     "typeorm",

@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`strictParams`: typed where parameters checked against the column type**, opt-in through module augmentation:
+  ```ts
+  declare module 'typeorm-extensions' {
+    interface TypeormExtensionsConfig {
+      strictParams: true;
+    }
+  }
+  ```
+  The type of the column comes from the callback, the expected value from the operator of `whereTyped` / `andWhereTyped` / `orWhereTyped`:
+  - `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=` take the column's value, never `null` / `undefined` (`= NULL` matches no row); `IS [NOT] DISTINCT FROM` takes `null` too, `IS` / `IS NOT` only `null`;
+  - `IN` / `NOT IN` take an array of values, `LIKE` / `ILIKE` (and `NOT`) a string, `IS NULL`, `IS TRUE` and the like nothing;
+  - a date column takes a `Date` or a string; the value may be passed as is or in a `{ name: value }` params object, except a plain object (a JSON column), which only fits in a params object: at runtime a plain object always is one.
+
+  `whereIsInTyped` / `whereIsAnyTyped` and their `Not`, `and` / `or` variants take an array of the column's values. Conditions written as SQL (`'BETWEEN :from AND :to'`, `'= true'`) and calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked. Without the option nothing changes.
+
+### Bug Fixes
+
+- **Typed callbacks give a `Date` (or `Buffer`) column its own type**: the proxy used to treat it as an object to go into, so `u => u.createdAt` was typed as a mapped `Date`, and a date column of a relation (`u => u.images.createdAt`) as the end of the key path.
+
 ## [2.0.0] - 2026-11-05
 
 A major version: the changes under **Breaking Changes** need code changes when upgrading from 1.x

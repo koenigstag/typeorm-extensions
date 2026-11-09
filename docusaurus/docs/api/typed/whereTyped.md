@@ -31,6 +31,42 @@ orWhereTyped(selection, condition?, params?, options?): SelectQueryBuilder<Entit
 
 Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; use `andWhereTyped` / `orWhereTyped` to add to them.
 
+## Checking parameters: `strictParams`
+
+By default `params` is `unknown`. Augment `TypeormExtensionsConfig` once in your project to check it against the type of the column the callback selects:
+
+```typescript
+declare module 'typeorm-extensions' {
+  interface TypeormExtensionsConfig {
+    strictParams: true;
+  }
+}
+```
+
+The expected value depends on the operator (matched case-insensitively):
+
+| Operator | `params` |
+| --- | --- |
+| `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=` | the column's value, required, never `null` / `undefined` (`= NULL` matches no row) |
+| `IS DISTINCT FROM`, `IS NOT DISTINCT FROM` | the column's value or `null` |
+| `IS`, `IS NOT` | `null` |
+| `IN`, `NOT IN` | an array of the column's values |
+| `LIKE`, `ILIKE`, `NOT LIKE`, `NOT ILIKE` | a string |
+| `IS NULL`, `IS NOT NULL`, `IS [NOT] TRUE`, `IS [NOT] FALSE`, `IS [NOT] UNKNOWN` | none |
+| anything else (`'BETWEEN :from AND :to'`, `'= true'`) | not checked |
+
+A date column takes a `Date` or a string. The value may be passed as is or in a `{ name: value }` params object, except a plain object (a JSON column): at runtime a plain object always is a params object, so it has to be wrapped.
+
+```typescript
+query.whereTyped(e => e.price, '>=', { minPrice: 10 });     // ok
+query.whereTyped(e => e.price, '>=', '10');                 // error: string for a number column
+query.whereTyped(e => e.cityId, '=', { cityId: undefined }); // error: = NULL matches no row
+query.whereTyped(e => e.id, 'IN', 'a');                     // error: IN takes an array
+query.whereTyped(e => e.settings, '=', { settings: value }); // ok; the bare `value` doesn't compile
+```
+
+Calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked: TypeScript can't infer the column type when one type argument is given.
+
 ## Usage
 
 ```typescript
