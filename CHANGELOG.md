@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.1] - 2026-11-09
+
+### Improvements
+
+- **The package ships its license**: `package.json` said ISC, but the `LICENSE` file was missing from the repository and the npm package (2.0.0 and 2.1.0 had none).
+
 ## [2.1.0] - 2026-11-09
 
 A minor version: nothing needs changing when upgrading from 2.0.0. `strictParams` is opt-in, and a typed key
