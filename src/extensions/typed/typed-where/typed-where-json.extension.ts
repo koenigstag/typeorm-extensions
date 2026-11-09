@@ -136,7 +136,7 @@ function attachWhereJsonTyped<
     return builder;
   }
 
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
+  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { accessor: 'json' });
 
   // .andWhereJsonContains(`"table"."column"`, { role: 'admin' }) / .andWhereJsonHasKey(`"table"."column"`, 'role')
   // (one signature for both: `value` is the JSON value or the key, each method checks its own)

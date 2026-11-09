@@ -24,6 +24,8 @@ orWhereIsNotInTyped(selection: KeyProxyCallback<Entity>, array?: readonly unknow
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects the field of entity. A callback that selects several columns throws a `TypeError`.
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 
+With the [`strictParams`](./whereTyped.md#checking-parameters-strictparams) option the array has to hold values of the column's type (`whereIsInTyped(u => u.id, ['a'])` doesn't compile for a `number` column).
+
 ## Usage
 
 ```typescript

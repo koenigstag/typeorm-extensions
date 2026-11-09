@@ -27,6 +27,8 @@ orWhereIsNotAnyTyped(selection: KeyProxyCallback<Entity>, array?: readonly unkno
 - array?: readonly unknown[]: Values to compare with. Readonly arrays and `as const` constants are accepted.
 - arrayType?: string: Type to cast the array parameter to, e.g. `'uuid[]'`: `= ANY(CAST(:param AS uuid[]))`. See [whereIsAny](../where/whereIsAny.md).
 
+With the [`strictParams`](./whereTyped.md#checking-parameters-strictparams) option the array has to hold values of the column's type (`whereIsAnyTyped(u => u.id, ['a'])` doesn't compile for a `number` column).
+
 ## Usage
 
 ```typescript

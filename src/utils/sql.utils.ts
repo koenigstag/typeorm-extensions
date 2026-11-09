@@ -34,6 +34,12 @@ const SQLITE_LIKE_DRIVERS: readonly string[] = [
   'react-native',
 ];
 
+const POSTGRES_LIKE_DRIVERS: readonly string[] = ['postgres', 'aurora-postgres', 'cockroachdb'];
+
+/** PostgreSQL and the databases speaking its dialect. */
+export const isPostgresLikeDriver = (driver?: DatabaseType): boolean =>
+  driver !== undefined && POSTGRES_LIKE_DRIVERS.includes(driver);
+
 /** SQLite drivers: `IS` / `IS NOT` are null-safe comparisons. */
 export const isSqliteLikeDriver = (driver?: DatabaseType): boolean =>
   driver !== undefined && SQLITE_LIKE_DRIVERS.includes(driver);

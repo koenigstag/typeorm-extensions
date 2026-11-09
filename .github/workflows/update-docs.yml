@@ -4,7 +4,6 @@ name: Build Docusaurus and Commit to /docs
 on:
   push:
     branches: [docs]
-    if: github.actor != 'github-actions[bot]'
     paths:
       - 'docusaurus/**'
       - '.github/workflows/update-docs.yml'
@@ -12,17 +11,18 @@ on:
 jobs:
   build-and-commit-docs:
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 18
+          node-version: '24'
 
       - name: Install dependencies
         run: npm ci

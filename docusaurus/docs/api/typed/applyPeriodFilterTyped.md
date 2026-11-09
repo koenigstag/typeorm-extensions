@@ -9,6 +9,8 @@ sidebar_position: 5.9
 
 The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
 
+The callback may also go into a JSON column ([paths into JSON columns](./whereTyped.md#paths-into-json-columns)), e.g. `e => e.details.finishedAt` for a date stored as an ISO string. The value is compared as a timestamp, not as text: on PostgreSQL it is cast to `timestamptz`, on SQLite rewritten with `strftime` in the format TypeORM writes dates in.
+
 ## Signature
 ```typescript
 applyPeriodFilterTyped(

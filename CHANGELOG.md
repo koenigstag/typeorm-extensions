@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.1.0] - 2026-11-09
+
+A minor version: nothing needs changing when upgrading from 2.0.0. `strictParams` is opt-in, and a typed key
+into a JSON column used to build SQL that failed, so no working query changes.
+
+### New Features
+
+- **`strictParams`: typed where parameters checked against the column type**, opt-in through module augmentation:
+  ```ts
+  declare module 'typeorm-extensions' {
+    interface TypeormExtensionsConfig {
+      strictParams: true;
+    }
+  }
+  ```
+  The type of the column comes from the callback, the expected value from the operator of `whereTyped` / `andWhereTyped` / `orWhereTyped`:
+  - `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=` take the column's value, never `null` / `undefined` (`= NULL` matches no row); `IS [NOT] DISTINCT FROM` takes `null` too, `IS` / `IS NOT` only `null`;
+  - `IN` / `NOT IN` take an array of values, `LIKE` / `ILIKE` (and `NOT`) a string, `IS NULL`, `IS TRUE` and the like nothing;
+  - a date column takes a `Date` or a string; the value may be passed as is or in a `{ name: value }` params object, except a plain object (a JSON column), which only fits in a params object: at runtime a plain object always is one.
+
+  `whereIsInTyped` / `whereIsAnyTyped` and their `Not`, `and` / `or` variants take an array of the column's values. Conditions written as SQL (`'BETWEEN :from AND :to'`, `'= true'`) and calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked. Without the option nothing changes.
+
+- **Typed keys into JSON columns**: in typed where methods a callback may go into a `json` / `jsonb` / `simple-json` column, `exec => exec.details.meta.endTs` → `"exec"."details" -> 'meta' ->> 'endTs'`, on the main entity or a joined alias. On PostgreSQL the path is cast to the type of the compared value (`numeric`, `boolean`, `timestamptz`), since `->>` gives text and text compares `'9' >= '10'` as true; `whereJsonContainsTyped` / `whereJsonHasKeyTyped` take the JSON value (`->`). PostgreSQL and SQLite 3.38+, other databases throw a `TypeError`.
+  - Two levels work with any JSON column. For deeper paths mark the property with the new `Json<T>` type (`details: Json<ExecutionDetails>`): TypeScript can't tell a JSON object from a relation, and relations still stop at `alias.column`.
+  - Select, order and distinct take columns only: a JSON path there throws a `TypeError`.
+  - `applyPeriodFilterTyped` compares a JSON path as a timestamp: `CAST(… AS timestamptz)` on PostgreSQL, `strftime` on SQLite. As text, a date stored as `'…T12:00:00.000Z'` didn't match a `Date` bound on its own day.
+
+### Bug Fixes
+
+- **A typed key into a JSON column built a wrong column**: `u => u.metadata.role` gave `"metadata"."role"`, as if `metadata` were an alias, which failed in the database. Where methods now build the JSON path, select / order / distinct throw a `TypeError`.
+- **Typed callbacks give a `Date` (or `Buffer`) column its own type**: the proxy used to treat it as an object to go into, so `u => u.createdAt` was typed as a mapped `Date`, and a date column of a relation (`u => u.images.createdAt`) as the end of the key path.
+
 ## [2.0.0] - 2026-11-05
 
 A major version: the changes under **Breaking Changes** need code changes when upgrading from 1.x

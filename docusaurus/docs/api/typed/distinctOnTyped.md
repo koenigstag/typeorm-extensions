@@ -15,7 +15,7 @@ distinctOnTyped(
 ```
 
 ## Arguments
-- distinctOn: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callbacks which select fields of entity for the DISTINCT ON rule. PostgreSQL only.
+- distinctOn: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callbacks which select fields of entity for the DISTINCT ON rule. PostgreSQL only. A path into a JSON column (`user => user.metadata.role`) throws a `TypeError`: for a JSON value use [tableHelper](../utils/tableHelper.md#jsonb) `jsonColumn`.
 
 ## Usage
 

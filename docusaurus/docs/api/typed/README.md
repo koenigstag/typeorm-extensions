@@ -8,6 +8,8 @@ sidebar_position: 1
 
 This category provides a set of extensions for typed features. Instead of column strings, typed methods take a [KeyProxyCallback](./types/KeyProxyCallback.md) like `user => user.name`, so column names are checked by TypeScript.
 
+Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see [Paths into JSON columns](./whereTyped#paths-into-json-columns)), and with the opt-in [`strictParams`](./whereTyped#checking-parameters-strictparams) their parameters are checked against the column type.
+
 ### Methods:
 - [selectTyped](./selectTyped): add typesafe select to a query.
 - [joinTyped](./joinTyped): add typesafe join to a query.
@@ -29,3 +31,4 @@ This category provides a set of extensions for typed features. Instead of column
 
 ### Types:
 - [KeyProxyCallback](./types/KeyProxyCallback): the callback that selects entity properties, and how it maps to SQL keys.
+- [Json&lt;T&gt;](./whereTyped#paths-into-json-columns): marks a JSON column, so typed callbacks go into it at any depth.

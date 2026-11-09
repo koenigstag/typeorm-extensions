@@ -7,6 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'test/nest*/**'
+      - 'test/types/**'
       - '.github/workflows/test-nest.yml'
 
 env:
@@ -21,12 +22,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
-      - name: Set up Node.js 20 (LTS)
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install nest dependencies
         run: npm clean-install
@@ -42,12 +43,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
-      - name: Set up Node.js 20 (LTS)
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install nest dependencies
         run: npm clean-install
@@ -79,12 +80,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
-      - name: Set up Node.js 20 (LTS)
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install nest dependencies
         run: npm clean-install
@@ -104,3 +105,6 @@ jobs:
         run: |
           npm install --no-save --legacy-peer-deps "typeorm@${{ matrix.typeorm }}"
           npx tsc -p . --noEmit
+
+      - name: Type-test strictParams against TypeORM ${{ matrix.typeorm }}
+        run: npm run test:types
