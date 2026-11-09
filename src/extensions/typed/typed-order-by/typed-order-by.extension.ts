@@ -2,6 +2,7 @@ import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { KeyHolder } from '../../../utils/proxy-key.utils';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
+import { getDriverType } from '../../../utils/sql.utils';
 import type { TypedOrderByOptions } from '../../../types/extensions/typed-order-by.types';
 
 // declarations
@@ -46,7 +47,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
 	if (selection instanceof KeyHolder) {
-		return this.orderBy(selection.toSql(undefined, options?.useQuotes), order, nulls);
+		return this.orderBy(selection.toSql(undefined, options?.useQuotes, getDriverType(this)), order, nulls);
 	}
 
 	if (typeof selection === 'function') {
@@ -69,7 +70,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
 	if (selection instanceof KeyHolder) {
-		return this.addOrderBy(selection.toSql(undefined, options?.useQuotes), order, nulls);
+		return this.addOrderBy(selection.toSql(undefined, options?.useQuotes, getDriverType(this)), order, nulls);
 	}
 
 	if (typeof selection === 'function') {

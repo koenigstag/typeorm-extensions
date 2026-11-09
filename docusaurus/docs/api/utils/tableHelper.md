@@ -19,7 +19,7 @@ import { tableHelper } from 'typeorm-extensions/helpers';
 ```typescript
 tableHelper<Entity>(
   alias?: string,
-  options?: { useQuotes?: boolean }
+  options?: { useQuotes?: boolean; driver?: DatabaseType }
 )
 ```
 
@@ -27,6 +27,7 @@ tableHelper<Entity>(
 
 - alias?: string: Alias of the table in the query, e.g. `'user'` for `createQueryBuilder('user')`.
 - options.useQuotes?: boolean: Quote identifiers (`"user"."email"`). Default `true`; with `false` they are left as is (`user.email`).
+- options.driver?: DatabaseType: The database the SQL is for. MySQL and MariaDB quote identifiers with backticks (`` `user`.`email` ``); without it they get double quotes. Pass `dataSource.options.type`.
 
 ## Methods
 

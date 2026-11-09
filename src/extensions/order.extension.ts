@@ -13,6 +13,7 @@ import { patchPrototype } from '../utils/prototype.utils';
 import { tableHelper } from '../utils/table.utils';
 import { toSqlOrderDirection } from '../utils/order.utils';
 import { getColumnDatabaseName } from '../utils/query-builder.utils';
+import { getDriverType } from '../utils/sql.utils';
 
 // declarations
 
@@ -95,7 +96,7 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
     otherTableAlias || customAlias ||
     (alwaysAliasFields.includes(field as string) ? defaultAlias : undefined);
 
-  const table = tableHelper<OrderEntity>(alias, { useQuotes });
+  const table = tableHelper<OrderEntity>(alias, { useQuotes, driver: getDriverType(builder) });
 
   // TypeORM maps an unquoted `alias.property` to the column itself; anything else must name the
   // column: `@Column({ name: 'created_at' }) createdAt` is ordered by "created_at", not "createdAt"
