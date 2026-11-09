@@ -2,7 +2,7 @@ import 'typeorm-extensions/extensions/where-is-any.extension';
 import 'typeorm-extensions/extensions/where-is-in.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-any.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
-import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
+import { setupTest, createFakeUsers, createFakeImages, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -16,7 +16,7 @@ setupTest('where-is-any.sql', undefined, (context) => {
       .createQueryBuilder('user')
       .whereIsAny('user.id', [1, 2, 3]);
 
-    expect(query.getQuery()).toMatch(/WHERE "user"\."id" = ANY\(:where_\w+\)/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."id" = ANY\(:where_\w+\)/);
 
     const [, parameters] = query.getQueryAndParameters();
     expect(parameters).toEqual([[1, 2, 3]]);
@@ -47,7 +47,7 @@ setupTest('where-is-any.sql', undefined, (context) => {
       .andWhereIsAny('user.email', ['a@b.c'])
       .orWhereIsAny('user.firstName', ['John']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."id" = ANY\(:where_\w+\) AND "user"\."email" = ANY\(:andWhere_\w+\) OR "user"\."firstName" = ANY\(:orWhere_\w+\)/,
     );
   });
@@ -71,7 +71,7 @@ setupTest('where-is-any.sql', undefined, (context) => {
       .whereIsAnyTyped((u) => u.id, [1, 2])
       .andWhereIsAnyTyped((u) => u.images.url, ['a.png']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."id" = ANY\(:where\w+\) AND "images"\."url" = ANY\(:andWhere\w+\)/,
     );
   });
@@ -93,7 +93,7 @@ setupTest('where-is-any.sql', undefined, (context) => {
       .delete()
       .whereIsAny('id', [1, 2]);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /^DELETE FROM "users" WHERE "id" = ANY\(:where_\w+\)$/,
     );
   });
@@ -229,7 +229,7 @@ setupTest('where-is-any.array-type-and-not-any.sql', undefined, (context) => {
       .whereIsAny('user.id', [1, 2], 'int[]')
       .andWhereIsAnyTyped((u) => u.email, ['a@b.c'], 'character varying(255)[]');
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."id" = ANY\(CAST\(:where_\w+ AS int\[\]\)\) AND "user"\."email" = ANY\(CAST\(:andWhere_\w+ AS character varying\(255\)\[\]\)\)/,
     );
   });
@@ -254,7 +254,7 @@ setupTest('where-is-any.array-type-and-not-any.sql', undefined, (context) => {
       .andWhereIsNotAnyTyped((u) => u.firstName, ['Bob'], 'text[]')
       .orWhereIsNotAny('user.email', []);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."id" <> ALL\(:where_\w+\) AND "user"\."firstName" <> ALL\(CAST\(:andWhere_\w+ AS text\[\]\)\) OR TRUE/,
     );
   });

@@ -1,6 +1,7 @@
 import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
 import { createFakeUsers, setupTest } from "../test-utils";
 import { UserEntity } from "../models";
+import { sqlOf } from '../test-utils';
 
 setupTest('select-typed.where', undefined, (context) => {
   it('SHOULD select single column correctly', async () => {
@@ -20,8 +21,8 @@ setupTest('select-typed.where', undefined, (context) => {
     const simpleSelectQuery = selectQuery.clone().select('user.id');
     const selectTypedQuery = selectQuery.clone().selectTyped((u) => u.id);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain('SELECT "user"."id" AS "user_id" FROM "users" "user"');
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain('SELECT "user"."id" AS "user_id" FROM "users" "user"');
 
     const result = await selectTypedQuery.getMany();
 
@@ -48,8 +49,8 @@ setupTest('select-typed.where', undefined, (context) => {
     const simpleSelectQuery = selectQuery.clone().select('user.id').addSelect('user.firstName');
     const selectTypedQuery = selectQuery.clone().selectTyped((u) => [u.id, u.firstName]);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain('SELECT "user"."id" AS "user_id", "user"."firstName" AS "user_firstName" FROM "users" "user"');
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain('SELECT "user"."id" AS "user_id", "user"."firstName" AS "user_firstName" FROM "users" "user"');
 
     const result = await selectTypedQuery.getMany();
 
@@ -76,8 +77,8 @@ setupTest('select-typed.where', undefined, (context) => {
     const simpleSelectQuery = selectQuery.clone().select('"user"."id"');
     const selectTypedQuery = selectQuery.clone().selectTyped((u) => u.id, undefined, true);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain('SELECT "user"."id" FROM "users" "user"');
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain('SELECT "user"."id" FROM "users" "user"');
 
     const result = await selectTypedQuery.getMany();
 

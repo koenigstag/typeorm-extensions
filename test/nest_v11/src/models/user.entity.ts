@@ -62,15 +62,12 @@ export class UserEntity {
 
   @CreateDateColumn({
     type: dateColumn,
-    default: () => 'CURRENT_TIMESTAMP',
     nullable: false,
   })
   public createdAt: Date;
 
   @UpdateDateColumn({
     type: dateColumn,
-    default: () => 'CURRENT_TIMESTAMP',
-    onUpdate: 'CURRENT_TIMESTAMP',
     nullable: false,
   })
   public updatedAt: Date;

@@ -9,6 +9,11 @@ export const postgresLikeDrivers = [
   'cockroachdb',
 ] as const;
 
+export const mysqlLikeDrivers = [
+  'mysql',
+  'mariadb',
+] as const;
+
 export const databaseDriver =
   (process.env.DATABASE_DRIVER as any) || ('better-sqlite3' as const);
 export const databaseName = process.env.DATABASE_NAME || (':memory:' as const);

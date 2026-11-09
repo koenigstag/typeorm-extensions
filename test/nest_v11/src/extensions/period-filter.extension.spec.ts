@@ -2,7 +2,7 @@ import 'typeorm-extensions/extensions/period-filter.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-period-filter.extension';
 import type { PeriodFilter } from 'typeorm-extensions/types/interfaces/period.interface';
 import type { ApplyPeriodOptions } from 'typeorm-extensions/types/extensions/period.types';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 
 setupTest('period-filter.sql', undefined, (context) => {
@@ -12,7 +12,7 @@ setupTest('period-filter.sql', undefined, (context) => {
   const conditionsAndValues = (period: PeriodFilter, options?: ApplyPeriodOptions) => {
     const query = queryUsers().applyPeriodFilterTyped((u) => u.createdAt, period, options);
 
-    return [query.getQuery().replace(/^.*?WHERE /s, '').replace(/ ORDER BY.*$/s, ''), Object.values(query.getParameters())];
+    return [sqlOf(query).replace(/^.*?WHERE /s, '').replace(/ ORDER BY.*$/s, ''), Object.values(query.getParameters())];
   };
 
   it('SHOULD add inclusive >= and <= conditions with AND', () => {
@@ -23,7 +23,7 @@ setupTest('period-filter.sql', undefined, (context) => {
       .where('user.id > 0')
       .applyPeriodFilter('user.createdAt', { periodFrom: from, periodTo: to });
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."id" > 0 AND "user"\."createdAt" >= :periodFrom_\w+ AND "user"\."createdAt" <= :periodTo_\w+/,
     );
     expect(Object.values(query.getParameters())).toEqual([from, to]);
@@ -35,7 +35,7 @@ setupTest('period-filter.sql', undefined, (context) => {
       .orWhere('user.id = 2')
       .applyPeriodFilter('user.createdAt', { periodFrom: '2024-01-01', periodTo: '2024-01-31' });
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE \("user"\."id" = 1 OR "user"\."id" = 2\) AND "user"\."createdAt" >= :periodFrom_\w+ AND "user"\."createdAt" < :periodTo_\w+/,
     );
   });
@@ -99,7 +99,7 @@ setupTest('period-filter.sql', undefined, (context) => {
   it('SHOULD skip missing, null and empty ends', () => {
     for (const period of [undefined, null, {}, { periodFrom: '', periodTo: undefined }, { periodFrom: null, periodTo: null }]) {
       const query = queryUsers().applyPeriodFilter('user.createdAt', period as PeriodFilter);
-      expect(query.getQuery()).not.toMatch(/WHERE/);
+      expect(sqlOf(query)).not.toMatch(/WHERE/);
     }
 
     expect(conditionsAndValues({ periodFrom: '2024-01-01' })).toEqual([
@@ -121,7 +121,7 @@ setupTest('period-filter.sql', undefined, (context) => {
       .delete()
       .applyPeriodFilterTyped((u) => u.createdAt, { periodTo: '2024-01-31' });
 
-    expect(query.getQuery()).toMatch(/^DELETE FROM "users" WHERE "createdAt" < :periodTo_\w+$/);
+    expect(sqlOf(query)).toMatch(/^DELETE FROM "users" WHERE "createdAt" < :periodTo_\w+$/);
 
     expect(() =>
       queryUsers().applyPeriodFilterTyped((u) => [u.createdAt, u.updatedAt], {}),

@@ -2,7 +2,7 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
 import { getKey } from 'typeorm-extensions/utils/proxy-key.utils';
-import { setupTest } from '../test-utils';
+import { setupTest, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 
 const tooDeep = /is 3 levels deep, but typed methods support only "column" or "alias\.column"/;
@@ -70,7 +70,7 @@ setupTest('typed key depth in query builders', undefined, (context) => {
       .leftJoinTyped((u) => u.images.user, 'imageUser')
       .whereTyped((u) => u.images.url, 'IS NOT NULL');
 
-    expect(query.getQuery()).toContain('LEFT JOIN "users" "imageUser"');
-    expect(query.getQuery()).toContain('WHERE "images"."url" IS NOT NULL');
+    expect(sqlOf(query)).toContain('LEFT JOIN "users" "imageUser"');
+    expect(sqlOf(query)).toContain('WHERE "images"."url" IS NOT NULL');
   });
 });

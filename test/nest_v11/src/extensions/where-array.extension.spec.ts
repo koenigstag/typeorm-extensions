@@ -1,6 +1,6 @@
 import 'typeorm-extensions/extensions/where-array.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-array.extension';
-import { setupTest } from '../test-utils';
+import { setupTest, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { ArticleEntity } from '../models/postgres/article.entity';
 import { postgresLikeDrivers } from '../constants/database';
@@ -17,7 +17,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .andWhereArrayContainedBy('user.tags', ['a', 'b', 'c'])
       .orWhereArrayOverlaps('user.tags', ['z']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."tags" @> :where_\w+ AND "user"\."tags" <@ :andWhere_\w+ OR "user"\."tags" && :orWhere_\w+/,
     );
 
@@ -31,7 +31,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .createQueryBuilder('user')
       .whereArrayContains('user.ids', [1], 'int[]');
 
-    expect(query.getQuery()).toMatch(/WHERE "user"\."ids" @> CAST\(:where_\w+ AS int\[\]\)/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."ids" @> CAST\(:where_\w+ AS int\[\]\)/);
 
     expect(() =>
       query.clone().whereArrayOverlaps('user.ids', [1], 'int[]) OR (TRUE'),
@@ -66,7 +66,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .whereArrayContainsTyped((u) => u.firstName, ['a'], 'text[]')
       .andWhereArrayOverlapsTyped((u) => u.email, ['b']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."firstName" @> CAST\(:where\w+ AS text\[\]\) AND "user"\."email" && :andWhere\w+/,
     );
   });
@@ -78,7 +78,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .delete()
       .whereArrayContainedByTyped((u) => u.firstName, ['a']);
 
-    expect(query.getQuery()).toMatch(/^DELETE FROM "users" WHERE "firstName" <@ :where\w+$/);
+    expect(sqlOf(query)).toMatch(/^DELETE FROM "users" WHERE "firstName" <@ :where\w+$/);
   });
 
   it('SHOULD throw WHEN the typed callback selects several columns', () => {

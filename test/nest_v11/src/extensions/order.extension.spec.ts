@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/order.extension';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 
 setupTest(
@@ -34,7 +34,7 @@ setupTest(
         ],
       });
 
-      expect(orderedQuery.getQuery()).toContain('ORDER BY "user"."id" DESC');
+      expect(sqlOf(orderedQuery)).toContain('ORDER BY "user"."id" DESC');
 
       const result = await orderedQuery.getMany();
 
@@ -75,7 +75,7 @@ setupTest(
           direction: 'DESC',
         });
 
-      expect(orderedQuery.getQuery()).toContain('ORDER BY "user"."id" DESC');
+      expect(sqlOf(orderedQuery)).toContain('ORDER BY "user"."id" DESC');
 
       const result = await orderedQuery.getMany();
 

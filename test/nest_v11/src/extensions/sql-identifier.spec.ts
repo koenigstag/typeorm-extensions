@@ -2,7 +2,7 @@ import 'typeorm-extensions/extensions/where-is-in.extension';
 import 'typeorm-extensions/extensions/where-is-any.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
 import { stringToSQLIdentifier } from 'typeorm-extensions/utils/sql.utils';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, nativeSql, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -59,10 +59,10 @@ setupTest('where-is-in.expressions', undefined, (context) => {
     const query = context.dataSource
       .getRepository(UserEntity)
       .createQueryBuilder('u')
-      .whereIsIn('COALESCE(u."firstName", u."lastName")', ['Alice', 'Carol'])
+      .whereIsIn(nativeSql('COALESCE(u."firstName", u."lastName")'), ['Alice', 'Carol'])
       .orderBy('u.id', 'ASC');
 
-    expect(query.getQuery()).toContain(
+    expect(sqlOf(query)).toContain(
       'WHERE COALESCE(u."firstName", u."lastName") IN (',
     );
 
@@ -78,7 +78,7 @@ setupTest('where-is-in.expressions', undefined, (context) => {
       .createQueryBuilder('u')
       .whereIsIn('LOWER(u.email)', [users[1].email.toLowerCase()]);
 
-    expect(query.getQuery()).not.toContain('"LOWER(');
+    expect(sqlOf(query)).not.toContain('"LOWER(');
 
     const result = await query.getMany();
     expect(result.map((user) => user.firstName)).toEqual(['Bob']);
@@ -91,7 +91,7 @@ setupTest('where-is-in.expressions', undefined, (context) => {
       .whereIsIn('u.id', [1])
       .andWhereIsInTyped((u) => u.firstName, ['Alice']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "u"\."id" IN \(:\.\.\.where_\w+\) AND "u"\."firstName" IN/,
     );
   });
@@ -102,7 +102,7 @@ setupTest('where-is-in.expressions', undefined, (context) => {
       .createQueryBuilder('u')
       .whereIsAny('u.id::text', ['1']);
 
-    expect(query.getQuery()).toMatch(/WHERE u\.id::text = ANY\(:where_\w+\)/);
+    expect(sqlOf(query)).toMatch(/WHERE u\.id::text = ANY\(:where_\w+\)/);
 
     if (postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
       const users = await seed();

@@ -3,7 +3,7 @@ import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { InvalidCursorError } from 'typeorm-extensions/extensions/cursor-pagination.extension';
 import type { GetManyWithCursorOptions } from 'typeorm-extensions/types/extensions/cursor-pagination.types';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
+import { setupTest, createFakeUsers, createFakeImages, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -195,11 +195,11 @@ setupTest('cursor-pagination', undefined, (context) => {
   it('SHOULD not change the query builder', async () => {
     await seedUsers(3);
     const query = users().createQueryBuilder('user').where('user.id > 0');
-    const before = query.getQuery();
+    const before = sqlOf(query);
 
     await query.getManyWithCursor({ pageSize: 1 }, { orderBy: [{ field: 'createdAt' }] });
 
-    expect(query.getQuery()).toBe(before);
+    expect(sqlOf(query)).toBe(before);
   });
 
   it('SHOULD reject invalid cursors and unknown fields', async () => {
