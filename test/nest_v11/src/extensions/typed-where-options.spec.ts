@@ -1,6 +1,6 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
-import { setupTest } from '../test-utils';
+import { setupTest, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 
 // `useQuotes` was removed from the typed where options in 2.0: typed keys are always quoted
@@ -13,8 +13,8 @@ setupTest('typed-where.options', undefined, (context) => {
     // @ts-expect-error whereIsInTyped takes no options
     const whereIn = query().whereIsInTyped((u) => u.id, [1], { useQuotes: false });
 
-    expect(where.getQuery()).toMatch(/WHERE "user"\."id" = :where\w+/);
-    expect(whereIn.getQuery()).toMatch(/WHERE "user"\."id" IN \(/);
+    expect(sqlOf(where)).toMatch(/WHERE "user"\."id" = :where\w+/);
+    expect(sqlOf(whereIn)).toMatch(/WHERE "user"\."id" IN \(/);
 
     // several columns: no single meaning, and `where…` used to keep only the last one
     expect(() => query().whereTyped((u) => [u.id, u.email], '=', 1)).toThrow(
@@ -25,7 +25,7 @@ setupTest('typed-where.options', undefined, (context) => {
     );
 
     // addValue stays
-    expect(query().whereTyped((u) => u.id, '= :id', { id: 1 }, { addValue: false }).getQuery()).toMatch(
+    expect(sqlOf(query().whereTyped((u) => u.id, '= :id', { id: 1 }, { addValue: false }))).toMatch(
       /WHERE "user"\."id" = :id/,
     );
   });

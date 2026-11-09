@@ -5,6 +5,7 @@ import {
   KeyHolder,
 } from '../../../utils/proxy-key.utils';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
+import { getDriverType } from '../../../utils/sql.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 
 // declarations
@@ -149,7 +150,7 @@ const attachSelectMethod = <
 ): SelectQueryBuilder<Entity> => {
   if (selection instanceof KeyHolder) {
     return query[method](
-      selection.toSql(undefined, useQuotes),
+      selection.toSql(undefined, useQuotes, getDriverType(query)),
       selectionAliasName
     );
   }
@@ -157,7 +158,7 @@ const attachSelectMethod = <
   if (Array.isArray(selection)) {
     const arrayOfKeys = selection.flatMap((select) =>
       select instanceof KeyHolder
-        ? (getSqlKeyFromProxyCallback<Type>(select, () => query.alias, useQuotes) as string)
+        ? (getSqlKeyFromProxyCallback<Type>(select, () => query.alias, useQuotes, getDriverType(query)) as string)
         : getTypedSelectionKey<Type>(query, select, useQuotes)
     );
 

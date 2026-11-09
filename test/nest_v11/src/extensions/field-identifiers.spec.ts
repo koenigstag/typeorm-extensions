@@ -4,7 +4,7 @@ import 'typeorm-extensions/extensions/where-is-distinct-from.extension';
 import 'typeorm-extensions/extensions/order-by-array-position.extension';
 import { DataSource } from 'typeorm';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
-import { setupTest } from '../test-utils';
+import { nativeSql, setupTest, sqlOf } from '../test-utils';
 import { LegacyColumnsEntity, TicketEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -27,31 +27,32 @@ setupTest('field-identifiers', undefined, (context) => {
 
     for (const field of ['l.first-name', 'l.firstName']) {
       const query = legacy().createQueryBuilder('l').whereIsIn(field, ['Ann', 'Cid']);
-      expect(query.getQuery()).toMatch(/WHERE "l"\."first-name" IN \(/);
+      expect(sqlOf(query)).toMatch(/WHERE "l"\."first-name" IN \(/);
       expect(names(await query.getMany())).toEqual(['Ann', 'Cid']);
     }
 
     const unqualified = legacy().createQueryBuilder('l').whereIsIn('first-name', ['Bob']);
-    expect(unqualified.getQuery()).toMatch(/WHERE "first-name" IN \(/);
+    expect(sqlOf(unqualified)).toMatch(/WHERE "first-name" IN \(/);
     expect(names(await unqualified.getMany())).toEqual(['Bob']);
   });
 
   it('SHOULD not map an unqualified property name, which may be a column of a joined table', () => {
     // TicketEntity.status is the column ticket_status; a bare `status` stays `status`
-    const sql = context.dataSource
+    const query = context.dataSource
       .getRepository(TicketEntity)
       .createQueryBuilder('t')
-      .whereIsIn('status', ['open'])
-      .getQuery();
+      .whereIsIn('status', ['open']);
 
-    expect(sql).toMatch(/WHERE "status" IN \(/);
+    expect(sqlOf(query)).toMatch(/WHERE "status" IN \(/);
   });
 
   it('SHOULD quote a column name with a space', async () => {
     await seed();
 
     const query = legacy().createQueryBuilder('l').whereIsDistinctFrom('l.last name', null);
-    expect(query.getQuery()).toMatch(/WHERE "l"\."last name" IS (DISTINCT FROM |NOT )NULL/);
+    expect(sqlOf(query)).toMatch(
+      /WHERE ("l"\."last name" IS (DISTINCT FROM |NOT )NULL|NOT \("l"\."last name" <=> NULL\))/,
+    );
     expect(names(await query.getMany())).toEqual(['Ann', 'Cid']);
   });
 
@@ -60,11 +61,11 @@ setupTest('field-identifiers', undefined, (context) => {
 
     // not a column of `l`: `l.id` minus 1
     const minus = legacy().createQueryBuilder('l').whereIsIn('l.id-1', [0]);
-    expect(minus.getQuery()).toMatch(/WHERE l\.id-1 IN \(/);
+    expect(sqlOf(minus)).toMatch(/WHERE l\.id-1 IN \(/);
     expect(names(await minus.getMany())).toEqual(['Ann']);
 
-    const lower = legacy().createQueryBuilder('l').whereIsIn('LOWER("l"."first-name")', ['bob']);
-    expect(lower.getQuery()).toMatch(/WHERE LOWER\("l"\."first-name"\) IN \(/);
+    const lower = legacy().createQueryBuilder('l').whereIsIn(nativeSql('LOWER("l"."first-name")'), ['bob']);
+    expect(sqlOf(lower)).toMatch(/WHERE LOWER\("l"\."first-name"\) IN \(/);
     expect(names(await lower.getMany())).toEqual(['Bob']);
   });
 
@@ -73,7 +74,7 @@ setupTest('field-identifiers', undefined, (context) => {
     await tickets.save([new TicketEntity({ status: 'open', ownerId: 1 }), new TicketEntity({ status: 'done', ownerId: 2 })]);
 
     const query = tickets.createQueryBuilder('t').whereIsIn('t.status', ['done']).orWhereIsIn('t.ownerId', [1]);
-    expect(query.getQuery()).toMatch(/WHERE "t"\."ticket_status" IN \(.+\) OR "t"\."owner_id" IN \(/);
+    expect(sqlOf(query)).toMatch(/WHERE "t"\."ticket_status" IN \(.+\) OR "t"\."owner_id" IN \(/);
     expect((await query.getMany()).map((t) => t.status)).toEqual(['open', 'done']);
   });
 
@@ -85,7 +86,7 @@ setupTest('field-identifiers', undefined, (context) => {
       .update()
       .set({ lastName: 'X' })
       .whereIsIn('l.first-name', ['Bob']);
-    expect(update.getQuery()).toMatch(/WHERE "first-name" IN \(/);
+    expect(sqlOf(update)).toMatch(/WHERE "first-name" IN \(/);
     await update.execute();
 
     await legacy().createQueryBuilder('l').delete().whereIsIn('first-name', ['Ann']).execute();

@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-similar.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-ilike.extension';
 import { DataSource } from 'typeorm';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -25,7 +25,7 @@ describe('where-similar-typed.sql', () => {
       .where('u.id > 0')
       .andWhereSimilarTyped<UserEntity>((u) => u.firstName, 'jon', { operator });
 
-    expect(query.getQuery()).toContain(`AND "u"."firstName" ${operator} :andWhere_`);
+    expect(sqlOf(query)).toContain(`AND "u"."firstName" ${operator} :andWhere_`);
   });
 
   it('SHOULD add no condition for a blank term', () => {
@@ -46,7 +46,7 @@ describe('where-similar-typed.sql', () => {
         function: 'word_similarity',
       });
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /^SELECT u\.id, similarity\("u"\."firstName", :similarity_\w+\) AS "score", word_similarity\(:similarity_\w+, "u"\."lastName"\) AS "word_score" FROM/,
     );
     expect(params(query)).toEqual(['jon', 'jon']);

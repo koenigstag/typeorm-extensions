@@ -14,6 +14,11 @@ A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 wa
 
 - **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.2.0 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
 - **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
+- **`tableHelper` takes a `driver` option**: `tableHelper('user', { driver: 'mysql' })` quotes with backticks.
+
+### Bug Fixes
+
+- **Identifiers quoted for MySQL / MariaDB**: `applyOrder` / `applyOrderFilter`, and `orderByTyped` / `addOrderByTyped` / `selectTyped` with `useQuotes`, put double quotes around column names on every database. On MySQL a double-quoted name is a string, so ordering by `"ticket_status"` ordered by a constant and returned the rows in no particular order without an error, and `"t"."ticket_id"` was a syntax error. They now quote with backticks there. The test suite runs on MySQL 8.4 in CI.
 
 ## [2.1.0] - 2026-11-09
 

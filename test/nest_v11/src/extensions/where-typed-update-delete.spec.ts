@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-any.extension';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -37,7 +37,7 @@ setupTest('where-typed.update-delete', undefined, (context) => {
       .set({ lastName: 'Updated' })
       .whereTyped((u) => u.firstName, '=', 'Bob');
 
-    expect(query.getQuery()).toMatch(/WHERE "firstName" = :where_\w+$/);
+    expect(sqlOf(query)).toMatch(/WHERE "firstName" = :where_\w+$/);
 
     const result = await query.execute();
     expect(result.affected).toBe(1);
@@ -56,7 +56,7 @@ setupTest('where-typed.update-delete', undefined, (context) => {
       .whereIsInTyped((u) => u.firstName, ['Alice', 'Carol'])
       .orWhereTyped((u) => u.firstName, 'IS NULL');
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "firstName" IN \(:\.\.\.where_\w+\) OR "firstName" IS NULL$/,
     );
 
@@ -71,7 +71,7 @@ setupTest('where-typed.update-delete', undefined, (context) => {
       .delete()
       .whereIsAnyTyped((u) => u.id, [1, 2]);
 
-    expect(query.getQuery()).toMatch(/WHERE "id" = ANY\(:where_\w+\)$/);
+    expect(sqlOf(query)).toMatch(/WHERE "id" = ANY\(:where_\w+\)$/);
 
     if (postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
       const users = await seed();
@@ -98,7 +98,7 @@ setupTest('where-typed.update-delete', undefined, (context) => {
       .set({ lastName: 'Updated' })
       .whereTyped<{ user: UserEntity }>((u) => u.user.firstName, '=', 'Carol');
 
-    expect(query.getQuery()).toMatch(/WHERE "firstName" = :where_\w+$/);
+    expect(sqlOf(query)).toMatch(/WHERE "firstName" = :where_\w+$/);
 
     const result = await query.execute();
     expect(result.affected).toBe(1);
@@ -114,7 +114,7 @@ setupTest('where-typed.update-delete', undefined, (context) => {
       .whereTyped((u) => u.firstName, '=', 'Bob')
       .andWhereIsInTyped((u) => u.id, [1]);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."firstName" = :where_\w+ AND "user"\."id" IN/,
     );
   });

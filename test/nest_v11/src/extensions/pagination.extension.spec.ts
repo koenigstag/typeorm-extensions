@@ -5,8 +5,7 @@ import {
   setupTest,
   createFakeUsers,
   createFakeImages,
-  createEmail,
-} from '../test-utils';
+  createEmail, sqlOf } from '../test-utils';
 import { UserEntity, ImageEntity } from '../models';
 
 setupTest(
@@ -41,9 +40,9 @@ setupTest(
         .limit(limit)
         .offset(offset);
 
-      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
-      expect(paginatedQuery.getQuery()).toContain(`OFFSET ${offset}`);
-      expect(paginatedQuery.getQuery()).toEqual(usersQuery.getQuery());
+      expect(sqlOf(paginatedQuery)).toContain(`LIMIT ${limit}`);
+      expect(sqlOf(paginatedQuery)).toContain(`OFFSET ${offset}`);
+      expect(sqlOf(paginatedQuery)).toEqual(sqlOf(usersQuery));
 
       const result = await paginatedQuery.getMany();
       const users = await usersQuery.getMany();
@@ -85,8 +84,8 @@ setupTest(
         .offset(offset);
 
       // the first page has no offset: recent TypeORM versions write `OFFSET 0`, older ones leave it out
-      expect(paginatedQuery.getQuery()).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
-      expect(paginatedQuery.getQuery()).toEqual(usersQuery.getQuery());
+      expect(sqlOf(paginatedQuery)).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
+      expect(sqlOf(paginatedQuery)).toEqual(sqlOf(usersQuery));
 
       const allUsersCount = await usersRepository
         .createQueryBuilder('user')
@@ -143,8 +142,8 @@ setupTest(
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
         .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
 
-      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
-      expect(paginatedQuery.getQuery()).toContain(`OFFSET ${offset}`);
+      expect(sqlOf(paginatedQuery)).toContain(`LIMIT ${limit}`);
+      expect(sqlOf(paginatedQuery)).toContain(`OFFSET ${offset}`);
 
       const result = await paginatedQuery.getMany();
 
@@ -187,7 +186,7 @@ setupTest(
         .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
 
       // the first page has no offset: recent TypeORM versions write `OFFSET 0`, older ones leave it out
-      expect(paginatedQuery.getQuery()).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
+      expect(sqlOf(paginatedQuery)).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
 
       const allUsersCount = await usersRepository
         .createQueryBuilder('user')

@@ -1,9 +1,11 @@
-import { ObjectLiteral } from "typeorm";
+import { DatabaseType, ObjectLiteral } from "typeorm";
 import { quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
 
 export type TableHelperOptions = {
 	useQuotes?: boolean;
+	/** The database the SQL is for: MySQL and MariaDB quote identifiers with backticks. Double quotes without it. */
+	driver?: DatabaseType;
 };
 
 type JsonFieldTuple<T, Depth extends 0[] = []> = Depth['length'] extends 4
@@ -48,7 +50,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	 * identifier, so names with other characters work too: `"user"."first-name"`.
 	 */
 	column(columnName: keyof T, alias?: string) {
-		const { useQuotes = true } = options;
+		const { useQuotes = true, driver } = options;
 
 		const tableAlias = alias ?? this.alias;
 		const column = String(columnName);
@@ -57,7 +59,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 			return [tableAlias, column].filter(Boolean).join('.');
 		}
 
-		return [tableAlias ? quoteIdentifierPath(tableAlias) : undefined, quoteIdentifier(column)]
+		return [tableAlias ? quoteIdentifierPath(tableAlias, driver) : undefined, quoteIdentifier(column, driver)]
 			.filter(Boolean)
 			.join('.');
 	},

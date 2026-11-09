@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-ilike.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import { DataSource } from 'typeorm';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, mysqlRun, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -54,7 +54,7 @@ describe('where-ilike-typed.sql', () => {
       .whereILikeTyped<UserEntity>((u) => u.lastName, value);
 
     // not even `where`, which would replace `u.id = 1`
-    expect(query.getQuery()).toMatch(/WHERE u\.id = 1$/);
+    expect(sqlOf(query)).toMatch(/WHERE u\.id = 1$/);
     expect(params(query)).toEqual([]);
   });
 
@@ -64,7 +64,7 @@ describe('where-ilike-typed.sql', () => {
       .orWhereILikeTyped<UserEntity>((u) => u.lastName, 'b')
       .andWhereILikeTyped<UserEntity>((u) => u.email, 'c', { match: 'suffix' });
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "u"\."firstName" ILIKE :where_\w+ OR "u"\."lastName" ILIKE :orWhere_\w+ AND "u"\."email" ILIKE :andWhere_\w+$/,
     );
     expect(params(query)).toEqual(['%a%', '%b%', '%c']);
@@ -118,7 +118,7 @@ describe('where-search-typed.sql', () => {
         'jo',
       );
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       new RegExp(
         String.raw`WHERE u\.id > 0 AND \("u"\."firstName" ILIKE (:andWhere_\w+) OR "u"\."lastName" ILIKE \1 ` +
           String.raw`OR "u"\."email" ILIKE \1 OR \(u\."firstName" \|\| ' ' \|\| u\."lastName"\) ILIKE \1\)$`,
@@ -152,7 +152,7 @@ describe('where-search-typed.sql', () => {
       unaccent: true,
     });
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE \(unaccent\("u"\."firstName"\) ILIKE unaccent\((:orWhere_\w+)\) OR unaccent\("u"\."lastName"\) ILIKE unaccent\(\1\)\)$/,
     );
     expect(new Set(params(query))).toEqual(new Set(['a\\_b%']));
@@ -210,7 +210,8 @@ setupTest('where-ilike-typed', undefined, (context) => {
     ).toEqual(['Alice', 'Al_ce']);
   });
 
-  it('SHOULD search several columns and expressions with one parameter', async () => {
+  // the expression concatenates with `||`, which is OR on MySQL
+  (mysqlRun ? it.skip : it)('SHOULD search several columns and expressions with one parameter', async () => {
     await seed();
 
     expect(
@@ -254,7 +255,7 @@ setupTest('where-ilike-typed', undefined, (context) => {
       .delete()
       .whereILikeTyped((u) => u.firstName, 'ali', { match: 'prefix' });
 
-    expect(query.getQuery()).toMatch(/WHERE "firstName" (I)?LIKE :where_\w+/);
+    expect(sqlOf(query)).toMatch(/WHERE "firstName" (I)?LIKE :where_\w+/);
 
     const result = await query.execute();
     expect(result.affected).toBe(2);

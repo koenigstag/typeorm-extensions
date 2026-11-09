@@ -2,7 +2,7 @@ import 'typeorm-extensions/extensions/order-by-array-position.extension';
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by-array-position.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import 'typeorm-extensions/extensions/where-is-any.extension';
-import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
+import { setupTest, createFakeUsers, createFakeImages, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -15,7 +15,7 @@ setupTest('order-by-array-position.sql', undefined, (context) => {
       .orderBy('user.email')
       .orderByArrayPosition('user.id', [3, 1, 2]);
 
-    const sql = query.getQuery();
+    const sql = sqlOf(query);
     const [, alias] = sql.match(/array_position\(:position_\w+, "user"\."id"\) AS "(array_position_\w+)"/) ?? [];
 
     expect(alias).toBe(alias?.toLowerCase());
@@ -25,24 +25,26 @@ setupTest('order-by-array-position.sql', undefined, (context) => {
   });
 
   it('SHOULD add to the ORDER BY with addOrderByArrayPosition', () => {
-    const sql = context.dataSource
-      .getRepository(UserEntity)
-      .createQueryBuilder('user')
-      .orderBy('user.email')
-      .addOrderByArrayPosition('user.id', [1], 'int[]')
-      .getQuery();
+    const sql = sqlOf(
+      context.dataSource
+        .getRepository(UserEntity)
+        .createQueryBuilder('user')
+        .orderBy('user.email')
+        .addOrderByArrayPosition('user.id', [1], 'int[]'),
+    );
 
     expect(sql).toMatch(/array_position\(CAST\(:position_\w+ AS int\[\]\), "user"\."id"\)/);
     expect(sql).toMatch(/ORDER BY "user"\."email" ASC, "?array_position_\w+"? ASC NULLS LAST$/);
   });
 
   it('SHOULD take the database column from the typed callback', () => {
-    const sql = context.dataSource
-      .getRepository(TicketEntity)
-      .createQueryBuilder('t')
-      .orderByArrayPositionTyped((t) => t.id, [2, 1])
-      .addOrderByArrayPositionTyped((t) => t.status, ['open'], 'text[]')
-      .getQuery();
+    const sql = sqlOf(
+      context.dataSource
+        .getRepository(TicketEntity)
+        .createQueryBuilder('t')
+        .orderByArrayPositionTyped((t) => t.id, [2, 1])
+        .addOrderByArrayPositionTyped((t) => t.status, ['open'], 'text[]'),
+    );
 
     expect(sql).toMatch(/array_position\(:position_\w+, "t"\."ticket_id"\)/);
     expect(sql).toMatch(/array_position\(CAST\(:position_\w+ AS text\[\]\), "t"\."ticket_status"\)/);

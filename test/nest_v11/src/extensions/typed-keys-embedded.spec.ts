@@ -1,5 +1,5 @@
 import 'typeorm-extensions/index';
-import { setupTest } from '../test-utils';
+import { setupTest, sqlOf } from '../test-utils';
 import { createFakeUsers } from '../test-utils';
 import { PersonEntity, TicketEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
@@ -26,8 +26,8 @@ setupTest('typed keys.embedded columns', undefined, (context) => {
       .whereTyped((p) => p.address.city, '=', 'Lviv')
       .orWhereIsInTyped((p) => p.address.street, ['Derybasivska']);
 
-    expect(query.getQuery()).toContain(`WHERE "p"."${columnOf('address.city')}" = :where_`);
-    expect(query.getQuery()).toContain(`OR "p"."${columnOf('address.street')}" IN (`);
+    expect(sqlOf(query)).toContain(`WHERE "p"."${columnOf('address.city')}" = :where_`);
+    expect(sqlOf(query)).toContain(`OR "p"."${columnOf('address.street')}" IN (`);
 
     const result = await query.getMany();
     expect(result.map((person) => person.name)).toEqual(['b', 'c']);
@@ -43,7 +43,7 @@ setupTest('typed keys.embedded columns', undefined, (context) => {
       .set({ name: 'moved' })
       .whereTyped((p) => p.address.city, '=', 'Kyiv');
 
-    expect(update.getQuery()).toMatch(new RegExp(`WHERE "${columnOf('address.city')}" = :where_\\w+$`));
+    expect(sqlOf(update)).toMatch(new RegExp(`WHERE "${columnOf('address.city')}" = :where_\\w+$`));
     await update.execute();
 
     expect((await repository.find()).map((person) => person.name)).toEqual(['moved', 'b', 'c']);
@@ -64,8 +64,8 @@ setupTest('typed keys.embedded columns', undefined, (context) => {
       .createQueryBuilder('p')
       .selectTyped((p) => p.address.street, 'street', true)
       .addOrderByTyped((p) => p.address.street, 'ASC', undefined, { useQuotes: true });
-    expect(quoted.getQuery()).toContain(`"p"."${columnOf('address.street')}" AS "street"`);
-    expect(quoted.getQuery()).toContain(`ORDER BY "p"."${columnOf('address.street')}" ASC`);
+    expect(sqlOf(quoted)).toContain(`"p"."${columnOf('address.street')}" AS "street"`);
+    expect(sqlOf(quoted)).toContain(`ORDER BY "p"."${columnOf('address.street')}" ASC`);
     expect((await quoted.getRawMany()).map((row) => row.street)).toEqual([
       'Derybasivska',
       'Khreshchatyk',
@@ -85,7 +85,7 @@ setupTest('typed keys.embedded columns', undefined, (context) => {
       .distinctOnTyped((p) => p.address.city)
       .orderBy('p.address.city', 'ASC');
 
-    expect(query.getQuery()).toContain(`DISTINCT ON ("p"."${columnOf('address.city')}")`);
+    expect(sqlOf(query)).toContain(`DISTINCT ON ("p"."${columnOf('address.city')}")`);
     expect(await query.getRawMany()).toHaveLength(3);
   });
 
@@ -97,8 +97,8 @@ setupTest('typed keys.embedded columns', undefined, (context) => {
       .whereTyped((u) => u.images.url, 'IS NOT NULL')
       .orderByTyped((u) => u.images.url);
 
-    expect(query.getQuery()).toContain('WHERE "images"."url" IS NOT NULL');
-    expect(query.getQuery()).toContain('ORDER BY "images"."url"');
+    expect(sqlOf(query)).toContain('WHERE "images"."url" IS NOT NULL');
+    expect(sqlOf(query)).toContain('ORDER BY "images"."url"');
   });
 });
 
@@ -115,8 +115,8 @@ setupTest('typed keys.useQuotes with database names', undefined, (context) => {
       .selectTyped((t) => t.status, 'status', true)
       .orderByTyped((t) => t.status, 'ASC', undefined, { useQuotes: true });
 
-    expect(query.getQuery()).toContain('"t"."ticket_status" AS "status"');
-    expect(query.getQuery()).toContain('ORDER BY "t"."ticket_status" ASC');
+    expect(sqlOf(query)).toContain('"t"."ticket_status" AS "status"');
+    expect(sqlOf(query)).toContain('ORDER BY "t"."ticket_status" ASC');
     expect((await query.getRawMany()).map((row) => row.status)).toEqual(['closed', 'open']);
   });
 
@@ -129,13 +129,13 @@ setupTest('typed keys.useQuotes with database names', undefined, (context) => {
     const callbacks = repository
       .createQueryBuilder('user')
       .selectTyped([(u) => u.id, (u) => u.firstName], true);
-    expect(callbacks.getQuery()).toMatch(/^SELECT "user"\."id", "user"\."firstName" FROM/);
+    expect(sqlOf(callbacks)).toMatch(/^SELECT "user"\."id", "user"\."firstName" FROM/);
     expect(await callbacks.getRawMany()).toHaveLength(1);
 
     // one callback returning several keys
     const several = repository
       .createQueryBuilder('user')
       .selectTyped((u) => [u.id, u.firstName], undefined, true);
-    expect(several.getQuery()).toMatch(/^SELECT "user"\."id", "user"\."firstName" FROM/);
+    expect(sqlOf(several)).toMatch(/^SELECT "user"\."id", "user"\."firstName" FROM/);
   });
 });

@@ -1,4 +1,4 @@
-import { ObjectLiteral } from 'typeorm';
+import { DatabaseType, ObjectLiteral } from 'typeorm';
 import { stringToSQLIdentifier } from './sql.utils';
 import { DeepUnwrapArray, KeyProxyCallback } from '../types/modules/proxy-callback.types';
 
@@ -7,9 +7,9 @@ export class KeyHolder {
     this._keys = [..._keys];
   }
 
-  toSql(length: number = 2, useQuotes?: boolean) {
+  toSql(length: number = 2, useQuotes?: boolean, driver?: DatabaseType) {
     const string = this.toString(length);
-    const sql = useQuotes ? stringToSQLIdentifier(string) : string;
+    const sql = useQuotes ? stringToSQLIdentifier(string, driver) : string;
 
     return sql;
   }
@@ -157,20 +157,21 @@ export type KeyPrefix = string | (() => string | undefined);
 export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	callback: KeyProxyCallback<Type> | KeyHolder | string,
 	addPrefix?: KeyPrefix,
-	useQuotes?: boolean
+	useQuotes?: boolean,
+	driver?: DatabaseType
 ): string | string[] => {
 	if (typeof callback === 'string') return callback;
 
 	const keyHolder = getKeyHolder<Type>(callback);
 
 	if (Array.isArray(keyHolder)) {
-		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix, useQuotes) as string);
+		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix, useQuotes, driver) as string);
 	}
 
 	// if select is like this: (proxy) => proxy.relation.column
 	if (keyHolder.getKeys().length > 1) {
 		// return unchanged
-		return keyHolder.toSql(undefined, useQuotes);
+		return keyHolder.toSql(undefined, useQuotes, driver);
 	}
 
 	// else if select is one layer depth like this: (proxy) => proxy.column
@@ -179,10 +180,10 @@ export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 
 	if (typeof prefix === 'string' && prefix.length >= 1) {
 		// a new holder: a KeyHolder passed in by the caller must stay as it was
-		return new KeyHolder([prefix, ...keyHolder.getKeys()]).toSql(undefined, useQuotes);
+		return new KeyHolder([prefix, ...keyHolder.getKeys()]).toSql(undefined, useQuotes, driver);
 	}
 
-	return keyHolder.toSql(undefined, useQuotes);
+	return keyHolder.toSql(undefined, useQuotes, driver);
 };
 
 // example of typed select

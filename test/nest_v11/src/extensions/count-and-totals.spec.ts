@@ -2,11 +2,12 @@ import 'typeorm-extensions/extensions/get-many-with-totals.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 import { postgresLikeDrivers } from '../constants/database';
-import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
+import { setupTest, createFakeUsers, createFakeImages, mysqlRun } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 
 setupTest('tableHelper.count rows', undefined, (context) => {
-  it('SHOULD count all, distinct and matching rows in one query, with CASE and FILTER', async () => {
+  // MySQL has no FILTER clause and no CAST(… AS integer)
+  (mysqlRun ? it.skip : it)('SHOULD count all, distinct and matching rows in one query, with CASE and FILTER', async () => {
     const tickets = context.dataSource.getRepository(TicketEntity);
     await tickets.save(
       [

@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-any.extension';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, nativeSql, sqlOf } from '../test-utils';
 import { TicketEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -38,7 +38,7 @@ setupTest('where-typed.column-names', undefined, (context) => {
       .andWhereIsInTyped((t) => t.id, [tickets[0].id, tickets[1].id])
       .andWhereIsNotInTyped((t) => t.ownerId, [-1]);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "t"\."ticket_status" = :where_\w+ AND "t"\."ticket_id" IN \(.+\) AND "t"\."owner_id" NOT IN/,
     );
 
@@ -53,10 +53,10 @@ setupTest('where-typed.column-names', undefined, (context) => {
     const query = context.dataSource
       .getRepository(UserEntity)
       .createQueryBuilder('user')
-      .innerJoin(TicketEntity, 't', '"t"."owner_id" = "user"."id"')
+      .innerJoin(TicketEntity, 't', nativeSql('"t"."owner_id" = "user"."id"'))
       .whereTyped<Joins>((j) => j.t.status, '=', 'closed');
 
-    expect(query.getQuery()).toMatch(/WHERE "t"\."ticket_status" = :where_\w+/);
+    expect(sqlOf(query)).toMatch(/WHERE "t"\."ticket_status" = :where_\w+/);
 
     const result = await query.getMany();
     expect(result.map((user) => user.id)).toEqual([users[0].id]);
@@ -72,7 +72,7 @@ setupTest('where-typed.column-names', undefined, (context) => {
       .set({ status: 'archived' })
       .whereTyped((t) => t.status, '=', 'closed');
 
-    expect(update.getQuery()).toMatch(/WHERE "ticket_status" = :where_\w+$/);
+    expect(sqlOf(update)).toMatch(/WHERE "ticket_status" = :where_\w+$/);
     await update.execute();
     expect(await statuses()).toEqual(['open', 'archived', 'open']);
 
@@ -81,7 +81,7 @@ setupTest('where-typed.column-names', undefined, (context) => {
       .delete()
       .whereIsInTyped((t) => t.status, ['archived']);
 
-    expect(remove.getQuery()).toMatch(/WHERE "ticket_status" IN \(/);
+    expect(sqlOf(remove)).toMatch(/WHERE "ticket_status" IN \(/);
     await remove.execute();
     expect(await statuses()).toEqual(['open', 'open']);
   });
@@ -92,7 +92,7 @@ setupTest('where-typed.column-names', undefined, (context) => {
       .createQueryBuilder('t')
       .whereIsAnyTyped((t) => t.status, ['open']);
 
-    expect(query.getQuery()).toMatch(/WHERE "t"\."ticket_status" = ANY\(/);
+    expect(sqlOf(query)).toMatch(/WHERE "t"\."ticket_status" = ANY\(/);
 
     if (postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
       await seed();
@@ -113,6 +113,6 @@ setupTest('where-typed.column-names', undefined, (context) => {
       )
       .whereTyped<Joins>((j) => j.sub.total, '>', 0);
 
-    expect(query.getQuery()).toMatch(/WHERE "sub"\."total" > :where_\w+/);
+    expect(sqlOf(query)).toMatch(/WHERE "sub"\."total" > :where_\w+/);
   });
 });
