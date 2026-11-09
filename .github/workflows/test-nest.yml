@@ -3,7 +3,7 @@ name: Test NestJS with library
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'src/**'
       - 'test/nest*/**'
