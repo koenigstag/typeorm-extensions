@@ -22,6 +22,7 @@
 - **Typed keys into JSON columns**: in typed where methods a callback may go into a `json` / `jsonb` / `simple-json` column, `exec => exec.details.meta.endTs` → `"exec"."details" -> 'meta' ->> 'endTs'`, on the main entity or a joined alias. On PostgreSQL the path is cast to the type of the compared value (`numeric`, `boolean`, `timestamptz`), since `->>` gives text and text compares `'9' >= '10'` as true; `whereJsonContainsTyped` / `whereJsonHasKeyTyped` take the JSON value (`->`). PostgreSQL and SQLite 3.38+, other databases throw a `TypeError`.
   - Two levels work with any JSON column. For deeper paths mark the property with the new `Json<T>` type (`details: Json<ExecutionDetails>`): TypeScript can't tell a JSON object from a relation, and relations still stop at `alias.column`.
   - Select, order and distinct take columns only: a JSON path there throws a `TypeError`.
+  - `applyPeriodFilterTyped` compares a JSON path as a timestamp: `CAST(… AS timestamptz)` on PostgreSQL, `strftime` on SQLite. As text, a date stored as `'…T12:00:00.000Z'` didn't match a `Date` bound on its own day.
 
 ### Bug Fixes
 

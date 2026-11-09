@@ -48,24 +48,30 @@ export interface JsonPathSqlOptions {
   accessor?: JsonAccessor;
   /** The value the path is compared with: on PostgreSQL a `'text'` path is cast to its type. */
   value?: unknown;
+  /** Compares a `'text'` path as a timestamp whatever `value` is, since a period also takes date strings. */
+  asTimestamp?: boolean;
 }
 
 /**
  * SQL for a path inside a JSON column: `"exec"."details" -> 'meta' ->> 'endTs'`, cast on PostgreSQL to the
  * type of the compared value (`CAST(… AS numeric)`). A `simple-json` column is text there, so it is cast to
- * `jsonb` first. SQLite (3.38+) has the same operators, and `->>` gives SQL values, so it needs no cast.
+ * `jsonb` first. SQLite (3.38+) has the same operators, and `->>` gives SQL values, so it needs no cast, except
+ * for a timestamp: there it is rewritten in the format TypeORM stores dates and binds `Date` parameters in.
  */
 export function toJsonPathSql(
   driver: DatabaseType | undefined,
   columnSql: string,
   column: ColumnMetadata,
   jsonPath: readonly string[],
-  { accessor = 'text', value }: JsonPathSqlOptions = {}
+  { accessor = 'text', value, asTimestamp = false }: JsonPathSqlOptions = {}
 ): string {
   const path = buildJsonPath(jsonPath, accessor === 'json' ? '->' : '->>');
+  const isTimestamp = asTimestamp && accessor === 'text';
 
   if (isSqliteLikeDriver(driver)) {
-    return `${columnSql} ${path}`;
+    const sql = `${columnSql} ${path}`;
+
+    return isTimestamp ? `strftime('%Y-%m-%d %H:%M:%f', ${sql})` : sql;
   }
 
   if (!isPostgresLikeDriver(driver)) {
@@ -77,7 +83,7 @@ export function toJsonPathSql(
 
   const source = String(column.type) === 'simple-json' ? `CAST(${columnSql} AS jsonb)` : columnSql;
   const sql = `${source} ${path}`;
-  const cast = accessor === 'text' ? getJsonTextCast(value) : undefined;
+  const cast = isTimestamp ? 'timestamptz' : accessor === 'text' ? getJsonTextCast(value) : undefined;
 
   return cast ? `CAST(${sql} AS ${cast})` : sql;
 }
