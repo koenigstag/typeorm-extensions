@@ -4,7 +4,7 @@
 
 ### Improvements
 
-- **The package ships its license**: `package.json` said ISC, but the `LICENSE` file was missing from the repository and the npm package (2.0.0 and 2.1.0 had none).
+- **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.1.1 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
 
 ## [2.1.0] - 2026-11-09
 

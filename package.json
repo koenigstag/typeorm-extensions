@@ -24,7 +24,7 @@
     "utils"
   ],
   "author": "koenigstag",
-  "license": "ISC",
+  "license": "MIT",
   "peerDependencies": {
     "typeorm": "^0.3.12 || ^1.0.0"
   },

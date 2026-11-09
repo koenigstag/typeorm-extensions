@@ -65,4 +65,4 @@ For more information, please refer to the [documentation](https://koenigstag.git
 
 ## License
 
-[ISC](./LICENSE)
+[MIT](./LICENSE)
