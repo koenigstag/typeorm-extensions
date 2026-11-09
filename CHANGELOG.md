@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.0] - 2026-11-09
+
+A minor version: nothing needs changing when upgrading from 2.0.0. `strictParams` is opt-in, and a typed key
+into a JSON column used to build SQL that failed, so no working query changes.
 
 ### New Features
 
