@@ -62,8 +62,8 @@ docusaurus/                           # Documentation site source
 
 ## Git Workflow
 
-- **Main branch:** `main`
-- **Development branch:** `dev`
+- **Development branch:** `dev` — development happens here. Feature and fix branches start from `dev` and merge back into it.
+- **Main branch:** `main` — receives only commits that were tested on `dev`. Promote to `main` after the change is tested, not before.
 - **Docs branch:** `docs` (auto-deployed Docusaurus build)
 - Commit messages are short, imperative style (e.g., "Add table helper util", "Refactor useDoubleQuotes to useQuotes")
 
