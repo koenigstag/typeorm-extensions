@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Description
 
-`getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`.
+`getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`, whether more rows follow (`hasMore`) and the order the query was built with (`orderBy`).
 
 It runs two queries one after another:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
@@ -28,28 +28,31 @@ getManyWithTotals(
 
 ## Returns
 
-[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, limit, offset }`.
+[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, limit, offset, hasMore, orderBy }`.
 
 ## Usage
 
 ```typescript
-const { list, total, limit, offset } = await usersRepository
+const { list, total, limit, offset, hasMore, orderBy } = await usersRepository
   .createQueryBuilder('user')
   .whereTyped(user => user.lastName, 'LIKE', '%Doe%')
+  .orderBy('user.lastName', 'ASC')
   .getManyWithTotals({ page: 2, pageSize: 20 });
 
-// list   - users 21..40
-// total  - number of all users matching the condition
-// limit  - 20
-// offset - 20
+// list    - users 21..40
+// total   - number of all users matching the condition
+// limit   - 20
+// offset  - 20
+// hasMore - true while rows follow the page, null without a total or an offset
+// orderBy - [{ selector: 'user.lastName', order: 'ASC' }]
 ```
 
 ```typescript
-// Only the page, without the count query: total is null
+// Only the page, without the count query: total and hasMore are null
 await query.getManyWithTotals({ page: 1, pageSize: 10 }, { disableTotalsCalculation: true });
 ```
 
 ```typescript
-// All matching rows: pagination is not applied, limit and offset are null
+// All matching rows: pagination is not applied, limit, offset and hasMore are null
 await query.getManyWithTotals({}, { loadAll: true });
 ```

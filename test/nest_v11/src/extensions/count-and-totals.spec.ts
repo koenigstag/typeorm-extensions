@@ -1,6 +1,7 @@
 import 'typeorm-extensions/extensions/get-many-with-totals.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
+import { postgresLikeDrivers } from '../constants/database';
 import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 
@@ -54,5 +55,80 @@ setupTest('getManyWithTotals.useTakeAndSkip', undefined, (context) => {
     expect(page.total).toBe(3);
     expect(page.list.map((user) => user.id)).toEqual([users[0].id, users[1].id]);
     expect(page.list[0].images).toHaveLength(4);
+  });
+});
+
+setupTest('getManyWithTotals.hasMore', undefined, (context) => {
+  it('SHOULD report hasMore while pages are left and false on the last page', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    const users = context.dataSource.getRepository(UserEntity);
+
+    const first = await users.createQueryBuilder('user').getManyWithTotals({ page: 1, pageSize: 2 });
+    const last = await users.createQueryBuilder('user').getManyWithTotals({ page: 2, pageSize: 2 });
+
+    expect(first).toMatchObject({ total: 3, offset: 0, hasMore: true });
+    expect(first.list).toHaveLength(2);
+    expect(last).toMatchObject({ total: 3, offset: 2, hasMore: false });
+    expect(last.list).toHaveLength(1);
+  });
+
+  it('SHOULD report hasMore as null when the total or the offset is unknown', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    const users = context.dataSource.getRepository(UserEntity);
+
+    const all = await users.createQueryBuilder('user').getManyWithTotals({}, { loadAll: true });
+    const untotalled = await users
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { disableTotalsCalculation: true });
+
+    expect(all).toMatchObject({ total: 3, limit: null, offset: null, hasMore: null });
+    expect(untotalled).toMatchObject({ total: null, offset: 0, hasMore: null });
+  });
+});
+
+setupTest('getManyWithTotals.orderBy', undefined, (context) => {
+  it('SHOULD return the ORDER BY clauses the query was built with', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderBy('user.firstName', 'DESC')
+      .addOrderBy('user.id', 'ASC')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    expect(page.orderBy).toEqual([
+      { selector: 'user.firstName', order: 'DESC' },
+      { selector: 'user.id', order: 'ASC' },
+    ]);
+  });
+
+  it('SHOULD return an empty orderBy when the query sets no explicit order', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    expect(page.orderBy).toEqual([]);
+  });
+
+  it('SHOULD carry the nulls ordering through', async () => {
+    if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+      return;
+    }
+
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderBy('user.firstName', 'DESC', 'NULLS LAST')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    expect(page.orderBy).toEqual([
+      { selector: 'user.firstName', order: 'DESC', nulls: 'NULLS LAST' },
+    ]);
   });
 });

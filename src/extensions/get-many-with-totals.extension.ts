@@ -8,6 +8,7 @@ import type {
   GetManyWithTotalsOptions,
   ListWithTotals,
 } from '../types/extensions';
+import type { OrderType } from '../types/interfaces/ordering.interface';
 import { patchPrototype } from '../utils/prototype.utils';
 
 // declarations
@@ -70,10 +71,23 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
 
   const [total, list] = requests;
 
+  const hasMore =
+    total !== null && offset !== null ? offset + list.length < total : null;
+
+  const orderBy: OrderType[] = Object.entries(
+    builder.expressionMap.orderBys ?? {}
+  ).map(([selector, value]) =>
+    typeof value === 'string'
+      ? { selector, order: value }
+      : { selector, order: value.order, nulls: value.nulls }
+  );
+
   return {
     list,
     total,
     limit,
     offset,
+    hasMore,
+    orderBy,
   };
 }
