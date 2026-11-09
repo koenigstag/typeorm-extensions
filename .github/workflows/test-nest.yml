@@ -7,6 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'test/nest*/**'
+      - 'test/types/**'
       - '.github/workflows/test-nest.yml'
 
 env:
@@ -104,3 +105,6 @@ jobs:
         run: |
           npm install --no-save --legacy-peer-deps "typeorm@${{ matrix.typeorm }}"
           npx tsc -p . --noEmit
+
+      - name: Type-test strictParams against TypeORM ${{ matrix.typeorm }}
+        run: npm run test:types

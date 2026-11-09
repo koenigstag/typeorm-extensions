@@ -7,6 +7,15 @@ export type ProxyColumnValueType = ColumnValueType | ':value';
 
 type ProxyPropertyType<V> = NonNullable<V> extends readonly (infer U)[] ? NonNullable<U> : NonNullable<V>;
 
+/** Objects that are column values, not relations or JSON objects to go into. */
+type ProxyLeafObject = Date | ArrayBufferView | ArrayBuffer;
+
+type IsProxyBranch<V> = ProxyPropertyType<V> extends ProxyLeafObject
+	? false
+	: ProxyPropertyType<V> extends object
+		? true
+		: false;
+
 /**
  * End of a typed key path. Typed keys are `column` or `alias.column` (`relation.column`),
  * so an object at the second level (a nested relation, a JSON sub-object) can be selected
@@ -18,7 +27,7 @@ export interface KeyPathEnd {
 }
 
 type ProxySecondLevel<T> = {
-	[K in keyof T]-?: ProxyPropertyType<T[K]> extends object ? KeyPathEnd : T[K];
+	[K in keyof T]-?: IsProxyBranch<T[K]> extends true ? KeyPathEnd : T[K];
 };
 
 /**
@@ -27,7 +36,7 @@ type ProxySecondLevel<T> = {
  * properties made required.
  */
 export type DeepUnwrapArray<T> = {
-	[K in keyof T]-?: ProxyPropertyType<T[K]> extends object
+	[K in keyof T]-?: IsProxyBranch<T[K]> extends true
 		? ProxySecondLevel<ProxyPropertyType<T[K]>>
 		: T[K];
 };
