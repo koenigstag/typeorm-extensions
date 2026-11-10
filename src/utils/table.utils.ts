@@ -100,6 +100,76 @@ function aggregateOrder<T>(method: string, orderBy: AggregateOrder<T>, toSql: (c
 	return { column, sql: ` ORDER BY ${toSql(column)}${direction ? ` ${direction}` : ''}` };
 }
 
+/** A column of the helper's table, or an SQL expression: `{ sql: 'MAX("order"."paidAt")' }`. */
+export type TableHelperExpression<T> = ColumnName<T> | { sql: string };
+
+/**
+ * A time zone: a name or an offset (`'Europe/Kyiv'`, `'UTC'`, `'+02:00'`), written into the SQL as an escaped string
+ * literal; a column of the helper's table, `{ column: 'timezone' }`, with an optional `fallback` zone for `NULL`;
+ * or an SQL expression, `{ sql: services.column('timezone') }`.
+ */
+export type TableHelperTimeZone<T> = string | { column: ColumnName<T>; fallback?: string } | { sql: string };
+
+/** The units of PostgreSQL's `date_trunc`. */
+export type DateTruncUnit =
+	| 'microseconds'
+	| 'milliseconds'
+	| 'second'
+	| 'minute'
+	| 'hour'
+	| 'day'
+	| 'week'
+	| 'month'
+	| 'quarter'
+	| 'year'
+	| 'decade'
+	| 'century'
+	| 'millennium';
+
+const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
+	'microseconds',
+	'milliseconds',
+	'second',
+	'minute',
+	'hour',
+	'day',
+	'week',
+	'month',
+	'quarter',
+	'year',
+	'decade',
+	'century',
+	'millennium',
+];
+
+function assertPostgres(method: string, driver: DatabaseType | undefined) {
+	if (isMysqlLikeDriver(driver) || isSqliteLikeDriver(driver)) {
+		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"`);
+	}
+}
+
+function toExpression<T>(value: TableHelperExpression<T>, toColumn: (column: ColumnName<T>) => string): string {
+	return typeof value === 'string' ? toColumn(value) : value.sql;
+}
+
+function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColumn: (column: ColumnName<T>) => string): string {
+	if (typeof timeZone === 'string') {
+		if (!timeZone.trim()) {
+			throw new TypeError(`tableHelper.${method}(): the time zone is empty`);
+		}
+
+		return sqlString(timeZone);
+	}
+
+	if ('sql' in timeZone) {
+		return timeZone.sql;
+	}
+
+	const column = toColumn(timeZone.column);
+
+	return timeZone.fallback === undefined ? column : `COALESCE(${column}, ${sqlString(timeZone.fallback)})`;
+}
+
 /** The JSON functions of a database: PostgreSQL's unless the driver is MySQL / MariaDB or SQLite. */
 function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefined) {
 	const mysql = isMysqlLikeDriver(driver);
@@ -349,5 +419,41 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		...fieldNames: JsonFieldRest<T[K]>
 	) {
 		return buildJsonPath(fieldNames, jsonOperator);
+	},
+	/**
+	 * Returns `(expression AT TIME ZONE zone)` (PostgreSQL). A `timestamptz` gives the wall-clock `timestamp`
+	 * in that zone; a `timestamp` is read as wall-clock time there and gives a `timestamptz`.
+	 * A zone name is written as an escaped literal, so it is safe to take from a request.
+	 * @example
+	 * t.atTimeZone('paidAt', 'Europe/Kyiv')                              // ("order"."paidAt" AT TIME ZONE 'Europe/Kyiv')
+	 * t.atTimeZone('startsAt', { column: 'timezone', fallback: 'UTC' }) // ("order"."startsAt" AT TIME ZONE COALESCE("order"."timezone", 'UTC'))
+	 */
+	atTimeZone(value: TableHelperExpression<T>, timeZone: TableHelperTimeZone<T>) {
+		assertPostgres('atTimeZone', options.driver);
+
+		const toColumn = (column: ColumnName<T>) => this.column(column);
+
+		return `(${toExpression(value, toColumn)} AT TIME ZONE ${toTimeZone('atTimeZone', timeZone, toColumn)})`;
+	},
+	/**
+	 * Returns `date_trunc('unit', expression)` (PostgreSQL). With a time zone it is the three-argument form
+	 * (PostgreSQL 12+): a `timestamptz` is truncated at the boundaries of that zone, e.g. its local midnight
+	 * for `'day'`, and the result is a `timestamptz` again.
+	 * @example
+	 * t.dateTrunc('day', 'paidAt')                // date_trunc('day', "order"."paidAt")
+	 * t.dateTrunc('day', 'paidAt', 'Europe/Kyiv') // date_trunc('day', "order"."paidAt", 'Europe/Kyiv')
+	 */
+	dateTrunc(unit: DateTruncUnit, value: TableHelperExpression<T>, timeZone?: TableHelperTimeZone<T>) {
+		assertPostgres('dateTrunc', options.driver);
+
+		// the unit goes into the SQL as is
+		if (!DATE_TRUNC_UNITS.includes(unit)) {
+			throw new TypeError(`tableHelper.dateTrunc(): the unit is one of ${DATE_TRUNC_UNITS.join(', ')}, got "${String(unit)}"`);
+		}
+
+		const toColumn = (column: ColumnName<T>) => this.column(column);
+		const zone = timeZone === undefined ? '' : `, ${toTimeZone('dateTrunc', timeZone, toColumn)}`;
+
+		return `date_trunc('${unit}', ${toExpression(value, toColumn)}${zone})`;
 	}
 });
