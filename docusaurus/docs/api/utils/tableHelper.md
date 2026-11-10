@@ -12,6 +12,8 @@ sidebar_position: 1
 import { tableHelper } from 'typeorm-extensions/helpers';
 ```
 
+The names are the entity's property names, written into the SQL as they are: the helper has no entity metadata, so a column renamed with `@Column({ name: 'amount_cents' })` has to be named that way, `t.column('amount_cents' as never)`, or selected with a typed method, which maps it.
+
 `typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
 ## Signature
@@ -279,6 +281,8 @@ The functions follow the helper's `driver` option:
 | MySQL / MariaDB | `JSON_OBJECT` | `JSON_ARRAYAGG` | no `orderBy`, `filter` or `jsonb`: they throw a `TypeError` |
 | SQLite | `json_object` | `json_group_array` | returned as text: `JSON.parse` it; `orderBy` needs SQLite 3.44+ |
 
+Another `driver` (`mssql`, `oracle`, …) throws a `TypeError`: those databases have JSON functions of their own.
+
 ## Time zones (PostgreSQL)
 
 ```typescript
@@ -311,7 +315,7 @@ booking.atTimeZone('startsAt', { column: 'timezone', fallback: 'UTC' })
 // ("booking"."startsAt" AT TIME ZONE COALESCE("booking"."timezone", 'UTC'))
 ```
 
-With the `driver` of MySQL or SQLite both throw a `TypeError`.
+With a `driver` other than PostgreSQL's (MySQL, SQLite, `mssql`, …) both throw a `TypeError`.
 
 ## Usage
 

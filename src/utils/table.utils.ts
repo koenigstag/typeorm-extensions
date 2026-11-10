@@ -1,5 +1,5 @@
 import { DatabaseType, ObjectLiteral } from "typeorm";
-import { isMysqlLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
+import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
 
 export type TableHelperOptions = {
@@ -75,9 +75,19 @@ export type TableHelperArrayAggOptions<T> = {
  * The argument of an aggregate and the clause after it for a `filter` written with `syntax`:
  * `CASE WHEN filter THEN argument END`, or `argument` and ` FILTER (WHERE filter)`.
  */
-function filtered(method: string, argument: string, filter: string | undefined, syntax: unknown = 'case') {
+function filtered(
+	method: string,
+	argument: string,
+	filter: string | undefined,
+	syntax: unknown = 'case',
+	driver?: DatabaseType
+) {
 	if (syntax !== 'case' && syntax !== 'filter') {
 		throw new TypeError(`tableHelper.${method}(): syntax is 'case' or 'filter', got "${String(syntax)}"`);
+	}
+
+	if (filter && syntax === 'filter' && isMysqlLikeDriver(driver)) {
+		throw new TypeError(`tableHelper.${method}(): MySQL / MariaDB have no FILTER (WHERE …), use syntax 'case'`);
 	}
 
 	if (!filter) {
@@ -206,6 +216,11 @@ function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefi
 		return { mysql, object: 'json_object', agg: 'json_group_array', emptyArray: 'json_array()' };
 	}
 
+	// PostgreSQL's when no driver is given; SQL Server, Oracle and the rest have functions of their own
+	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
+		throw new TypeError(`tableHelper: the JSON functions are PostgreSQL's, MySQL / MariaDB's and SQLite's, the driver is "${driver}"`);
+	}
+
 	const type = jsonb ? 'jsonb' : 'json';
 
 	// CAST, not `::json`: TypeORM would read `:json` as a parameter
@@ -312,7 +327,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 
 		// `COUNT(*)`, not `COUNT("alias".*)`, which only PostgreSQL accepts;
 		// a CASE can't return `*`: without a column, it counts 1 per matching row
-		const { argument, suffix } = filtered('count', column ?? (filter && syntax === 'case' ? '1' : '*'), filter, syntax);
+		const { argument, suffix } = filtered('count', column ?? (filter && syntax === 'case' ? '1' : '*'), filter, syntax, options.driver);
 
 		// `CAST(… AS integer)` is a syntax error on MySQL
 		return this.cast(
@@ -329,7 +344,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	 * // COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
 	 */
 	sum(columnName: NumericColumnName<T>, sumOptions: TableHelperSumOptions = {}) {
-		const { argument, suffix } = filtered('sum', this.column(columnName), sumOptions.filter, sumOptions.syntax);
+		const { argument, suffix } = filtered('sum', this.column(columnName), sumOptions.filter, sumOptions.syntax, options.driver);
 
 		return `COALESCE(SUM(${argument})${suffix}, 0)`;
 	},
@@ -343,7 +358,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	arrayAgg(columnName: ColumnName<T>, aggOptions: TableHelperArrayAggOptions<T> = {}) {
 		const { distinct = false, orderBy, filter } = aggOptions;
 
-		if (isMysqlLikeDriver(options.driver) || isSqliteLikeDriver(options.driver)) {
+		if (options.driver !== undefined && !isPostgresLikeDriver(options.driver)) {
 			throw new TypeError(`tableHelper.arrayAgg(): arrays are PostgreSQL's, the driver is "${options.driver}": use jsonAgg`);
 		}
 
