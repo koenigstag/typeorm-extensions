@@ -23,7 +23,7 @@ orHavingTyped(aggregate, selection, condition, params?, options?): SelectQueryBu
 
 ## Arguments
 - aggregate: the aggregate function. `'COUNT DISTINCT'` is `COUNT(DISTINCT column)`. Anything else throws a `TypeError`: it goes into the SQL.
-- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md) of one column, or `'*'` for `COUNT(*)`, every row of the group (only with `'COUNT'`). The callback starts at the entity, or at the root set with `typed<Root>()`. Columns of joined relations work, and paths into JSON columns as in [whereTyped](./whereTyped.md#paths-into-json-columns): cast to a number for `SUM` / `AVG`, and for `MIN` / `MAX` to the type of the value they are compared with.
+- selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md) of one column, or `'*'` for `COUNT(*)`, every row of the group (only with `'COUNT'`). The callback starts at the entity, or at the root set with `typed<Root>()`. Columns of joined relations work, and paths into JSON columns as in [whereTyped](./whereTyped.md#paths-into-json-columns): cast to a number for `SUM` / `AVG`, and for `MIN` / `MAX` to the type of the value they are compared with. A relation as a whole (`user => user.images`) is no column and doesn't compile. The types don't restrict `SUM` / `AVG` to number columns, since a `decimal` column is typed as a `string`: `SUM` of a text column fails on PostgreSQL and gives 0 on MySQL and SQLite.
 - condition, params, options: as in [whereTyped](./whereTyped.md): the value gets a placeholder of its own unless the condition names a key of `params`.
 
 With [`strictParams`](./whereTyped.md#checking-parameters-strictparams) the value is checked: a number for `COUNT`, `COUNT DISTINCT`, `SUM` and `AVG`, the column's value for `MIN` and `MAX`.
@@ -41,7 +41,7 @@ query
 ```
 
 ```typescript
-// HAVING COUNT(*) > :having_… AND MAX("order"."createdAt") < :having_…
+// HAVING COUNT(*) > :having_… AND MAX("order"."createdAt") < :andHaving_…
 query
   .havingTyped('COUNT', '*', '>', 5)
   .andHavingTyped('MAX', order => order.createdAt, '<', since)

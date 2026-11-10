@@ -11,6 +11,12 @@ import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 type Selection<Entity extends ObjectLiteral, Type, Value> = (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value;
 
+/**
+ * A value a column holds. A relation (`u => u.images`), the end of a key path or a JSON object is no column:
+ * `COUNT("user"."images")` would fail in the database.
+ */
+type AggregatedColumn = string | number | bigint | boolean | Date | ArrayBufferView | ArrayBuffer | readonly unknown[] | null | undefined;
+
 /** `'*'`, all the rows, only for COUNT. */
 type CountAll<Aggregate> = Aggregate extends 'COUNT' ? '*' : never;
 
@@ -36,7 +42,7 @@ export interface TypedHavingMethods<Entity extends ObjectLiteral> {
     Operator extends string = string,
   >(
     aggregate: Aggregate,
-    selection: Selection<Entity, Type, Value> | CountAll<Aggregate>,
+    selection: Selection<Entity, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, AggregateValue<Aggregate, Value>>
   ): this;
@@ -49,7 +55,7 @@ export interface TypedHavingMethods<Entity extends ObjectLiteral> {
     Operator extends string = string,
   >(
     aggregate: Aggregate,
-    selection: Selection<Entity, Type, Value> | CountAll<Aggregate>,
+    selection: Selection<Entity, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, AggregateValue<Aggregate, Value>>
   ): this;
@@ -62,7 +68,7 @@ export interface TypedHavingMethods<Entity extends ObjectLiteral> {
     Operator extends string = string,
   >(
     aggregate: Aggregate,
-    selection: Selection<Entity, Type, Value> | CountAll<Aggregate>,
+    selection: Selection<Entity, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, AggregateValue<Aggregate, Value>>
   ): this;

@@ -44,3 +44,6 @@ typed.andHavingTyped('MAX', (q) => q.image.createdAt, '<', new Date());
 typed.havingTyped('COUNT', (q) => q.images.id, '>=', 2);
 // @ts-expect-error a count is a number
 typed.havingTyped('COUNT', (q) => q.image.id, '>=', '2');
+
+// @ts-expect-error a relation is no column to aggregate
+owners.havingTyped('COUNT', (o) => o.images, '>=', 2);
