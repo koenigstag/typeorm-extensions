@@ -29,11 +29,11 @@ The subquery can be:
 - a factory, as for TypeORM's joins: `(qb) => qb.select(…).from(TicketEntity, 't')…`;
 - raw SQL, without parentheses: `'SELECT … LIMIT 1'`. Its placeholders are the query's own parameters: pass them in `parameters`, or with `setParameter`.
 
-The parameters of a query builder or a factory get unique names when they are added to the query (`status_x7k2q`): a subquery with `:status` doesn't clash with a `:status` of the outer query, or of another subquery. Raw SQL keeps its names.
+The parameters of a query builder or a factory get unique names when they are added to the query (`status_x7k2q`): a subquery with `:status` doesn't clash with a `:status` of the outer query, or of another subquery. Raw SQL keeps its names. That holds for a factory or a builder of its own (`dataSource.createQueryBuilder()`), not for one made with `query.subQuery()`: it hands each parameter to `query` as it is set, before it can be renamed, and overwrites one of the same name there.
 
 The joined columns are raw: select them with `addSelect('"latest"."status"', 'latestStatus')` and read them with `getRawMany()`, or use the alias in later joins and conditions. Inside the subquery, refer to the outer tables with quoted names, `"user"."id"`: TypeORM doesn't rewrite the outer query's property paths there.
 
-LATERAL is available on PostgreSQL 9.3+, CockroachDB, MySQL 8.0.14+ and Oracle 12c+. SQLite, SQL Server (it has `APPLY`) and MariaDB don't support it.
+LATERAL is available on PostgreSQL 9.3+, CockroachDB, MySQL 8.0.14+ and Oracle 12c+; Oracle before 23ai has no `TRUE`, so pass the condition there, `'1 = 1'`. SQLite, SQL Server (it has `APPLY`) and MariaDB don't support it.
 
 ## Signature
 
