@@ -12,4 +12,12 @@ export type ApplyPeriodOptions = {
    * `{ periodFrom: '2024-01-01', periodTo: '2024-02-01' }`.
    */
   includeTo?: boolean;
+  /**
+   * IANA time zone (`'America/New_York'`) in which a date (`'2024-01-31'`) and a date-time without an offset
+   * (`'2024-01-31 10:00'`) are read: `periodTo: '2024-01-31'` ends at midnight of February 1st in that zone.
+   * They become instants (`Date`), so it is for timestamp columns, not `date` ones. `Date`s and strings with
+   * an offset are instants already and stay as they are; other strings throw a `TypeError`, as does an
+   * unknown zone. Missing, `null` or `''`: the strings go to the database as they are.
+   */
+  timeZone?: string | null;
 };

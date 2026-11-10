@@ -3,6 +3,7 @@ import type { PeriodFilter } from '../types/interfaces/period.interface';
 import type { ApplyPeriodOptions } from '../types/extensions/period.types';
 import { createUniqueParameterName } from './sql.utils';
 import { andWhereNarrowing } from './where.utils';
+import { assertTimeZone, readInTimeZone } from './time-zone.utils';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -91,7 +92,11 @@ export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
   periodFilter: PeriodFilter | null | undefined,
   options?: ApplyPeriodOptions
 ): QB {
-  const { includeFrom = true, includeTo = true } = options ?? {};
+  const { includeFrom = true, includeTo = true, timeZone } = options ?? {};
+
+  if (timeZone) {
+    assertTimeZone(timeZone);
+  }
 
   const bounds = [
     { name: 'periodFrom' as const, include: includeFrom },
@@ -107,8 +112,9 @@ export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
 
     const { operator, value } = getBoundCondition(boundary, name, include);
     const paramName = createUniqueParameterName(name);
+    const bound = timeZone && typeof value === 'string' ? readInTimeZone(value, timeZone, name) : value;
 
-    andWhereNarrowing(builder, `${column} ${operator} :${paramName}`, { [paramName]: value });
+    andWhereNarrowing(builder, `${column} ${operator} :${paramName}`, { [paramName]: bound });
   }
 
   return builder;
