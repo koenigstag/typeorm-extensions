@@ -14,8 +14,8 @@ export type CalculatedColumnOptions = {
 
 /**
  * A property that a query fills with an SQL expression of its own, through `addSelectCalculated`:
- * a count, a latest date, a flag. It is no column of the table: schema sync leaves it out, it is
- * never inserted or updated, and an entity loaded without `addSelectCalculated` doesn't have it.
+ * a count, a latest date, a flag. It is no column of the table: schema sync leaves it out, `save`,
+ * `insert` and `update` never write it, and an entity loaded without `addSelectCalculated` doesn't have it.
  *
  * Unlike TypeORM's `@VirtualColumn`, whose one SQL query runs whenever the entity is loaded, each
  * query chooses whether to compute it, and how.

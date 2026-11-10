@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`@CalculatedColumn` and `addSelectCalculated`**: an entity property that a query fills with an SQL expression of its own. The decorator declares no column of the table (schema sync leaves it out, it is never inserted or updated, and TypeORM never selects it by itself); `addSelectCalculated(expression or subquery, property, alias?)` selects into it under the key TypeORM hydrates from, with the property checked against the entity type. The value is converted by the property's type, so a `number` turns a PostgreSQL `COUNT` or an `AVG` into a number with its decimals, and a `boolean` reads `0` / `'0'` as false on every database. Unlike TypeORM's `@VirtualColumn`, it costs nothing until a query asks for it.
+- **`@CalculatedColumn` and `addSelectCalculated`**: an entity property that a query fills with an SQL expression of its own. The decorator declares no column of the table (schema sync leaves it out, it is never inserted or updated, and TypeORM never selects it by itself); `addSelectCalculated(expression or subquery, property, alias?)` selects into it under the key TypeORM hydrates from, with the property checked against the entity type. The value is converted by the property's type, so a `number` turns a PostgreSQL `COUNT` or an `AVG` into a number with its decimals, and a `boolean` reads `0` / `'0'` as false on every database. Unlike TypeORM's `@VirtualColumn`, it costs nothing until a query asks for it. It is a TypeORM virtual property, with their limits in older TypeORM versions: schema sync before 0.3.29 keeps the removed columns of its table, and `upsert` on TypeORM 0.3 fails with the property set; the docs list them.
 
 ## [2.2.0] - 2026-11-10
 
