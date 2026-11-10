@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`innerJoinUnnest(field, array, arrayType?)`**: keeps the rows whose column is in an array by joining `SELECT DISTINCT unnest(CAST(:array AS type[]))`, the same rows as `whereIsAny` with a plan that can start from the array. The array type defaults to the array of the column's type; it is required for a field that isn't an entity column and for an enum column. An empty array matches no row. PostgreSQL and CockroachDB.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
