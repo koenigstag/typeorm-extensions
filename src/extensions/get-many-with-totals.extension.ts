@@ -44,14 +44,15 @@ patchPrototype(SelectQueryBuilder, extension);
 // implementation
 
 /**
- * Whether the count and the page query may run at the same time. Each needs a connection of its
- * own, so a builder bound to one query runner — inside a transaction, or from a transactional
- * manager — runs them one after another: on a single connection the driver serialises them anyway,
- * and on `pg` that queue is deprecated.
+ * Whether the count and the page query may run at the same time. A builder bound to a query
+ * runner — inside a transaction, or from a transactional manager — runs them one after another:
+ * there is one connection, on which the driver would serialise them anyway, and on `pg` that queue
+ * is deprecated. Without one, each query obtains a runner: its own pooled connection, or on SQLite
+ * the driver's single shared runner.
  *
- * `useTransaction` is not consulted: without a query runner of its own each call obtains one and
- * opens its own transaction, whether the two run together or one after another, so the flag never
- * made them share anything.
+ * `useTransaction` is not consulted. With a pool each query opens a transaction on its own
+ * connection, whether the two run together or one after another. On SQLite the two share the
+ * runner, so the one that starts second finds a transaction active and does not open its own.
  */
 function canCountConcurrently<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>
