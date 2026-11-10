@@ -5,7 +5,7 @@ sidebar_position: 5.9
 # applyPeriodFilterTyped
 
 ## Description
-`applyPeriodFilterTyped` filters rows by a period of an entity property. It works like [applyPeriodFilter](../where/applyPeriodFilter.md): optional, inclusive ends (`includeFrom` / `includeTo` to exclude them), date-only strings as whole days, conditions added with AND around existing ones.
+`applyPeriodFilterTyped` filters rows by a period of an entity property. It works like [applyPeriodFilter](../where/applyPeriodFilter.md): optional, inclusive ends (`includeFrom` / `includeTo` to exclude them), date-only strings as whole days, days and times read in a [`timeZone`](../where/applyPeriodFilter.md#time-zones), conditions added with AND around existing ones.
 
 The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
 
@@ -16,14 +16,14 @@ The callback may also go into a JSON column ([paths into JSON columns](./whereTy
 applyPeriodFilterTyped(
   selection: KeyProxyCallback<Entity>,
   periodFilter: PeriodFilter | null | undefined,
-  options?: { includeFrom?: boolean; includeTo?: boolean }
+  options?: { includeFrom?: boolean; includeTo?: boolean; timeZone?: string | null }
 ): this
 ```
 
 ## Arguments
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects **one** date / time property. Selecting several throws a `TypeError`.
 - periodFilter: `{ periodFrom?: Date | string; periodTo?: Date | string }`: The period, see [applyPeriodFilter](../where/applyPeriodFilter.md).
-- options: Which ends are included, both by default.
+- options: Which ends are included, both by default, and the time zone in which the strings are read.
 
 ## Usage
 
@@ -39,4 +39,9 @@ repository
   .delete()
   .applyPeriodFilterTyped(log => log.createdAt, { periodTo: yearAgo }, { includeTo: false })
   .execute()
+```
+
+```typescript
+// the user's day, in their time zone
+query.applyPeriodFilterTyped(order => order.createdAt, { periodFrom: day, periodTo: day }, { timeZone: user.timeZone })
 ```

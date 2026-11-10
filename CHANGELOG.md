@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`timeZone` in `applyPeriodFilter` / `applyPeriodFilterTyped`**: reads a date (`'2024-01-31'`) and a date-time without an offset (`'2024-01-31 10:00'`) as the wall clock of an IANA time zone, so a period of days is the user's days: `{ periodFrom: '2024-01-01', periodTo: '2024-01-31' }` in `America/New_York` is `>= 2024-01-01T05:00Z AND < 2024-02-01T05:00Z`. Converted in JavaScript (`Intl`), so the column stays bare in SQL and keeps its index, on every database; daylight saving time as PostgreSQL's `AT TIME ZONE` handles it. `Date`s and strings with an offset stay as they are, other strings and unknown zones throw a `TypeError`.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
