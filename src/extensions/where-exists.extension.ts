@@ -101,10 +101,6 @@ const notExistsMethods: { prototype: WhereNotExistsMethods } = {
 
 // implementation
 
-type ExistsConditionSource = {
-  getExistsCondition(subQuery: SubQuery): [string, ObjectLiteral];
-};
-
 // TypeORM's placeholder syntax, `:name` and `:...name`, as its drivers match it
 const PARAMETER_PLACEHOLDER = /:(\.\.\.)?([A-Za-z0-9_.]+)/g;
 
@@ -142,11 +138,29 @@ function attachExists<QB extends WhereExpressionBuilder>(
   subQuery: SubQuery,
   negate: boolean
 ): QB {
-  // the condition TypeORM's whereExists builds, so NOT EXISTS is exactly its negation: the subquery
-  // selects 1, without ORDER BY, GROUP BY, LIMIT and OFFSET
-  const [condition, parameters] = withUniqueParameterNames(
-    ...(builder as unknown as ExistsConditionSource).getExistsCondition(subQuery)
-  );
+  const [condition, parameters] = withUniqueParameterNames(...getExistsCondition(subQuery));
 
   return builder[method](negate ? `NOT ${condition}` : condition, parameters) as QB;
+}
+
+/**
+ * TypeORM's EXISTS condition: the subquery selects 1, without ORDER BY, LIMIT and OFFSET. TypeORM also
+ * drops GROUP BY, which leaves a HAVING to aggregate the whole subquery: the GROUP BY stays with one.
+ */
+function getExistsCondition(subQuery: SubQuery): [string, ObjectLiteral] {
+  const query = subQuery
+    .clone()
+    .orderBy()
+    .offset(undefined)
+    .limit(undefined)
+    .skip(undefined)
+    .take(undefined)
+    .select('1')
+    .setOption('disable-global-order');
+
+  if (query.expressionMap.havings.length === 0) {
+    query.groupBy();
+  }
+
+  return [`EXISTS (${query.getQuery()})`, query.getParameters()];
 }

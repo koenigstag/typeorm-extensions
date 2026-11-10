@@ -17,7 +17,7 @@ TypeORM has `whereExists` / `andWhereExists` / `orWhereExists` on `SelectQueryBu
 
 A method is added only where the builder doesn't have it already, so TypeORM's own methods, in this version or a later one, stay as they are. Inside `Brackets` the callback gets a builder of the query's class, with the same methods.
 
-The condition is TypeORM's: the subquery selects `1`, without its ORDER BY, GROUP BY, LIMIT and OFFSET, and `NOT EXISTS` is its exact negation.
+The condition is TypeORM's: the subquery selects `1`, without its ORDER BY, GROUP BY, LIMIT and OFFSET, and `NOT EXISTS` is its negation. One exception: a subquery with a HAVING keeps its GROUP BY. TypeORM drops it there too, so the HAVING aggregates the whole subquery: "two tickets of one status" would match two tickets of different statuses. TypeORM's own `whereExists` on a `SelectQueryBuilder` still does that.
 
 ### Parameters
 

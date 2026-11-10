@@ -36,6 +36,33 @@ setupTest('whereNotExists', undefined, (context) => {
     expect(await userIds((query) => query.andWhereNotExists(ticketsOfUser('open')))).toEqual([2, 3]);
   });
 
+  it('SHOULD keep the GROUP BY of a subquery with HAVING', async () => {
+    await seed();
+    await context.dataSource
+      .getRepository(TicketEntity)
+      .save([new TicketEntity({ status: 'done', ownerId: 1 }), new TicketEntity({ status: 'done', ownerId: 2 })]);
+
+    // users with two tickets of one status: only user 2; user 1 has two of different statuses
+    const repeatedStatus = (owner = '"user"."id"') =>
+      context.dataSource
+        .getRepository(TicketEntity)
+        .createQueryBuilder('t')
+        .where(`t.ownerId = ${nativeSql(owner)}`)
+        .groupBy('t.status')
+        .having('COUNT(*) > :times', { times: 1 });
+
+    expect(await userIds((query) => query.andWhereNotExists(repeatedStatus()))).toEqual([1, 3]);
+
+    const updated = await context.dataSource
+      .createQueryBuilder()
+      .update(UserEntity)
+      .set({ firstName: 'repeated' })
+      .whereExists(repeatedStatus('"users"."id"'))
+      .execute();
+
+    expect(updated.affected).toBe(1);
+  });
+
   it('SHOULD keep TypeORM whereExists on a select and add its own to update and delete queries', () => {
     expect(SelectQueryBuilder.prototype.andWhereExists).not.toBe(UpdateQueryBuilder.prototype.andWhereExists);
     expect(UpdateQueryBuilder.prototype.andWhereExists).toBe(DeleteQueryBuilder.prototype.andWhereExists);
