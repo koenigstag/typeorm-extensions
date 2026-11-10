@@ -1,19 +1,20 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { RelationalKeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
-    leftJoinTyped<Type extends ObjectLiteral = Entity>(
+    leftJoinTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
     ): SelectQueryBuilder<Entity>;
-    innerJoinTyped<Type extends ObjectLiteral = Entity>(
+    innerJoinTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
@@ -21,14 +22,14 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       parameters?: ObjectLiteral
     ): SelectQueryBuilder<Entity>;
 
-    leftJoinAndSelectTyped<Type extends ObjectLiteral = Entity>(
+    leftJoinAndSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
     ): SelectQueryBuilder<Entity>;
-    innerJoinAndSelectTyped<Type extends ObjectLiteral = Entity>(
+    innerJoinAndSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
@@ -42,7 +43,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
 SelectQueryBuilder.prototype.leftJoinTyped = function <
   Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = Entity
+  Type extends ObjectLiteral = TypedRoot<Entity>
 >(
   this: SelectQueryBuilder<Entity>,
   selection: RelationalKeyProxyCallback<Type>,
@@ -59,7 +60,7 @@ SelectQueryBuilder.prototype.leftJoinTyped = function <
 
 SelectQueryBuilder.prototype.innerJoinTyped = function <
   Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = Entity
+  Type extends ObjectLiteral = TypedRoot<Entity>
 >(
   this: SelectQueryBuilder<Entity>,
   selection: RelationalKeyProxyCallback<Type>,
@@ -76,7 +77,7 @@ SelectQueryBuilder.prototype.innerJoinTyped = function <
 
 SelectQueryBuilder.prototype.leftJoinAndSelectTyped = function <
   Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = Entity
+  Type extends ObjectLiteral = TypedRoot<Entity>
 >(
   this: SelectQueryBuilder<Entity>,
   selection: RelationalKeyProxyCallback<Type>,
@@ -100,7 +101,7 @@ SelectQueryBuilder.prototype.leftJoinAndSelectTyped = function <
 
 SelectQueryBuilder.prototype.innerJoinAndSelectTyped = function <
   Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = Entity
+  Type extends ObjectLiteral = TypedRoot<Entity>
 >(
   this: SelectQueryBuilder<Entity>,
   selection: RelationalKeyProxyCallback<Type>,
@@ -132,7 +133,7 @@ type JoinMethod =
 
 function addJoin<
   Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = Entity
+  Type extends ObjectLiteral = TypedRoot<Entity>
 >(
   query: SelectQueryBuilder<Entity>,
   method: JoinMethod,

@@ -4,6 +4,7 @@ import { KeyHolder } from '../../../utils/proxy-key.utils';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
 import { getDriverType } from '../../../utils/sql.utils';
 import type { TypedOrderByOptions } from '../../../types/extensions/typed-order-by.types';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -14,7 +15,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		 * If you had previously ORDER BY expression defined,
 		 * calling this function will override previously set ORDER BY conditions.
 		 */
-		orderByTyped<Type extends ObjectLiteral = Entity>(
+		orderByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
 			this: SelectQueryBuilder<Entity>,
 			selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
@@ -24,7 +25,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		/**
 		 * Adds ORDER BY condition in the query builder.
 		 */
-		addOrderByTyped<Type extends ObjectLiteral = Entity>(
+		addOrderByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
 			this: SelectQueryBuilder<Entity>,
 			selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
@@ -38,7 +39,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
 SelectQueryBuilder.prototype.orderByTyped = function <
 	Entity extends ObjectLiteral,
-	Type extends ObjectLiteral = Entity
+	Type extends ObjectLiteral = TypedRoot<Entity>
 >(
 	this: SelectQueryBuilder<Entity>,
 	selection?: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
@@ -61,7 +62,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 
 SelectQueryBuilder.prototype.addOrderByTyped = function <
 	Entity extends ObjectLiteral,
-	Type extends ObjectLiteral = Entity
+	Type extends ObjectLiteral = TypedRoot<Entity>
 >(
 	this: SelectQueryBuilder<Entity>,
 	selection?: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,

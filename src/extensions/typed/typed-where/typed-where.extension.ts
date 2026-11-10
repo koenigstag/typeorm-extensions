@@ -12,6 +12,7 @@ import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
 import { attachWhere, isParamsObject } from '../../../utils/where.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -32,7 +33,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -46,7 +47,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -60,7 +61,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -87,7 +88,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 // patching
 
 const createWhereTypedMethod = (method: WhereMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     conditions: string,

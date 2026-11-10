@@ -21,6 +21,7 @@ import {
   toSearchTerm,
   toUnaccentFunction,
 } from '../../../utils/search.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -36,7 +37,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereILikeTyped<Type extends ObjectLiteral = Entity>(
+  whereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -46,7 +47,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column ILIKE :pattern` condition in the query builder.
    * `null`, `undefined` or a blank value adds no condition.
    */
-  andWhereILikeTyped<Type extends ObjectLiteral = Entity>(
+  andWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -56,7 +57,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column ILIKE :pattern` condition in the query builder.
    * `null`, `undefined` or a blank value adds no condition.
    */
-  orWhereILikeTyped<Type extends ObjectLiteral = Entity>(
+  orWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -70,7 +71,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereSearchTyped<Type extends ObjectLiteral = Entity>(
+  whereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selectors: ReadonlyArray<SearchSelector<Type>>,
     value: string | null | undefined,
     options?: TypedSearchOptions
@@ -80,7 +81,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
-  andWhereSearchTyped<Type extends ObjectLiteral = Entity>(
+  andWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selectors: ReadonlyArray<SearchSelector<Type>>,
     value: string | null | undefined,
     options?: TypedSearchOptions
@@ -90,7 +91,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
-  orWhereSearchTyped<Type extends ObjectLiteral = Entity>(
+  orWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selectors: ReadonlyArray<SearchSelector<Type>>,
     value: string | null | undefined,
     options?: TypedSearchOptions
@@ -118,7 +119,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 // patching
 
 const createWhereILikeTypedMethod = (method: WhereMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
@@ -141,7 +142,7 @@ const createWhereILikeTypedMethod = (method: WhereMethods) =>
   };
 
 const createWhereSearchTypedMethod = (method: WhereMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     selectors: ReadonlyArray<SearchSelector<Type>>,
     value: string | null | undefined,

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### New Features
+
+- **`typed<Root>()`** sets the root of the typed callbacks once for a query, instead of passing it to each call (`whereTyped<Joins>(…)`): `query.typed<{ checkin: CheckIn; event: Event }>().whereTyped((q) => q.event.eventType, '=', type)`. Type-only; the root carries through the chain, TypeORM's methods included, and `getMany()` still returns the entities. With `strictParams` the parameters of these calls are checked, which an explicit type argument turns off. The typed methods' default root is `TypedRoot<Entity>`: the entity, unless `typed()` set another. It works on a `SelectQueryBuilder<any>` too, and an entity loaded through it can be spread in code compiled with `declaration: true`.
 ### Bug Fixes
 
 - **A params object whose value goes after the condition takes one key**: `whereTyped(u => u.id, '=', { id: 1, email })` used the first value and dropped the others without a word, and `{}` compared the column with `NULL`. Both now throw a `TypeError`. Objects whose keys the condition names (`'BETWEEN :from AND :to'`) and `addValue: false` are as before.
