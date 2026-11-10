@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`groupByTyped` / `addGroupByTyped`**: GROUP BY with typed callbacks on `SelectQueryBuilder`. One callback may select several columns (`user => [user.id, user.email]`), and columns of joined relations work too. Like `orderByTyped`, the key is `alias.property`, which TypeORM maps to the column, or with `useQuotes` the quoted database column, which a subquery in FROM needs. A path into a JSON column throws a `TypeError`, as in select, order and distinct.
+- **`groupByTyped` / `addGroupByTyped`**: GROUP BY with typed callbacks on `SelectQueryBuilder`. One callback may select several columns (`user => [user.id, user.email]`), and columns of joined relations work too. Like `orderByTyped`, the key is `alias.property`, which TypeORM maps to the column, or with `useQuotes` the quoted database column, which a subquery in FROM needs. A path into a JSON column throws a `TypeError`, as in select, order and distinct. The callback starts at the root set with `typed<Root>()`, else at the entity.
 
 ## [2.2.0] - 2026-11-10
 

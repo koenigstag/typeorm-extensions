@@ -3,6 +3,7 @@ import type { KeyProxyCallback } from '../../../types/modules/proxy-callback.typ
 import type { TypedGroupByOptions } from '../../../types/extensions/typed-group-by.types';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -11,7 +12,7 @@ export interface TypedGroupByMethods<Entity extends ObjectLiteral> {
    * Sets GROUP BY to the columns the callback selects: `user => user.id`, or several at once,
    * `user => [user.id, user.email]`. Replaces previously set GROUP BY.
    */
-  groupByTyped<Type extends ObjectLiteral = Entity>(
+  groupByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selection: KeyProxyCallback<Type>,
     options?: TypedGroupByOptions
   ): this;
@@ -19,7 +20,7 @@ export interface TypedGroupByMethods<Entity extends ObjectLiteral> {
   /**
    * Adds the columns the callback selects to GROUP BY.
    */
-  addGroupByTyped<Type extends ObjectLiteral = Entity>(
+  addGroupByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selection: KeyProxyCallback<Type>,
     options?: TypedGroupByOptions
   ): this;
@@ -35,7 +36,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
-    groupByTyped<Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+    groupByTyped<Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       options?: TypedGroupByOptions
@@ -50,7 +51,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       return addGroupByKeys(this.groupBy(first), rest);
     },
 
-    addGroupByTyped<Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+    addGroupByTyped<Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       options?: TypedGroupByOptions
