@@ -6,3 +6,4 @@ export * from './where.types';
 export * from './period.types';
 export * from './cursor-pagination.types';
 export * from './search.types';
+export * from './union.types';

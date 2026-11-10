@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`fromUnion` / `addCommonTableExpressionUnion`**: a UNION (or `UNION ALL`) of query builders as the FROM of a query or as a common table expression. The parameters of each part get unique names: pasting `getQuery()` and merging `getParameters()` lets two parts with a `:status` each read the last value, without an error. Raw SQL parts read the outer builder's parameters. On SQLite each part is wrapped in `SELECT * FROM (…)`, which it needs for the ORDER BY of an entity's default `orderBy`.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
