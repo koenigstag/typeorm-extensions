@@ -14,6 +14,8 @@ It runs two queries:
 
 They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — they run one after another instead: there is a single connection, on which the driver would serialise them anyway, and on `pg` that queue is deprecated.
 
+When one of them fails, the call waits for the other before it rejects with the first error (the count's, if both fail), so it never returns with a query still running on the pool.
+
 With `disableTotalsCalculation` only the second query runs, and it asks for `pageSize + 1` rows: the extra row is dropped from `list` and only tells `hasMore`, the way [getManyWithCursor](./getManyWithCursor.md) does it.
 
 ## Signature
@@ -32,7 +34,7 @@ getManyWithTotals(
 
 ## What the count counts
 
-The count runs on the query **as it is**, so every condition already on the builder applies to it too. Only the pagination is left out: the clone is taken before `limit` / `offset` are applied, and TypeORM additionally drops `limit`, `offset`, `take`, `skip`, `groupBy` and the order from the count query.
+The count runs on the query **as it is**, so every condition already on the builder applies to it too. Only the pagination is left out: the clone is taken before `limit` / `offset` are applied, and TypeORM additionally drops `limit`, `offset`, `take`, `skip`, `groupBy` and the order from the count query. It keeps `HAVING`, though: with `groupBy` / `havingTyped` the total counts the entities the conditions select, not the groups the page lists. Page grouped rows with [getRawManyWithTotals](./getRawManyWithTotals.md), which counts them as they are.
 
 That makes one mistake easy to miss: a condition that belongs to a single page — the boundary of a cursor, `user.id > :lastId` — narrows the count as well, and `total` then counts the rows of that page's tail instead of the whole list (a first page reporting 60 and a second 35). Apply such a condition to a separate builder, or page with [getManyWithCursor](./getManyWithCursor.md), which is built for it.
 
