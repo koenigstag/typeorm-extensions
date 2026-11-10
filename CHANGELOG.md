@@ -5,6 +5,11 @@
 ### New Features
 
 - **`tableHelper` `jsonBuildObject` and `jsonAgg`**: a JSON object of columns, as a list or a `{ key: column }` map checked against the entity type, and a JSON array aggregate with `orderBy` (a column of the entity), `filter` and `[]` for a group without rows. PostgreSQL's `json_build_object` / `json_agg` (`jsonb` on request), MySQL's `JSON_OBJECT` / `JSON_ARRAYAGG` and SQLite's `json_object` / `json_group_array`, by the helper's `driver`.
+- **`tableHelper` `sum` and `arrayAgg`**: `COALESCE(SUM(column), 0)` for a column whose property is a number, with `filter` written as `CASE` or `FILTER` like `count`; and a PostgreSQL `array_agg` of a column with `distinct`, `orderBy` and `filter`, `{}` for a group without rows. Other databases have no arrays: `arrayAgg` throws a `TypeError` with their `driver`.
+
+### Bug Fixes
+
+- **`tableHelper.count()` on MySQL**: `CAST(COUNT(…) AS integer)` is a syntax error there. With `driver: 'mysql'` it casts `AS SIGNED`.
 
 ## [2.2.0] - 2026-11-10
 
