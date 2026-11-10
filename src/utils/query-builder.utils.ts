@@ -73,6 +73,28 @@ function findColumn(metadata: EntityMetadata, name: string) {
 }
 
 /**
+ * The entity column a field names, the way `toFieldSql` resolves it: `alias.property` or
+ * `alias.column_name` on an alias with an entity, or a database column name of the main alias.
+ */
+export function findFieldColumn(
+  builder: WhereExpressionBuilder,
+  field: string
+): ColumnMetadata | undefined {
+  const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
+  const dot = field.indexOf('.');
+
+  if (dot > 0) {
+    const metadata = getAliasMetadata(queryBuilder, field.slice(0, dot));
+
+    return metadata && findColumn(metadata, field.slice(dot + 1));
+  }
+
+  return getAliasMetadata(queryBuilder, undefined)?.columns.find(
+    (column) => column.databaseName === field
+  );
+}
+
+/**
  * SQL for a field passed as a string to the untyped methods (`whereIsIn('user.first-name', …)`).
  *
  * A string can't tell a column from an expression: `user.first-name` may be the column `first-name`
@@ -178,6 +200,15 @@ function resolveTypedKey(
   // deeper than `alias.column` only inside a JSON column: a nested relation can't be mapped to an alias
   if (!resolved.jsonPath && keys.length > MAX_KEY_DEPTH) {
     throw createKeyTooDeepError(keys);
+  }
+
+  const column = resolved.column ?? resolved.metadata?.findColumnWithPropertyPath(resolved.propertyPath);
+
+  // a @CalculatedColumn: TypeORM would write "alias"."property", a column the table doesn't have
+  if (column?.isVirtualProperty && !column.query) {
+    throw new TypeError(
+      `${keys.join('.')} is a @CalculatedColumn, not a column of the table: use the SQL expression that fills it`
+    );
   }
 
   return resolved;
