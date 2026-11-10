@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`whereNotExists` / `andWhereNotExists` / `orWhereNotExists`**, and `whereExists` / `andWhereExists` / `orWhereExists` on update and delete queries: TypeORM has `EXISTS` on `SelectQueryBuilder` only, and no `NOT EXISTS`. The SQL is TypeORM's, so `NOT EXISTS` is the exact negation of its `whereExists`. A method is added only where the builder lacks it: TypeORM's own `whereExists` stays. The subquery's parameters get unique names, so two subqueries that both use `:status` keep their own values; with TypeORM's `whereExists` the value set last wins.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
