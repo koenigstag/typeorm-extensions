@@ -85,7 +85,8 @@ function getCursorKeys<Entity extends ObjectLiteral>(
   const keys: CursorKey[] = (orderBy ?? []).map(({ field, direction }) => {
     const column = metadata.findColumnWithPropertyPath(String(field));
 
-    if (!column) {
+    // a @CalculatedColumn is in the metadata, but not in the table
+    if (!column || column.isVirtualProperty) {
       throw new TypeError(`getManyWithCursor: "${String(field)}" is not a column of ${metadata.name}`);
     }
 
