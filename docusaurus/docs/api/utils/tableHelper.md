@@ -293,7 +293,7 @@ type TimeZone = string | { column: Column; fallback?: string } | { sql: string }
 
 The zone is one of:
 
-- a name or an offset, `'Europe/Kyiv'`, `'UTC'`, `'+02:00'`, written as an **escaped** string literal: a zone taken from a request can't close the literal, unlike `AT TIME ZONE '${timezone}'` in a template string;
+- a name or an offset, `'Europe/Kyiv'`, `'UTC'`, `'+02:00'`, written as an **escaped** string literal. An offset is UTC+2 for `'+02:00'`, as in ISO 8601: PostgreSQL reads a bare `'+02:00'` as a POSIX zone, UTC−2, so it is written as `'<+0200>-02:00'`, the POSIX zone of UTC+2. Offsets stored in a `column` reach PostgreSQL as they are. The literal is escaped: a zone taken from a request can't close the literal, unlike `AT TIME ZONE '${timezone}'` in a template string;
 - a column of the helper's table, `{ column: 'timezone' }`, with `fallback` for rows where it is `NULL`: `COALESCE("venue"."timezone", 'UTC')`;
 - an SQL expression, `{ sql: venue.column('timezone') }`.
 

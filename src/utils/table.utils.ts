@@ -104,7 +104,7 @@ function aggregateOrder<T>(method: string, orderBy: AggregateOrder<T>, toSql: (c
 export type TableHelperExpression<T> = ColumnName<T> | { sql: string };
 
 /**
- * A time zone: a name or an offset (`'Europe/Kyiv'`, `'UTC'`, `'+02:00'`), written into the SQL as an escaped string
+ * A time zone: a name or an ISO 8601 offset (`'Europe/Kyiv'`, `'UTC'`, `'+02:00'` = UTC+2), written into the SQL as an escaped string
  * literal; a column of the helper's table, `{ column: 'timezone' }`, with an optional `fallback` zone for `NULL`;
  * or an SQL expression, `{ sql: services.column('timezone') }`.
  */
@@ -158,7 +158,7 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 			throw new TypeError(`tableHelper.${method}(): the time zone is empty`);
 		}
 
-		return sqlString(timeZone);
+		return sqlString(toPostgresZone(timeZone));
 	}
 
 	if ('sql' in timeZone) {
@@ -167,7 +167,27 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 
 	const column = toColumn(timeZone.column);
 
-	return timeZone.fallback === undefined ? column : `COALESCE(${column}, ${sqlString(timeZone.fallback)})`;
+	return timeZone.fallback === undefined
+		? column
+		: `COALESCE(${column}, ${sqlString(toPostgresZone(timeZone.fallback))})`;
+}
+
+const ISO_OFFSET = /^([+-])(\d{2}):?(\d{2})?$/;
+
+/**
+ * PostgreSQL reads `'+02:00'` as a POSIX zone, whose offsets count west: UTC−2. An ISO 8601 offset is
+ * written as the POSIX zone of the same offset, `'<+0200>-02:00'`, so `'+02:00'` is UTC+2 as everywhere else.
+ */
+function toPostgresZone(timeZone: string): string {
+	const offset = ISO_OFFSET.exec(timeZone.trim());
+
+	if (offset === null) {
+		return timeZone;
+	}
+
+	const [, sign, hours, minutes = '00'] = offset;
+
+	return `<${sign}${hours}${minutes}>${sign === '+' ? '-' : '+'}${hours}:${minutes}`;
 }
 
 /** The JSON functions of a database: PostgreSQL's unless the driver is MySQL / MariaDB or SQLite. */
