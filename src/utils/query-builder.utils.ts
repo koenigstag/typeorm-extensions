@@ -180,6 +180,15 @@ function resolveTypedKey(
     throw createKeyTooDeepError(keys);
   }
 
+  const column = resolved.column ?? resolved.metadata?.findColumnWithPropertyPath(resolved.propertyPath);
+
+  // a @CalculatedColumn: TypeORM would write "alias"."property", a column the table doesn't have
+  if (column?.isVirtualProperty && !column.query) {
+    throw new TypeError(
+      `${keys.join('.')} is a @CalculatedColumn, not a column of the table: use the SQL expression that fills it`
+    );
+  }
+
   return resolved;
 }
 

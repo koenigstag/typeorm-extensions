@@ -57,6 +57,7 @@ The selected value is converted by the column's type, as for `@Column`:
 - The value is read when the entity is **selected as a whole**: the alias, as `createQueryBuilder('user')`, `leftJoinAndSelect` and `getMany()` do. With `select(['user.id', 'user.name'])` it isn't put into the entity.
 - To **order** by it, order by the expression: `orderBy('(SELECT COUNT(*) …)', 'DESC')`.
 - `find()` options can't select it.
+- Typed methods (`whereTyped`, `orderByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it.
 
 ### TypeORM versions
 
