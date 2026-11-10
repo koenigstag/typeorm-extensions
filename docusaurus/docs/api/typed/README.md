@@ -28,6 +28,7 @@ Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see 
 - [orderByTyped](./orderByTyped): add typesafe order to a query.
 - [distinctOnTyped](./distinctOnTyped): add typesafe distinct on to a query (only PostgreSQL).
 - [groupByTyped](./groupByTyped): add typesafe GROUP BY to a query.
+- [havingTyped](./havingTyped): add a typesafe HAVING condition on an aggregate (`COUNT`, `SUM`, `MAX`, …) of a property.
 - [orderByArrayPositionTyped](./orderByArrayPositionTyped): order by the position of a property's value in an array (only PostgreSQL).
 - [returningTyped](./returningTyped): return typesafe columns from INSERT / UPDATE / DELETE (PostgreSQL, MariaDB, SQL Server).
 

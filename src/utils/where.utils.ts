@@ -1,5 +1,5 @@
 import type { ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
-import type { WhereMethods } from '../types/extensions/where.types';
+import type { HavingMethods, WhereMethods } from '../types/extensions/where.types';
 import { createUniqueParameterName } from './sql.utils';
 import { toFieldSql } from './query-builder.utils';
 
@@ -79,9 +79,16 @@ function assertSingleValueParams(field: string, params: unknown): void {
   }
 }
 
+/** The builder's `where` / `having` method, bound to it: only a SelectQueryBuilder has `having`. */
+function addCondition<QB extends WhereExpressionBuilder>(builder: QB, method: WhereMethods | HavingMethods) {
+  const add = (builder as unknown as Record<WhereMethods | HavingMethods, (condition: string, parameters?: ObjectLiteral) => QB>)[method];
+
+  return (condition: string, parameters?: ObjectLiteral): QB => add.call(builder, condition, parameters);
+}
+
 export function attachWhere<QB extends WhereExpressionBuilder>(
   builder: QB,
-  method: WhereMethods,
+  method: WhereMethods | HavingMethods,
   field: string,
   conditions: string,
   params?: unknown,
@@ -119,12 +126,9 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
 
       const valuePlaceholder = getValuePlaceholder(firstValue, paramName);
 
-      return builder[method](
-        `${field} ${conditions} ${valuePlaceholder}`,
-        queryParams
-      );
+      return addCondition(builder, method)(`${field} ${conditions} ${valuePlaceholder}`, queryParams);
     } else {
-      return builder[method](`${field} ${conditions}`, params as ObjectLiteral);
+      return addCondition(builder, method)(`${field} ${conditions}`, params as ObjectLiteral);
     }
   }
 
