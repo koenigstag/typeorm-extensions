@@ -111,3 +111,32 @@ setupTest('getRawManyWithTotals', undefined, (context) => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(250);
   });
 });
+
+setupTest('getManyWithTotals / getRawManyWithTotals with a cache id', { entities: [TicketEntity] as const, typeormOptions: { cache: true } }, (context) => {
+  const tickets = (cacheId: string) =>
+    context.dataSource.getRepository(TicketEntity).createQueryBuilder('t').cache(cacheId, 60_000).orderBy('t.id', 'ASC');
+
+  it('SHOULD read the page and the total from cache entries of their own', async () => {
+    await context.dataSource
+      .getRepository(TicketEntity)
+      .save(['open', 'open', 'done', 'open'].map((status) => new TicketEntity({ status, ownerId: 1 })));
+
+    const reads = [
+      () => tickets('entities').getManyWithTotals({ page: 1, pageSize: 2 }),
+      () => tickets('raw').select('t.id', 'id').getRawManyWithTotals({ page: 1, pageSize: 2 }),
+      () =>
+        tickets('raw-count-expression')
+          .select('t.id', 'id')
+          .getRawManyWithTotals({ page: 1, pageSize: 2 }, { countExpression: 'COUNT(*)' }),
+    ];
+
+    for (const read of reads) {
+      const first = await read();
+      const cached = await read();
+
+      expect(first).toMatchObject({ total: 4, hasMore: true });
+      expect(first.list).toHaveLength(2);
+      expect(cached).toEqual(first);
+    }
+  });
+});

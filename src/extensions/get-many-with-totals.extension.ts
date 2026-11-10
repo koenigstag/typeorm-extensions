@@ -90,8 +90,19 @@ function getManyWithTotals<Entity extends ObjectLiteral>(
   return readWithTotals<Entity, Entity>(builder, paginationFilter, options, {
     rows: (query) => query.getMany(),
     // on a clone: getCount writes to the expression map the page query reads
-    count: (query) => query.clone().getCount(),
+    count: (query) => cloneForCount(query).getCount(),
   });
+}
+
+/** A clone with a cache id of its own: under the page query's id each would read the other's cached rows. */
+function cloneForCount<Entity extends ObjectLiteral>(query: SelectQueryBuilder<Entity>): SelectQueryBuilder<Entity> {
+  const clone = query.clone();
+
+  if (clone.expressionMap.cacheId) {
+    clone.expressionMap.cacheId = `${clone.expressionMap.cacheId}-count`;
+  }
+
+  return clone;
 }
 
 function getRawManyWithTotals<Entity extends ObjectLiteral, Row>(
@@ -253,8 +264,7 @@ async function countRawRows<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   countExpression?: string
 ): Promise<number> {
-  const unpaged = builder
-    .clone()
+  const unpaged = cloneForCount(builder)
     .orderBy()
     .offset(undefined)
     .limit(undefined)
@@ -271,12 +281,14 @@ async function countRawRows<Entity extends ObjectLiteral>(
     counting = counter.getRawOne<CountRow>();
   } else {
     // on the builder's query runner, if it has one: inside its transaction
-    counting = builder.connection
+    const counter = builder.connection
       .createQueryBuilder(getQueryRunner(builder))
       .select('COUNT(*)', 'count')
       .from(`(${unpaged.getQuery()})`, 'counted')
-      .setParameters(unpaged.getParameters())
-      .getRawOne<CountRow>();
+      .setParameters(unpaged.getParameters());
+    const { cache, cacheId, cacheDuration } = unpaged.expressionMap;
+    Object.assign(counter.expressionMap, { cache, cacheId, cacheDuration });
+    counting = counter.getRawOne<CountRow>();
   }
 
   // COUNT is a bigint on PostgreSQL, which the driver hands over as a string
