@@ -17,6 +17,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Check the tag against the package version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME doesn't match the version $VERSION in package.json"
+            exit 1
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
@@ -35,5 +43,13 @@ jobs:
       - name: Build library
         run: npm run build
 
+      # a prerelease (2.2.0-rc.0) goes to the next dist-tag: latest stays on the last release, so only
+      # an explicit version or @next installs it
       - name: Publish to npm
-        run: npm publish --access public
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            npm publish --access public --tag next
+          else
+            npm publish --access public
+          fi
