@@ -6,11 +6,13 @@ sidebar_position: 1
 
 ## Description
 
-`tableHelper` builds SQL fragments for an entity: column references, conditions, joins, counts and JSONB accessors. Column names are checked against the entity type, so string parts of a query get the same type safety as typed methods.
+`tableHelper` builds SQL fragments for an entity: column references, conditions, joins, counts, sums, aggregates and JSONB accessors. Column names are checked against the entity type, so string parts of a query get the same type safety as typed methods.
 
 ```typescript
 import { tableHelper } from 'typeorm-extensions/helpers';
 ```
+
+The names are the entity's property names, written into the SQL as they are: the helper has no entity metadata, so a column renamed with `@Column({ name: 'amount_cents' })` has to be named that way, `t.column('amount_cents' as never)`, or selected with a typed method, which maps it.
 
 `typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
@@ -45,13 +47,17 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `count(column?, options?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
 | | `t.count()` | `CAST(COUNT(*) AS integer)` |
 | | `t.count('email', { distinct: true })` | `CAST(COUNT(DISTINCT "user"."email") AS integer)` |
+| `sum(column, options?)` | `image.sum('size')` | `COALESCE(SUM("images"."size"), 0)` |
+| `arrayAgg(column, options?)` | `image.arrayAgg('id')` | `COALESCE(array_agg("images"."id"), '{}')` |
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
 | `jsonColumn(column, operator, ...keys)` | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
 | `jsonPath(column, operator, ...keys)` | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
+| `jsonBuildObject(columns, options?)` | `image.jsonBuildObject(['id', 'url'])` | `json_build_object('id', "images"."id", 'url', "images"."url")` |
+| `jsonAgg(expression, options?)` | `image.jsonAgg(image.column('url'))` | `COALESCE(json_agg("images"."url"), CAST('[]' AS json))` |
 
 Notes:
 - Without an alias, `column()` returns just the column (`"email"`). `join()` needs an alias, the helper's or its `alias` argument; without one it throws a `TypeError`.
-- `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number. Its options are described in [Counting](#counting).
+- `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number. With `driver: 'mysql'` it casts `AS SIGNED`, since MySQL has no `AS integer`; that is a `BIGINT`, which TypeORM's MySQL driver returns as a string by default. Its options are described in [Counting](#counting).
 - `column()` returns a quoted expression, so `select(t.column('id'), 'id')` keeps its position in the select list, unlike `select('user.id')`, which TypeORM moves into entity column order. See [selectTyped › Column order](../typed/selectTyped.md#column-order).
 - `expression` in `where()` / `joinOn()` is inserted as is. Build the columns in it with `tableHelper` too, see [Composing helpers](#composing-helpers).
 
@@ -99,6 +105,40 @@ const stats = await userRepository
 With a `LEFT JOIN`, `COUNT(*)` also counts the row of a user without images. To count the joined rows, count a non-null column of the joined table: `image.count('id')`.
 
 `count()` throws a `TypeError` for `distinct` without a column, for an unknown `syntax`, and for a second argument that is not an options object.
+
+## Sums
+
+```typescript
+sum(column: NumberColumn<Entity>, options?: { filter?: string; syntax?: 'case' | 'filter' }): string
+```
+
+`COALESCE(SUM(column), 0)`: 0, not `NULL`, for a group without rows or a `LEFT JOIN` without a match. Only a column whose property is a `number` or a `bigint` compiles: `t.sum('email')` is a type error. `filter` and `syntax` work as for `count`.
+
+```typescript
+const order = tableHelper<OrderEntity>('order');
+
+order.sum('amountCents', { filter: order.where('status', "= 'paid'") })
+// COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
+```
+
+The result isn't cast: a sum outgrows `integer` sooner than a count. PostgreSQL sums integers into a `bigint` and MySQL into a `DECIMAL`, which the drivers return as strings; convert them, or select into a [`@CalculatedColumn`](../columns/calculatedColumn.md) of type `number`.
+
+## Arrays (PostgreSQL)
+
+```typescript
+arrayAgg(column: Column<Entity>, options?: { distinct?: boolean; orderBy?: Column | [Column, 'ASC' | 'DESC']; filter?: string }): string
+```
+
+The PostgreSQL array of a column over the rows of a group, `{}` for a group without rows:
+
+```typescript
+image.arrayAgg('id', { orderBy: ['id', 'DESC'], filter: image.isNotNull('id') })
+// COALESCE(array_agg("images"."id" ORDER BY "images"."id" DESC) FILTER (WHERE "images"."id" IS NOT NULL), '{}')
+```
+
+- **`filter`**: after a `LEFT JOIN` without a match, the array is `{NULL}` without it; filter on a non-null column of the joined table.
+- **`distinct`**: each value once. PostgreSQL then orders only by the aggregated column, so another `orderBy` throws a `TypeError`.
+- The driver returns a JavaScript array. MySQL and SQLite have no arrays: with their `driver` it throws a `TypeError`, use [`jsonAgg`](#json-objects-and-arrays) there.
 
 ## Composing helpers
 
@@ -177,7 +217,7 @@ Typed where methods go into JSON columns themselves (`user => user.metadata.sett
 
 - `operator` is applied to the last key: `->>` returns text, `->` returns JSON. Keys before the last one always use `->`.
 - Keys are inferred from the column's TypeScript type (autocomplete up to 4 levels deep). For untyped JSON columns any strings are accepted.
-- Keys are escaped as SQL string literals (`o'brien` → `'o''brien'`), so a key can't break out of the literal.
+- Keys are escaped as SQL string literals (`o'brien` → `'o''brien'`, and on MySQL a backslash doubled, since it is an escape there), so a key can't break out of the literal.
 
 ```typescript
 type UserMetadata = {
@@ -192,6 +232,54 @@ t.jsonColumn('metadata', '->>', 'settings', 'theme') // "user"."metadata" -> 'se
 t.jsonColumn('metadata', '->', 'settings')           // "user"."metadata" -> 'settings'
 t.jsonPath('metadata', '->>', 'settings', 'theme')   // -> 'settings' ->> 'theme'
 ```
+
+## JSON objects and arrays
+
+`jsonBuildObject` builds a JSON object from columns, `jsonAgg` aggregates an expression over the rows of a group into a JSON array. Together they return a row with its related rows nested, in one query:
+
+```typescript
+const image = tableHelper<ImageEntity>('image', { driver: 'postgres' });
+
+const users = await userRepository
+  .createQueryBuilder('user')
+  .select('user.id', 'id')
+  .addSelect(
+    image.jsonAgg(image.jsonBuildObject({ imageId: 'id', src: 'url' }), {
+      orderBy: ['createdAt', 'DESC'],
+      filter: image.isNotNull('id'),
+    }),
+    'images'
+  )
+  .leftJoin('user.images', 'image')
+  .groupBy('user.id')
+  .getRawMany();
+
+// [{ id: 1, images: [{ imageId: 2, src: '…' }, { imageId: 1, src: '…' }] }, { id: 3, images: [] }]
+```
+
+```sql
+COALESCE(
+  json_agg(json_build_object('imageId', "image"."id", 'src', "image"."url") ORDER BY "image"."createdAt" DESC)
+    FILTER (WHERE "image"."id" IS NOT NULL),
+  CAST('[]' AS json)
+)
+```
+
+- **Columns are checked against the entity type**: the columns of `jsonBuildObject`, as a list (keys are the column names) or as a `{ key: column }` map, and the column of `orderBy`. Keys are escaped as SQL string literals.
+- **`[]` for a group without rows**: `jsonAgg` wraps the aggregate in `COALESCE(…, [])`, since an aggregate over no rows is `NULL`.
+- **`filter`** aggregates only the matching rows. After a LEFT JOIN without a match the row has `NULL` columns, which would otherwise come out as `[{"imageId": null, "src": null}]`: filter on a non-null column of the joined table, `image.isNotNull('id')`.
+- **`orderBy`** orders the array by a column of the helper's table: `'createdAt'` or `['createdAt', 'DESC']`.
+- **`jsonb: true`** uses `jsonb_build_object` / `jsonb_agg` (PostgreSQL).
+
+The functions follow the helper's `driver` option:
+
+| Database | Object | Array | Notes |
+|---|---|---|---|
+| PostgreSQL, CockroachDB (default) | `json_build_object` / `jsonb_build_object` | `json_agg` / `jsonb_agg` | parsed by the driver |
+| MySQL / MariaDB | `JSON_OBJECT` | `JSON_ARRAYAGG` | no `orderBy`, `filter` or `jsonb`: they throw a `TypeError` |
+| SQLite | `json_object` | `json_group_array` | returned as text: `JSON.parse` it; `orderBy` needs SQLite 3.44+ |
+
+Another `driver` (`mssql`, `oracle`, …) throws a `TypeError`: those databases have JSON functions of their own.
 
 ## Usage
 

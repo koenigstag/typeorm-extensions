@@ -64,7 +64,7 @@ query
   .andWhereTyped(user => user.metadata.loginCount, '>=', 10)
 ```
 
-Select, order and distinct take columns: for a JSON value there, use [tableHelper](/docs/api/utils/tableHelper#jsonb).
+Select, order, distinct and group by take columns: for a JSON value there, use [tableHelper](/docs/api/utils/tableHelper#jsonb).
 
 ```typescript
 import { tableHelper } from 'typeorm-extensions';

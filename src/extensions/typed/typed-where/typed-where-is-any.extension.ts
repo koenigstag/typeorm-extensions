@@ -12,6 +12,7 @@ import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { WhereAnyMethods } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -24,7 +25,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * calling this function will override previously set WHERE conditions.
    */
   whereIsAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -33,7 +34,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
    */
   andWhereIsAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -42,7 +43,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
    */
   orWhereIsAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -54,7 +55,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * calling this function will override previously set WHERE conditions.
    */
   whereIsNotAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -63,7 +64,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
    */
   andWhereIsNotAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -72,7 +73,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
    */
   orWhereIsNotAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -99,7 +100,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 // patching
 
 const createWhereIsAnyTypedMethod = (method: WhereAnyMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     array?: ArgsType,

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { ImageEntity } from './image.entity';
 import type { Json } from 'typeorm-extensions/types/modules/proxy-callback.types';
+import { CalculatedColumn } from 'typeorm-extensions/decorators/calculated-column.decorator';
 import { dateColumn } from '../constants/columns';
 
 export type UserMetadata = {
@@ -77,4 +78,17 @@ export class UserEntity {
   })
   @JoinColumn({ name: 'id', referencedColumnName: 'userId' })
   public images?: ImageEntity[];
+
+  // filled by addSelectCalculated, no columns of the table
+  @CalculatedColumn()
+  public imagesCount?: number;
+
+  @CalculatedColumn('varchar')
+  public latestImageUrl?: string | null;
+
+  @CalculatedColumn()
+  public averageImageId?: number;
+
+  @CalculatedColumn()
+  public hasImages?: boolean;
 }

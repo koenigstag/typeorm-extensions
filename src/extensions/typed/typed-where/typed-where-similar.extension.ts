@@ -16,6 +16,7 @@ import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { createUniqueParameterName } from '../../../utils/sql.utils';
 import { toSearchTerm } from '../../../utils/search.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -31,7 +32,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereSimilarTyped<Type extends ObjectLiteral = Entity>(
+  whereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -41,7 +42,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column % :term` condition in the query builder (PostgreSQL, pg_trgm).
    * A blank term adds no condition.
    */
-  andWhereSimilarTyped<Type extends ObjectLiteral = Entity>(
+  andWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -51,7 +52,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column % :term` condition in the query builder (PostgreSQL, pg_trgm).
    * A blank term adds no condition.
    */
-  orWhereSimilarTyped<Type extends ObjectLiteral = Entity>(
+  orWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -67,7 +68,7 @@ export interface TypedSimilarityScoreMethods<Entity extends ObjectLiteral> {
    * (`word_similarity(:term, column)`, the score of `column %> :term`).
    * Use a lower-case alias: PostgreSQL folds an unquoted alias in ORDER BY.
    */
-  addSimilarityScoreTyped<Type extends ObjectLiteral = Entity>(
+  addSimilarityScoreTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     alias: string,
@@ -100,7 +101,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 const TRIGRAM_OPERATORS: ReadonlyArray<TrigramOperator> = ['%', '%>', '<%'];
 
 const createWhereSimilarTypedMethod = (method: WhereMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
@@ -147,7 +148,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
 
 const scoreExtension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
-    addSimilarityScoreTyped: function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+    addSimilarityScoreTyped: function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
       term: string | null | undefined,
