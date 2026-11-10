@@ -68,7 +68,9 @@ function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefi
 	return { mysql, object: `${type}_build_object`, agg: `${type}_agg`, emptyArray: `CAST('[]' AS ${type})` };
 }
 
-const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
+// MySQL reads a backslash in a string as an escape (unless NO_BACKSLASH_ESCAPES): `\'` would end the literal
+const sqlString = (value: string, driver?: DatabaseType) =>
+	`'${(isMysqlLikeDriver(driver) ? value.replace(/\\/g, '\\\\') : value).replace(/'/g, "''")}'`;
 
 export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
 	? JsonFieldTuple<NonNullable<V>>
@@ -200,7 +202,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 			throw new TypeError('tableHelper.jsonBuildObject() needs at least one column');
 		}
 
-		const pairs = entries.map(([key, column]) => `${sqlString(key)}, ${this.column(column)}`);
+		const pairs = entries.map(([key, column]) => `${sqlString(key, options.driver)}, ${this.column(column)}`);
 
 		return `${jsonFunctions(options.driver, jsonOptions.jsonb).object}(${pairs.join(', ')})`;
 	},

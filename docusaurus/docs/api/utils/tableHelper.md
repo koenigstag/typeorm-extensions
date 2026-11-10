@@ -179,7 +179,7 @@ Typed where methods go into JSON columns themselves (`user => user.metadata.sett
 
 - `operator` is applied to the last key: `->>` returns text, `->` returns JSON. Keys before the last one always use `->`.
 - Keys are inferred from the column's TypeScript type (autocomplete up to 4 levels deep). For untyped JSON columns any strings are accepted.
-- Keys are escaped as SQL string literals (`o'brien` → `'o''brien'`), so a key can't break out of the literal.
+- Keys are escaped as SQL string literals (`o'brien` → `'o''brien'`, and on MySQL a backslash doubled, since it is an escape there), so a key can't break out of the literal.
 
 ```typescript
 type UserMetadata = {
