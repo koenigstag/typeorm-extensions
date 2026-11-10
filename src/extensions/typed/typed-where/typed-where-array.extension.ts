@@ -11,6 +11,7 @@ import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { ArgsType } from '../../../types/util-types';
 import type { WhereArrayMethods } from '../../where-array.extension';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -24,7 +25,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereArrayContainsTyped<Type extends ObjectLiteral = Entity>(
+  whereArrayContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -33,7 +34,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column @> :values` condition (PostgreSQL): the array column contains every value.
    */
-  andWhereArrayContainsTyped<Type extends ObjectLiteral = Entity>(
+  andWhereArrayContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -42,7 +43,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column @> :values` condition (PostgreSQL): the array column contains every value.
    */
-  orWhereArrayContainsTyped<Type extends ObjectLiteral = Entity>(
+  orWhereArrayContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -53,7 +54,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereArrayContainedByTyped<Type extends ObjectLiteral = Entity>(
+  whereArrayContainedByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -62,7 +63,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column <@ :values` condition (PostgreSQL): every element of the array column is one of the values.
    */
-  andWhereArrayContainedByTyped<Type extends ObjectLiteral = Entity>(
+  andWhereArrayContainedByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -71,7 +72,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column <@ :values` condition (PostgreSQL): every element of the array column is one of the values.
    */
-  orWhereArrayContainedByTyped<Type extends ObjectLiteral = Entity>(
+  orWhereArrayContainedByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -82,7 +83,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereArrayOverlapsTyped<Type extends ObjectLiteral = Entity>(
+  whereArrayOverlapsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -91,7 +92,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column && :values` condition (PostgreSQL): the array column has at least one of the values.
    */
-  andWhereArrayOverlapsTyped<Type extends ObjectLiteral = Entity>(
+  andWhereArrayOverlapsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -100,7 +101,7 @@ export interface TypedWhereArrayMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column && :values` condition (PostgreSQL): the array column has at least one of the values.
    */
-  orWhereArrayOverlapsTyped<Type extends ObjectLiteral = Entity>(
+  orWhereArrayOverlapsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -128,7 +129,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 // patching
 
 const createWhereArrayTypedMethod = (method: keyof WhereArrayMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,

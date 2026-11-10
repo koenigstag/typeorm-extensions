@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`typed<Root>()`** sets the root of the typed callbacks once for a query, instead of passing it to each call (`whereTyped<Joins>(…)`): `query.typed<{ checkin: CheckIn; event: Event }>().whereTyped((q) => q.event.eventType, '=', type)`. Type-only; the root carries through the chain, TypeORM's methods included, and `getMany()` still returns the entities. With `strictParams` the parameters of these calls are checked, which an explicit type argument turns off. The typed methods' default root is `TypedRoot<Entity>`: the entity, unless `typed()` set another.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.

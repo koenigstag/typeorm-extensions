@@ -6,6 +6,7 @@ import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { attachOrderByArrayPosition } from '../../../utils/order.utils';
 import type { ArgsType } from '../../../types/util-types';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -15,7 +16,7 @@ export interface TypedOrderByArrayPositionMethods<Entity extends ObjectLiteral> 
    * `array_position(:values, column)`. Rows whose value isn't in `values` come last.
    * Like `orderBy`, it replaces the previous ORDER BY. See `orderByArrayPosition`.
    */
-  orderByArrayPositionTyped<Type extends ObjectLiteral = Entity>(
+  orderByArrayPositionTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -24,7 +25,7 @@ export interface TypedOrderByArrayPositionMethods<Entity extends ObjectLiteral> 
   /**
    * Adds ORDER BY the position of the property's column value in `values` (PostgreSQL), like `addOrderBy`.
    */
-  addOrderByArrayPositionTyped<Type extends ObjectLiteral = Entity>(
+  addOrderByArrayPositionTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -40,7 +41,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 // patching
 
 const createOrderByArrayPositionTypedMethod = (replace: boolean) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
