@@ -23,7 +23,7 @@ if (!updated) throw new Error('not found');
 `queryReturning` reads both halves from TypeORM's structured result, which every driver fills the same way:
 
 - `records`: the rows of a SELECT or of a `RETURNING` clause, `[]` when there are none;
-- `affected`: the row count the driver reports, `null` when it reports none. SQLite reports none for a statement that returns rows.
+- `affected`: the row count the driver reports, `null` when it reports none. The shape is the same everywhere, the count is the driver's: PostgreSQL counts the rows of a SELECT too, MySQL and `better-sqlite3` report none for it, `better-sqlite3` none for a statement that returns rows, and `sqljs` reports the count of the last write even after a SELECT. Count the rows of `records` where that matters.
 
 TypeORM 0.3's runner of the `sqlite` (sqlite3) driver reads no rows from a statement that starts with `INSERT`, `UPDATE` or `DELETE`, so its `RETURNING` rows were lost; `queryReturning` sends such a statement after a line break, which the runner reads rows from.
 
