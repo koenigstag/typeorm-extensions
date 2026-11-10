@@ -209,22 +209,32 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
 }
 
 /**
- * Both results, or the first error once both queries have settled. `Promise.all` would reject as soon as
+ * Both results, or the first error once both queries have settled. `Promise.all` alone would reject as soon as
  * one fails, while the other still runs on its own connection: the call would return with a query in flight,
  * whose outcome nobody reads. When both fail, the count's error is thrown, being the first query started.
  */
 async function bothOrFirstError<A, B>(first: Promise<A>, second: Promise<B>): Promise<[A, B]> {
-  const [a, b] = await Promise.allSettled([first, second]);
+  const [a, b] = await Promise.all([settle(first), settle(second)]);
 
-  if (a.status === 'rejected') {
+  if (!a.fulfilled) {
     throw a.reason;
   }
 
-  if (b.status === 'rejected') {
+  if (!b.fulfilled) {
     throw b.reason;
   }
 
   return [a.value, b.value];
+}
+
+type Settled<T> = { fulfilled: true; value: T } | { fulfilled: false; reason: unknown };
+
+// Promise.allSettled is ES2020, past the ES2019 target of the build
+function settle<T>(promise: Promise<T>): Promise<Settled<T>> {
+  return promise.then(
+    (value) => ({ fulfilled: true as const, value }),
+    (reason: unknown) => ({ fulfilled: false as const, reason })
+  );
 }
 
 function getQueryRunner<Entity extends ObjectLiteral>(
