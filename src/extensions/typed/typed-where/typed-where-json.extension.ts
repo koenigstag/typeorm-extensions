@@ -10,6 +10,7 @@ import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/pr
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import type { WhereJsonMethods } from '../../where-json.extension';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -23,7 +24,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereJsonContainsTyped<Type extends ObjectLiteral = Entity>(
+  whereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -31,7 +32,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column @> :value` condition (PostgreSQL): the JSON document contains `value`.
    */
-  andWhereJsonContainsTyped<Type extends ObjectLiteral = Entity>(
+  andWhereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -39,7 +40,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column @> :value` condition (PostgreSQL): the JSON document contains `value`.
    */
-  orWhereJsonContainsTyped<Type extends ObjectLiteral = Entity>(
+  orWhereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -49,7 +50,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereJsonHasKeyTyped<Type extends ObjectLiteral = Entity>(
+  whereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     key: string
   ): this;
@@ -57,7 +58,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column ? :key` condition (PostgreSQL): the JSON object has the top-level key.
    */
-  andWhereJsonHasKeyTyped<Type extends ObjectLiteral = Entity>(
+  andWhereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     key: string
   ): this;
@@ -65,7 +66,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column ? :key` condition (PostgreSQL): the JSON object has the top-level key.
    */
-  orWhereJsonHasKeyTyped<Type extends ObjectLiteral = Entity>(
+  orWhereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     key: string
   ): this;
@@ -92,7 +93,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 // patching
 
 const createWhereJsonTypedMethod = (method: keyof WhereJsonMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown

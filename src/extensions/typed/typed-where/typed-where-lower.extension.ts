@@ -10,6 +10,7 @@ import type { WhereMethods } from '../../../types/extensions/where.types';
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { createUniqueParameterName } from '../../../utils/sql.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -24,7 +25,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereLowerEqualsTyped<Type extends ObjectLiteral = Entity>(
+  whereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedLowerOptions
@@ -34,7 +35,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `LOWER(column) = LOWER(:value)` condition in the query builder.
    * `null` / `undefined` matches nothing (`FALSE`).
    */
-  andWhereLowerEqualsTyped<Type extends ObjectLiteral = Entity>(
+  andWhereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedLowerOptions
@@ -44,7 +45,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `LOWER(column) = LOWER(:value)` condition in the query builder.
    * `null` / `undefined` matches nothing (`FALSE`).
    */
-  orWhereLowerEqualsTyped<Type extends ObjectLiteral = Entity>(
+  orWhereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedLowerOptions
@@ -56,7 +57,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereIsInLowerTyped<Type extends ObjectLiteral = Entity>(
+  whereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ReadonlyArray<string> | null | undefined,
     options?: TypedLowerOptions
@@ -66,7 +67,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `LOWER(column) IN (LOWER(:v1), LOWER(:v2), …)` condition in the query builder.
    * An empty or missing array matches nothing (`FALSE`).
    */
-  andWhereIsInLowerTyped<Type extends ObjectLiteral = Entity>(
+  andWhereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ReadonlyArray<string> | null | undefined,
     options?: TypedLowerOptions
@@ -76,7 +77,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `LOWER(column) IN (LOWER(:v1), LOWER(:v2), …)` condition in the query builder.
    * An empty or missing array matches nothing (`FALSE`).
    */
-  orWhereIsInLowerTyped<Type extends ObjectLiteral = Entity>(
+  orWhereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ReadonlyArray<string> | null | undefined,
     options?: TypedLowerOptions
@@ -104,7 +105,7 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
 // patching
 
 const createWhereLowerEqualsTypedMethod = (method: WhereMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
@@ -131,7 +132,7 @@ const createWhereLowerEqualsTypedMethod = (method: WhereMethods) =>
   };
 
 const createWhereIsInLowerTypedMethod = (method: WhereMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ReadonlyArray<string> | null | undefined,
