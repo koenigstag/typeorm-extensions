@@ -7,6 +7,17 @@ export type GetManyWithTotalsOptions = ApplyPaginationOptions & {
   loadAll?: boolean;
 };
 
+/** Options of `getRawManyWithTotals`. Raw rows are paged with LIMIT / OFFSET, so there is no `useTakeAndSkip`. */
+export type GetRawManyWithTotalsOptions = Omit<GetManyWithTotalsOptions, 'useTakeAndSkip'> & {
+  /**
+   * An expression that counts the rows of the query by itself, such as `COUNT(DISTINCT "order"."user_id")`
+   * for a query grouped by `"order"."user_id"`: cheaper than counting the query as a subquery.
+   * It replaces the select list, and GROUP BY, HAVING and DISTINCT are dropped: it can't count a query with HAVING,
+   * and counts a DISTINCT query only when it is a `COUNT(DISTINCT …)` itself.
+   */
+  countExpression?: string;
+};
+
 export interface ListWithTotals<Entity> {
   list: Entity[];
   total: number | null;
