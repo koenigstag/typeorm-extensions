@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`havingTyped` / `andHavingTyped` / `orHavingTyped`**: HAVING on an aggregate of a typed property, `havingTyped('COUNT', u => u.images.id, '>=', 2)`. `COUNT`, `COUNT DISTINCT`, `SUM`, `AVG`, `MIN`, `MAX`, and `'*'` for `COUNT(*)`. Parameters as in `whereTyped`; with `strictParams` the value is a number for counts, sums and averages and the column's value for `MIN` / `MAX`.
+- **`havingTyped` / `andHavingTyped` / `orHavingTyped`**: HAVING on an aggregate of a typed property, `havingTyped('COUNT', u => u.images.id, '>=', 2)`. `COUNT`, `COUNT DISTINCT`, `SUM`, `AVG`, `MIN`, `MAX`, and `'*'` for `COUNT(*)`. Parameters as in `whereTyped`; with `strictParams` the value is a number for counts, sums and averages and the column's value for `MIN` / `MAX`. The callback starts at the root set with `typed<Root>()`, else at the entity.
 
 ## [2.2.0] - 2026-11-10
 

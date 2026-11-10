@@ -7,8 +7,9 @@ import type { TypedWhereOptions } from '../../../types/extensions/typed-where.ty
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { attachWhere, isParamsObject } from '../../../utils/where.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
-type Selection<Entity extends ObjectLiteral, Type, Value> = (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value;
+type Selection<Entity extends ObjectLiteral, Type, Value> = (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value;
 
 /** `'*'`, all the rows, only for COUNT. */
 type CountAll<Aggregate> = Aggregate extends 'COUNT' ? '*' : never;
