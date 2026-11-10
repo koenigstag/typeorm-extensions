@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`groupByTyped` / `addGroupByTyped`**: GROUP BY with typed callbacks on `SelectQueryBuilder`. One callback may select several columns (`user => [user.id, user.email]`), and columns of joined relations work too. Like `orderByTyped`, the key is `alias.property`, which TypeORM maps to the column, or with `useQuotes` the quoted database column, which a subquery in FROM needs. A path into a JSON column throws a `TypeError`, as in select, order and distinct.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
