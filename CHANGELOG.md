@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`queryReturning` on `DataSource`, `EntityManager` and `Repository`**: runs a raw statement and resolves `{ records, affected }`, the same shape for every statement and driver. `query()` shapes its result by the command: on PostgreSQL an UPDATE or a DELETE resolves to `[rows, rowCount]` while a SELECT or an INSERT resolves to the rows, so taking the first element of an UPDATE … RETURNING yields the rows array instead of a row. On a manager bound to a query runner the statement runs on it, inside its transaction.
+- **`queryReturning` on `DataSource`, `EntityManager` and `Repository`**: runs a raw statement and resolves `{ records, affected }`, the same shape for every statement and driver. `query()` shapes its result by the command: on PostgreSQL an UPDATE or a DELETE resolves to `[rows, rowCount]` while a SELECT or an INSERT resolves to the rows, so taking the first element of an UPDATE … RETURNING yields the rows array instead of a row. On a manager bound to a query runner the statement runs on it, inside its transaction. On TypeORM 0.3's sqlite3 driver, whose runner reads no rows from an INSERT, UPDATE or DELETE, the `RETURNING` rows are read too.
 
 ## [2.2.0] - 2026-11-10
 

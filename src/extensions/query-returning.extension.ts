@@ -77,6 +77,8 @@ patchPrototype(DataSource, {
 
 // implementation
 
+const WRITE_RETURNING = /^(?:INSERT|UPDATE|DELETE)\s[\s\S]*\bRETURNING\b/i;
+
 async function queryReturning<Row>(
   manager: EntityManager,
   query: string,
@@ -88,8 +90,12 @@ async function queryReturning<Row>(
     (manager as EntityManager & { dataSource?: DataSource }).dataSource ?? manager.connection;
   const queryRunner = boundQueryRunner ?? dataSource.createQueryRunner();
 
+  // TypeORM's runner of the sqlite3 driver runs a statement that starts with `INSERT ` / `UPDATE ` /
+  // `DELETE ` without reading rows, which drops a RETURNING; after a line break it reads them
+  const sql = dataSource.options.type === 'sqlite' && WRITE_RETURNING.test(query) ? `\n${query}` : query;
+
   try {
-    const result = await queryRunner.query(query, parameters, true);
+    const result = await queryRunner.query(sql, parameters, true);
 
     return { records: result.records ?? [], affected: result.affected ?? null };
   } finally {

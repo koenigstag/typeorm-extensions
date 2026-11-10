@@ -25,6 +25,8 @@ if (!updated) throw new Error('not found');
 - `records`: the rows of a SELECT or of a `RETURNING` clause, `[]` when there are none;
 - `affected`: the row count the driver reports, `null` when it reports none. SQLite reports none for a statement that returns rows.
 
+TypeORM 0.3's runner of the `sqlite` (sqlite3) driver reads no rows from a statement that starts with `INSERT`, `UPDATE` or `DELETE`, so its `RETURNING` rows were lost; `queryReturning` sends such a statement after a line break, which the runner reads rows from.
+
 On an entity manager bound to a query runner — inside `dataSource.transaction`, or a transactional manager — the statement runs on that runner, so it stays in the transaction. Otherwise it gets a query runner of its own and releases it.
 
 Available on `DataSource`, `EntityManager` and `Repository`.
