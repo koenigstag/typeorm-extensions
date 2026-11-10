@@ -13,6 +13,9 @@ describe('tableHelper JSON SQL', () => {
     );
     expect(images('mysql').jsonBuildObject(['id'])).toBe('JSON_OBJECT(\'id\', `image`.`id`)');
     expect(images('better-sqlite3').jsonBuildObject(['id'])).toBe(`json_object('id', "image"."id")`);
+    // a backslash is an escape in MySQL strings: doubled there, so a key can't end its literal
+    expect(images('mysql').jsonBuildObject({ "a\\'b": 'id' })).toBe("JSON_OBJECT('a\\\\''b', `image`.`id`)");
+    expect(images().jsonBuildObject({ "a\\'b": 'id' })).toBe(`json_build_object('a\\''b', "image"."id")`);
   });
 
   it('SHOULD aggregate into an array, [] for a group without rows', () => {
@@ -69,6 +72,17 @@ setupTest('tableHelper JSON queries', undefined, (context) => {
       [1, [1, 2]],
       [2, [3, 4]],
     ]);
+  });
+
+  it('SHOULD keep a key with a backslash and a quote as it is', async () => {
+    await seed();
+
+    const key = "a\\', 'injected";
+    const rows = await imagesPerUser((image) => image.jsonAgg(image.jsonBuildObject({ [key]: 'id' })))
+      .andWhere('image.id IS NOT NULL')
+      .getRawMany();
+
+    expect(parse<Record<string, number>>(rows[0].images).map((object) => Object.keys(object))).toEqual([[key], [key]]);
   });
 
   // MySQL's JSON_ARRAYAGG has no ORDER BY and no FILTER
