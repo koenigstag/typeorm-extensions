@@ -30,6 +30,9 @@ describe('tableHelper JSON SQL', () => {
     expect(() => images('mysql').jsonBuildObject(['id'], { jsonb: true })).toThrow(TypeError);
     expect(() => images('mysql').jsonAgg('x', { orderBy: 'id' })).toThrow(TypeError);
     expect(() => images().jsonAgg('x', { orderBy: ['id', 'DESC; DROP TABLE images' as 'DESC'] })).toThrow(TypeError);
+    // no PostgreSQL SQL for a database that has other JSON functions
+    expect(() => images('mssql').jsonBuildObject(['id'])).toThrow(/the driver is "mssql"/);
+    expect(() => images('cockroachdb').jsonAgg('x')).not.toThrow();
   });
 });
 
