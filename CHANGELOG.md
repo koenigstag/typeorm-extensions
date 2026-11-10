@@ -5,6 +5,7 @@
 ### New Features
 
 - **`@CalculatedColumn` and `addSelectCalculated`**: an entity property that a query fills with an SQL expression of its own. The decorator declares no column of the table (schema sync leaves it out, it is never inserted or updated, and TypeORM never selects it by itself); `addSelectCalculated(expression or subquery, property, alias?)` selects into it under the key TypeORM hydrates from, with the property checked against the entity type. The value is converted by the property's type, so a `number` turns a PostgreSQL `COUNT` into a number. Unlike TypeORM's `@VirtualColumn`, it costs nothing until a query asks for it.
+- **`orderByCalculated` / `addOrderByCalculated`**: order by the value of a `@CalculatedColumn` selected with `addSelectCalculated`, also with `take` / `skip` and joins. `applyOrder` does the same for a `field` that is a `@CalculatedColumn`, so a client can sort by it like by any column. The value is selected a second time under a generated `calculated_…` alias, which PostgreSQL and the DISTINCT query of a paged join can order by.
 
 ## [2.2.0] - 2026-11-10
 
