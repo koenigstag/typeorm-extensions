@@ -9,6 +9,7 @@ import { defaultUseTakeAndSkip } from '../constants';
 import type {
   ApplyPaginationOptions,
   GetManyWithTotalsOptions,
+  GetRawManyWithTotalsOptions,
   ListWithTotals,
 } from '../types/extensions';
 import type { OrderType } from '../types/interfaces/ordering.interface';
@@ -22,6 +23,17 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       paginationFilter: PaginationFilter,
       options?: GetManyWithTotalsOptions
     ): Promise<ListWithTotals<Entity>>;
+
+    /**
+     * `getManyWithTotals` for raw rows: the page comes from `getRawMany()`, paged with LIMIT / OFFSET.
+     * `total` is the number of rows the query returns without pagination, counted as a subquery,
+     * `SELECT COUNT(*) FROM (query)`, so GROUP BY, HAVING and DISTINCT count the way they page.
+     * `options.countExpression` counts with an expression of the query instead.
+     */
+    getRawManyWithTotals<Row = ObjectLiteral>(
+      paginationFilter: PaginationFilter,
+      options?: GetRawManyWithTotalsOptions
+    ): Promise<ListWithTotals<Row>>;
   }
 }
 
@@ -35,6 +47,13 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       options?: GetManyWithTotalsOptions
     ): Promise<ListWithTotals<Entity>> {
       return getManyWithTotals<Entity>(this, paginationFilter, options);
+    },
+    getRawManyWithTotals<Entity extends ObjectLiteral, Row = ObjectLiteral>(
+      this: SelectQueryBuilder<Entity>,
+      paginationFilter: PaginationFilter,
+      options?: GetRawManyWithTotalsOptions
+    ): Promise<ListWithTotals<Row>> {
+      return getRawManyWithTotals<Entity, Row>(this, paginationFilter, options);
     },
   },
 };
@@ -63,11 +82,49 @@ function canCountConcurrently<Entity extends ObjectLiteral>(
   return !queryBuilder.queryRunner;
 }
 
-async function getManyWithTotals<Entity extends ObjectLiteral>(
+function getManyWithTotals<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   paginationFilter: PaginationFilter,
   options?: GetManyWithTotalsOptions & ApplyPaginationOptions
 ): Promise<ListWithTotals<Entity>> {
+  return readWithTotals<Entity, Entity>(builder, paginationFilter, options, {
+    rows: (query) => query.getMany(),
+    // on a clone: getCount writes to the expression map the page query reads
+    count: (query) => query.clone().getCount(),
+  });
+}
+
+function getRawManyWithTotals<Entity extends ObjectLiteral, Row>(
+  builder: SelectQueryBuilder<Entity>,
+  paginationFilter: PaginationFilter,
+  options?: GetRawManyWithTotalsOptions
+): Promise<ListWithTotals<Row>> {
+  const { countExpression, ...totalsOptions } = options ?? {};
+
+  // take / skip page entities; raw rows are paged with LIMIT / OFFSET
+  return readWithTotals<Entity, Row>(
+    builder,
+    paginationFilter,
+    { ...totalsOptions, useTakeAndSkip: false },
+    {
+      rows: (query) => query.getRawMany<Row>(),
+      count: (query) => countRawRows(query, countExpression),
+    }
+  );
+}
+
+type RowsReader<Entity extends ObjectLiteral, Row> = {
+  rows(query: SelectQueryBuilder<Entity>): Promise<Row[]>;
+  /** Counts the rows of the query without pagination. Leaves the builder as it is. */
+  count(query: SelectQueryBuilder<Entity>): Promise<number>;
+};
+
+async function readWithTotals<Entity extends ObjectLiteral, Row>(
+  builder: SelectQueryBuilder<Entity>,
+  paginationFilter: PaginationFilter,
+  options: (GetManyWithTotalsOptions & ApplyPaginationOptions) | undefined,
+  read: RowsReader<Entity, Row>
+): Promise<ListWithTotals<Row>> {
   const {
     disableTotalsCalculation = false,
     loadAll = false,
@@ -81,9 +138,9 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
   // without a total, one row past the page is what tells whether more rows follow
   const probeForMore = disableTotalsCalculation && !loadAll && limit !== null;
 
-  const readPage = (): Promise<Entity[]> => {
+  const readPage = (): Promise<Row[]> => {
     if (loadAll) {
-      return builder.getMany();
+      return read.rows(builder);
     }
 
     const paged = builder.applyPaginationFilter(
@@ -103,20 +160,20 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
       }
     }
 
-    return paged.getMany();
+    return read.rows(paged);
   };
 
   let total: number | null = null;
-  let rows: Entity[];
+  let rows: Row[];
 
   if (disableTotalsCalculation) {
     rows = await readPage();
   } else if (canCountConcurrently(builder)) {
-    // the count goes on a clone, taken before readPage mutates the builder: the two queries would
-    // otherwise share one expression map, which each of them writes to
-    [total, rows] = await Promise.all([builder.clone().getCount(), readPage()]);
+    // the count clones the builder before readPage mutates it, so it has to start first: the two
+    // queries would otherwise share one expression map, which each of them writes to
+    [total, rows] = await Promise.all([read.count(builder), readPage()]);
   } else {
-    total = await builder.getCount();
+    total = await read.count(builder);
     rows = await readPage();
   }
 
@@ -149,4 +206,52 @@ async function getManyWithTotals<Entity extends ObjectLiteral>(
     hasMore,
     orderBy,
   };
+}
+
+function getQueryRunner<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>
+): QueryRunner | undefined {
+  return (builder as unknown as { queryRunner?: QueryRunner }).queryRunner;
+}
+
+/**
+ * Counts the rows of a raw query without its pagination and ORDER BY. The query goes into a
+ * subquery, so the count is that of its result rows whatever it groups or filters. A
+ * `countExpression` replaces the select list instead, without GROUP BY and HAVING.
+ * Builds the count query before its first `await`, so the builder may change afterwards.
+ */
+async function countRawRows<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  countExpression?: string
+): Promise<number> {
+  const unpaged = builder
+    .clone()
+    .orderBy()
+    .offset(undefined)
+    .limit(undefined)
+    .skip(undefined)
+    .take(undefined)
+    .setOption('disable-global-order');
+
+  type CountRow = { count: number | string };
+  let counting: Promise<CountRow | undefined>;
+
+  if (countExpression) {
+    const counter = unpaged.select(countExpression, 'count').groupBy();
+    counter.expressionMap.havings = [];
+    counting = counter.getRawOne<CountRow>();
+  } else {
+    // on the builder's query runner, if it has one: inside its transaction
+    counting = builder.connection
+      .createQueryBuilder(getQueryRunner(builder))
+      .select('COUNT(*)', 'count')
+      .from(`(${unpaged.getQuery()})`, 'counted')
+      .setParameters(unpaged.getParameters())
+      .getRawOne<CountRow>();
+  }
+
+  // COUNT is a bigint on PostgreSQL, which the driver hands over as a string
+  const row = await counting;
+
+  return Number(row?.count ?? 0);
 }

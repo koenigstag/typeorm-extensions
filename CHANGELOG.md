@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`getRawManyWithTotals`**: `getManyWithTotals` for raw rows, with the same result (`total`, `hasMore`, `orderBy`), concurrency and options except `useTakeAndSkip`: raw rows are paged with LIMIT / OFFSET. `total` counts the rows the query returns: the query is counted as a subquery, `SELECT COUNT(*) FROM (query)`, so a grouped query counts its groups and HAVING applies. `countExpression` counts with an expression instead (`COUNT(DISTINCT "order"."user_id")`), without GROUP BY and HAVING.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
