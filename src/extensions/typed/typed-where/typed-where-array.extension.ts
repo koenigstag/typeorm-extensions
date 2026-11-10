@@ -228,17 +228,19 @@ function attachWhereJsonArray<Type extends ObjectLiteral, QB extends WhereExpres
 
   const jsonArray = `CAST(${getTypedSingleColumnKey<Type>(builder, where, methodName, { accessor: 'json' })} AS jsonb)`;
   const paramName = createUniqueParameterName(whereMethod);
+  // a string or an object at the path isn't an array, but <@ and ?| would match it
+  const onArray = (condition: string) => `(jsonb_typeof(${jsonArray}) = 'array' AND ${condition})`;
 
   if (condition === 'Overlaps') {
     if (!values.every((value) => typeof value === 'string')) {
       throw new TypeError(`${methodName} on an array inside a JSON column takes strings: the ?| operator matches string elements`);
     }
 
-    return builder[whereMethod](`${jsonArray} ?| CAST(:${paramName} AS text[])`, { [paramName]: values });
+    return builder[whereMethod](onArray(`${jsonArray} ?| CAST(:${paramName} AS text[])`), { [paramName]: values });
   }
 
   return builder[whereMethod](
-    `${jsonArray} ${JSON_ARRAY_OPERATORS[condition]} CAST(:${paramName} AS jsonb)`,
+    onArray(`${jsonArray} ${JSON_ARRAY_OPERATORS[condition]} CAST(:${paramName} AS jsonb)`),
     { [paramName]: JSON.stringify(values) }
   );
 }

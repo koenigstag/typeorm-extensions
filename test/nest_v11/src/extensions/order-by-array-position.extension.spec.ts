@@ -145,4 +145,22 @@ setupTest('order-by-array-position.json.postgres', { entities: [ArticleEntity] }
     expect(byScore.map(({ title }) => title)).toEqual(['c', 'a', 'b']);
     expect(byScoreAsIntegers.map(({ title }) => title)).toEqual(['c', 'a', 'b']);
   });
+
+  it('SHOULD put a JSON value of another type last instead of failing its cast', async () => {
+    await context.dataSource.getRepository(ArticleEntity).save(
+      [
+        ['a', 1],
+        ['b', 2],
+        ['c', 'n/a'],
+      ].map(([title, score]) => new ArticleEntity({ title: title as string, tags: [], meta: { status: 'live', score: score as number } })),
+    );
+
+    const byScore = await context.dataSource
+      .getRepository(ArticleEntity)
+      .createQueryBuilder('a')
+      .orderByArrayPositionTyped((a) => a.meta.score, [2, 1])
+      .getMany();
+
+    expect(byScore.map(({ title }) => title)).toEqual(['b', 'a', 'c']);
+  });
 });

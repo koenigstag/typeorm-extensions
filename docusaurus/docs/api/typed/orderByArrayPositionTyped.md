@@ -11,7 +11,7 @@ sidebar_position: 6.5
 
 ### A value inside a JSON column
 
-A path into a JSON column (`a => a.meta.score`) is read as text and cast to the type of the values, as typed where methods do: a number is compared as a number, so a stored `3.0` takes the position of `3`. With `arrayType` the array is cast too (`'int[]'`); PostgreSQL 13+ compares `integer[]` with a `numeric` value.
+A path into a JSON column (`a => a.meta.score`) is read as text and cast to the type of the values, as typed where methods do: a number is compared as a number, so a stored `3.0` takes the position of `3`. A value of another JSON type, a `"n/a"` among numbers, isn't cast, which would fail: it goes last. With `arrayType` the array is cast too (`'int[]'`); PostgreSQL 13+ compares `integer[]` with a `numeric` value.
 
 ## Signature
 ```typescript

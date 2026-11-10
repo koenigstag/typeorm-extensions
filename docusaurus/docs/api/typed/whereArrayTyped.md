@@ -21,7 +21,7 @@ A path into a JSON column (`a => a.meta.flags`) is compared with jsonb operators
 | `whereArrayContainedByTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) <@ CAST(:values AS jsonb)` |
 | `whereArrayOverlapsTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) ?| CAST(:values AS text[])` |
 
-`?|` matches string elements, so the overlap takes strings only; `arrayType` is for array columns. Both throw a `TypeError` otherwise. `json`, `jsonb` and `simple-json` columns work alike. PostgreSQL only.
+Each condition also requires an array at the path, `jsonb_typeof(…) = 'array'`: jsonb reads a string `"x"` as contained by `["x", "y"]`, and `?|` looks at the keys of an object, so without it a string or an object would match. `?|` matches string elements, so the overlap takes strings only; `arrayType` is for array columns. Both throw a `TypeError` otherwise. `json`, `jsonb` and `simple-json` columns work alike. PostgreSQL only.
 
 ## Signature
 ```typescript

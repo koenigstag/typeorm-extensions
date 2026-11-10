@@ -251,6 +251,18 @@ setupTest('where-array.json.postgres', { entities: [ArticleEntity] }, (context) 
     expect(await titles((q) => q.whereArrayContainsTyped((a) => a.legacyMeta.flags, ['x']))).toEqual(['a', 'b']);
   });
 
+  it('SHOULD match arrays only, not a string or an object at the path', async () => {
+    await seed();
+    await context.dataSource.getRepository(ArticleEntity).save([
+      new ArticleEntity({ title: 'e', tags: [], meta: { status: 'live', flags: 'x' as never } }),
+      new ArticleEntity({ title: 'f', tags: [], meta: { status: 'live', flags: { x: 1 } as never } }),
+    ]);
+
+    // jsonb reads "x" <@ ["x", "y"] as true, and ?| looks at the keys of an object
+    expect(await titles((q) => q.whereArrayContainedByTyped((a) => a.meta.flags, ['x', 'y']))).toEqual(['a', 'b']);
+    expect(await titles((q) => q.whereArrayOverlapsTyped((a) => a.meta.flags, ['x']))).toEqual(['a', 'b']);
+  });
+
   it('SHOULD reject an overlap with other values than strings, and arrayType', () => {
     const query = context.dataSource.getRepository(ArticleEntity).createQueryBuilder('a');
 
