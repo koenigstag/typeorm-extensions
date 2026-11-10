@@ -22,6 +22,8 @@ applyOrder(
 - orderBy: [OrderParam&lt;Entity&gt;](../types/OrderParam): The order to apply to the query.
 - orderOptions?: [ApplyOrderOptions](../types/ApplyOrderOptions): Additional options to apply to the order filter.
 
+A `field` that is a [`@CalculatedColumn`](../columns/calculatedColumn.md#ordering) of the alias (`tableAlias`, `alias`, or the main one) is ordered by its value, as [`orderByCalculated`](../columns/calculatedColumn.md#ordering) does; select it with `addSelectCalculated` first, or it throws a `TypeError`.
+
 ## Usage
 
 ```typescript

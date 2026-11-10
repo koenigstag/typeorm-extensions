@@ -13,3 +13,9 @@ users.addSelectCalculated('COUNT(*)', 'imagesCount', 'owner');
 
 // @ts-expect-error not a property of the entity
 users.addSelectCalculated('COUNT(*)', 'imageCount');
+
+users.orderByCalculated('imagesCount', 'DESC').addOrderByCalculated('imagesCount');
+users.orderByCalculated('imagesCount', 'ASC', 'NULLS LAST', 'owner');
+
+// @ts-expect-error not a property of the entity
+users.orderByCalculated('imageCount');

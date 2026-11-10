@@ -60,7 +60,7 @@ For more information, please refer to the [documentation](https://koenigstag.git
 
 - [x] Add tests for pagination and order extensions
 - [x] Calculated columns: the `@CalculatedColumn` decorator and `addSelectCalculated`. `getMany`, `getOne` and `getManyWithTotals` fill them as they are, so they need no variants of their own
-- [ ] Order by a calculated column: `orderByCalculated`, and an option of `OrderParam` for `applyOrder`
+- [x] Order by a calculated column: `orderByCalculated`, and `applyOrder` orders a `@CalculatedColumn` field by its value
 
 ## License
 

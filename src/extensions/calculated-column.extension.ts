@@ -1,6 +1,6 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { DriverUtils } from 'typeorm/driver/DriverUtils';
 import { patchPrototype } from '../utils/prototype.utils';
+import { resolveCalculatedColumn, selectCalculatedForOrder } from '../utils/calculated-column.utils';
 
 /** `addSelect`'s selection: an SQL expression, or a factory that builds a subquery on the builder it is given. */
 export type CalculatedSelection<SubEntity extends ObjectLiteral = ObjectLiteral> =
@@ -29,6 +29,41 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       property: string,
       alias: string
     ): this;
+
+    /**
+     * Sets ORDER BY the value of a `@CalculatedColumn` property of the main alias's entity, selected
+     * with `addSelectCalculated` first. Replaces the previous ORDER BY, like `orderBy`.
+     *
+     * The value is selected a second time under a generated alias (`calculated_…`) and ordered by it,
+     * which also works with `take` / `skip` and joins; it shows up in `getRawMany()` results.
+     * Throws a `TypeError` if the property isn't a selected `@CalculatedColumn`.
+     */
+    orderByCalculated<K extends keyof Entity & string>(
+      property: K,
+      order?: 'ASC' | 'DESC',
+      nulls?: 'NULLS FIRST' | 'NULLS LAST'
+    ): this;
+    /** Sets ORDER BY a `@CalculatedColumn` property of the entity of another alias, e.g. a joined one. */
+    orderByCalculated(
+      property: string,
+      order: 'ASC' | 'DESC' | undefined,
+      nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined,
+      alias: string
+    ): this;
+
+    /** Adds ORDER BY the value of a `@CalculatedColumn` property, like `addOrderBy` (see `orderByCalculated`). */
+    addOrderByCalculated<K extends keyof Entity & string>(
+      property: K,
+      order?: 'ASC' | 'DESC',
+      nulls?: 'NULLS FIRST' | 'NULLS LAST'
+    ): this;
+    /** Adds ORDER BY a `@CalculatedColumn` property of the entity of another alias. */
+    addOrderByCalculated(
+      property: string,
+      order: 'ASC' | 'DESC' | undefined,
+      nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined,
+      alias: string
+    ): this;
   }
 }
 
@@ -44,6 +79,26 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
     ): SelectQueryBuilder<Entity> {
       return addSelectCalculated(this, selection, property, alias);
     },
+
+    orderByCalculated<Entity extends ObjectLiteral>(
+      this: SelectQueryBuilder<Entity>,
+      property: string,
+      order?: 'ASC' | 'DESC',
+      nulls?: 'NULLS FIRST' | 'NULLS LAST',
+      alias?: string
+    ): SelectQueryBuilder<Entity> {
+      return attachOrderByCalculated(this, 'orderBy', property, order, nulls, alias);
+    },
+
+    addOrderByCalculated<Entity extends ObjectLiteral>(
+      this: SelectQueryBuilder<Entity>,
+      property: string,
+      order?: 'ASC' | 'DESC',
+      nulls?: 'NULLS FIRST' | 'NULLS LAST',
+      alias?: string
+    ): SelectQueryBuilder<Entity> {
+      return attachOrderByCalculated(this, 'addOrderBy', property, order, nulls, alias);
+    },
   },
 };
 
@@ -57,30 +112,7 @@ function addSelectCalculated<Entity extends ObjectLiteral, SubEntity extends Obj
   property: string,
   aliasName?: string
 ): SelectQueryBuilder<Entity> {
-  const { expressionMap } = builder;
-  const alias =
-    aliasName === undefined
-      ? expressionMap.mainAlias
-      : expressionMap.aliases.find((candidate) => candidate.name === aliasName);
-
-  if (!alias?.hasMetadata) {
-    throw new TypeError(
-      `addSelectCalculated: the alias "${aliasName ?? alias?.name}" has no entity to select "${property}" into`
-    );
-  }
-
-  const column = alias.metadata.findColumnWithPropertyPath(property);
-
-  // @CalculatedColumn: a virtual property without the query of TypeORM's @VirtualColumn
-  if (!column?.isVirtualProperty || column.query) {
-    throw new TypeError(
-      `addSelectCalculated: ${alias.metadata.name}.${property} is not a @CalculatedColumn`
-    );
-  }
-
-  // the key TypeORM reads the column's value from when it builds the entity (shortened past the
-  // driver's alias length limit, as TypeORM does it)
-  const key = DriverUtils.buildAlias(builder.connection.driver, {}, alias.name, column.databaseName);
+  const { key } = resolveCalculatedColumn(builder, property, aliasName, 'addSelectCalculated');
 
   // two calls: addSelect's overloads take a string or a factory, not their union
   if (typeof selection === 'function') {
@@ -88,4 +120,17 @@ function addSelectCalculated<Entity extends ObjectLiteral, SubEntity extends Obj
   }
 
   return builder.addSelect(selection, key);
+}
+
+function attachOrderByCalculated<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  method: 'orderBy' | 'addOrderBy',
+  property: string,
+  order: 'ASC' | 'DESC' | undefined,
+  nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined,
+  aliasName: string | undefined
+): SelectQueryBuilder<Entity> {
+  const orderAlias = selectCalculatedForOrder(builder, property, aliasName, `${method}Calculated`);
+
+  return builder[method](orderAlias, order, nulls);
 }

@@ -14,6 +14,7 @@ import { tableHelper } from '../utils/table.utils';
 import { toSqlOrderDirection } from '../utils/order.utils';
 import { getColumnDatabaseName } from '../utils/query-builder.utils';
 import { getDriverType } from '../utils/sql.utils';
+import { isCalculatedColumn, selectCalculatedForOrder } from '../utils/calculated-column.utils';
 
 // declarations
 
@@ -96,6 +97,27 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
     otherTableAlias || customAlias ||
     (alwaysAliasFields.includes(field as string) ? defaultAlias : undefined);
 
+  const order =
+    typeof isReversed === 'boolean' && isNil(direction)
+      ? (isReversed ? 'DESC' : 'ASC')
+      : toSqlOrderDirection(direction);
+
+  const nulls =
+    typeof nullsOrder === 'string' && /first|last/i.test(nullsOrder)
+      ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
+      : defaultNullsOrder;
+
+  // a @CalculatedColumn has no column: order by its value, selected with addSelectCalculated
+  const calculatedAlias = alias ?? defaultAlias;
+
+  if (isCalculatedColumn(builder, field as string, calculatedAlias)) {
+    return {
+      selector: selectCalculatedForOrder(builder, field as string, calculatedAlias, 'applyOrder'),
+      order,
+      nulls,
+    };
+  }
+
   const table = tableHelper<OrderEntity>(alias, { useQuotes, driver: getDriverType(builder) });
 
   // TypeORM maps an unquoted `alias.property` to the column itself; anything else must name the
@@ -106,16 +128,6 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
       : getColumnDatabaseName(builder, alias, field as string) ?? field;
 
   const selector = table.column(column as keyof OrderEntity);
-
-  const order =
-    typeof isReversed === 'boolean' && isNil(direction)
-      ? (isReversed ? 'DESC' : 'ASC')
-      : toSqlOrderDirection(direction);
-
-  const nulls =
-    typeof nullsOrder === 'string' && /first|last/i.test(nullsOrder)
-      ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
-      : defaultNullsOrder;
 
   return {
     selector,
