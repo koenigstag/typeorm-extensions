@@ -6,11 +6,13 @@ sidebar_position: 1
 
 ## Description
 
-`tableHelper` builds SQL fragments for an entity: column references, conditions, joins, counts and JSONB accessors. Column names are checked against the entity type, so string parts of a query get the same type safety as typed methods.
+`tableHelper` builds SQL fragments for an entity: column references, conditions, joins, counts, sums, aggregates and JSONB accessors. Column names are checked against the entity type, so string parts of a query get the same type safety as typed methods.
 
 ```typescript
 import { tableHelper } from 'typeorm-extensions/helpers';
 ```
+
+The names are the entity's property names, written into the SQL as they are: the helper has no entity metadata, so a column renamed with `@Column({ name: 'amount_cents' })` has to be named that way, `t.column('amount_cents' as never)`, or selected with a typed method, which maps it.
 
 `typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
@@ -45,6 +47,8 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `count(column?, options?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
 | | `t.count()` | `CAST(COUNT(*) AS integer)` |
 | | `t.count('email', { distinct: true })` | `CAST(COUNT(DISTINCT "user"."email") AS integer)` |
+| `sum(column, options?)` | `image.sum('size')` | `COALESCE(SUM("images"."size"), 0)` |
+| `arrayAgg(column, options?)` | `image.arrayAgg('id')` | `COALESCE(array_agg("images"."id"), '{}')` |
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
 | `jsonColumn(column, operator, ...keys)` | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
 | `jsonPath(column, operator, ...keys)` | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
@@ -53,7 +57,7 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 
 Notes:
 - Without an alias, `column()` returns just the column (`"email"`). `join()` needs an alias, the helper's or its `alias` argument; without one it throws a `TypeError`.
-- `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number. Its options are described in [Counting](#counting).
+- `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number. With `driver: 'mysql'` it casts `AS SIGNED`, since MySQL has no `AS integer`; that is a `BIGINT`, which TypeORM's MySQL driver returns as a string by default. Its options are described in [Counting](#counting).
 - `column()` returns a quoted expression, so `select(t.column('id'), 'id')` keeps its position in the select list, unlike `select('user.id')`, which TypeORM moves into entity column order. See [selectTyped › Column order](../typed/selectTyped.md#column-order).
 - `expression` in `where()` / `joinOn()` is inserted as is. Build the columns in it with `tableHelper` too, see [Composing helpers](#composing-helpers).
 
@@ -101,6 +105,40 @@ const stats = await userRepository
 With a `LEFT JOIN`, `COUNT(*)` also counts the row of a user without images. To count the joined rows, count a non-null column of the joined table: `image.count('id')`.
 
 `count()` throws a `TypeError` for `distinct` without a column, for an unknown `syntax`, and for a second argument that is not an options object.
+
+## Sums
+
+```typescript
+sum(column: NumberColumn<Entity>, options?: { filter?: string; syntax?: 'case' | 'filter' }): string
+```
+
+`COALESCE(SUM(column), 0)`: 0, not `NULL`, for a group without rows or a `LEFT JOIN` without a match. Only a column whose property is a `number` or a `bigint` compiles: `t.sum('email')` is a type error. `filter` and `syntax` work as for `count`.
+
+```typescript
+const order = tableHelper<OrderEntity>('order');
+
+order.sum('amountCents', { filter: order.where('status', "= 'paid'") })
+// COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
+```
+
+The result isn't cast: a sum outgrows `integer` sooner than a count. PostgreSQL sums integers into a `bigint` and MySQL into a `DECIMAL`, which the drivers return as strings; convert them, or select into a [`@CalculatedColumn`](../columns/calculatedColumn.md) of type `number`.
+
+## Arrays (PostgreSQL)
+
+```typescript
+arrayAgg(column: Column<Entity>, options?: { distinct?: boolean; orderBy?: Column | [Column, 'ASC' | 'DESC']; filter?: string }): string
+```
+
+The PostgreSQL array of a column over the rows of a group, `{}` for a group without rows:
+
+```typescript
+image.arrayAgg('id', { orderBy: ['id', 'DESC'], filter: image.isNotNull('id') })
+// COALESCE(array_agg("images"."id" ORDER BY "images"."id" DESC) FILTER (WHERE "images"."id" IS NOT NULL), '{}')
+```
+
+- **`filter`**: after a `LEFT JOIN` without a match, the array is `{NULL}` without it; filter on a non-null column of the joined table.
+- **`distinct`**: each value once. PostgreSQL then orders only by the aggregated column, so another `orderBy` throws a `TypeError`.
+- The driver returns a JavaScript array. MySQL and SQLite have no arrays: with their `driver` it throws a `TypeError`, use [`jsonAgg`](#json-objects-and-arrays) there.
 
 ## Composing helpers
 

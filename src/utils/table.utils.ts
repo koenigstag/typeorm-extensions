@@ -38,13 +38,77 @@ type ColumnName<T> = keyof T & string;
 
 export type TableHelperJsonAggOptions<T> = TableHelperJsonOptions & {
 	/** Orders the array by a column of the helper's table, ascending or in the given direction. Not on MySQL. */
-	orderBy?: ColumnName<T> | readonly [ColumnName<T>, 'ASC' | 'DESC'];
+	orderBy?: AggregateOrder<T>;
 	/**
 	 * Aggregates only the rows that match, e.g. `images.isNotNull('id')`: after a LEFT JOIN without a match
 	 * the row has `NULL` columns, which would otherwise come out as `[{"id": null}]`. Not on MySQL.
 	 */
 	filter?: string;
 };
+
+/** Keys of the entity whose values are numbers. */
+type NumericColumnName<T> = {
+	[K in keyof T & string]: [NonNullable<T[K]>] extends [number | bigint] ? K : never;
+}[keyof T & string];
+
+type AggregateOrderTuple<T> = readonly [ColumnName<T>, ('ASC' | 'DESC')?];
+
+type AggregateOrder<T> = ColumnName<T> | readonly [ColumnName<T>, 'ASC' | 'DESC'];
+
+export type TableHelperSumOptions = {
+	/** Sums only the rows that match this condition, e.g. `t.where('status', "= 'paid'")`. */
+	filter?: string;
+	/** How `filter` is written, as for `count`: `'case'` (default) or `'filter'` (PostgreSQL and SQLite 3.30+). */
+	syntax?: 'case' | 'filter';
+};
+
+export type TableHelperArrayAggOptions<T> = {
+	/** `array_agg(DISTINCT column)`: each value once. Then `orderBy` can only be the aggregated column. */
+	distinct?: boolean;
+	/** Orders the array by a column of the helper's table, ascending or in the given direction. */
+	orderBy?: AggregateOrder<T>;
+	/** Aggregates only the rows that match, e.g. `images.isNotNull('id')` after a LEFT JOIN without a match. */
+	filter?: string;
+};
+
+/**
+ * The argument of an aggregate and the clause after it for a `filter` written with `syntax`:
+ * `CASE WHEN filter THEN argument END`, or `argument` and ` FILTER (WHERE filter)`.
+ */
+function filtered(
+	method: string,
+	argument: string,
+	filter: string | undefined,
+	syntax: unknown = 'case',
+	driver?: DatabaseType
+) {
+	if (syntax !== 'case' && syntax !== 'filter') {
+		throw new TypeError(`tableHelper.${method}(): syntax is 'case' or 'filter', got "${String(syntax)}"`);
+	}
+
+	if (filter && syntax === 'filter' && isMysqlLikeDriver(driver)) {
+		throw new TypeError(`tableHelper.${method}(): MySQL / MariaDB have no FILTER (WHERE …), use syntax 'case'`);
+	}
+
+	if (!filter) {
+		return { argument, suffix: '' };
+	}
+
+	return syntax === 'case'
+		? { argument: `CASE WHEN ${filter} THEN ${argument} END`, suffix: '' }
+		: { argument, suffix: ` FILTER (WHERE ${filter})` };
+}
+
+/** `orderBy` of an aggregate: its column, and the SQL after the argument, ` ORDER BY column [direction]`. */
+function aggregateOrder<T>(method: string, orderBy: AggregateOrder<T>, toSql: (column: ColumnName<T>) => string) {
+	const [column, direction] = (typeof orderBy === 'string' ? [orderBy] : orderBy) as AggregateOrderTuple<T>;
+
+	if (direction !== undefined && direction !== 'ASC' && direction !== 'DESC') {
+		throw new TypeError(`tableHelper.${method}(): the order is 'ASC' or 'DESC', got "${String(direction)}"`);
+	}
+
+	return { column, sql: ` ORDER BY ${toSql(column)}${direction ? ` ${direction}` : ''}` };
+}
 
 /** The JSON functions of a database: PostgreSQL's unless the driver is MySQL / MariaDB or SQLite. */
 function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefined) {
@@ -146,7 +210,8 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		return this.where(columnName, 'IS NOT NULL');
 	},
 	/**
-	 * Returns `CAST(COUNT("alias"."column") AS integer)`: the rows where the column isn't `NULL`.
+	 * Returns `CAST(COUNT("alias"."column") AS integer)`: the rows where the column isn't `NULL`. With the `driver` option
+	 * MySQL casts `AS SIGNED`, a `BIGINT`, which its TypeORM driver returns as a string by default.
 	 * Without a column it is `COUNT(*)`, all the rows of the result, in every database. To count the rows
 	 * of a table joined with LEFT JOIN, count one of its non-null columns: `images.count('id')`.
 	 * @example
@@ -164,11 +229,6 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		}
 
 		const { distinct = false, filter, syntax = 'case' } = countOptions;
-
-		if (syntax !== 'case' && syntax !== 'filter') {
-			throw new TypeError(`tableHelper.count(): syntax is 'case' or 'filter', got "${String(syntax)}"`);
-		}
-
 		const column = columnName ? this.column(columnName) : undefined;
 
 		if (distinct && !column) {
@@ -177,15 +237,54 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 
 		// `COUNT(*)`, not `COUNT("alias".*)`, which only PostgreSQL accepts;
 		// a CASE can't return `*`: without a column, it counts 1 per matching row
-		const counted = filter && syntax === 'case' ? `CASE WHEN ${filter} THEN ${column ?? '1'} END` : column ?? '*';
+		const { argument, suffix } = filtered('count', column ?? (filter && syntax === 'case' ? '1' : '*'), filter, syntax, options.driver);
 
-		let expression = `COUNT(${distinct ? 'DISTINCT ' : ''}${counted})`;
+		// `CAST(… AS integer)` is a syntax error on MySQL
+		return this.cast(
+			`COUNT(${distinct ? 'DISTINCT ' : ''}${argument})${suffix}`,
+			isMysqlLikeDriver(options.driver) ? 'SIGNED' : 'integer'
+		);
+	},
+	/**
+	 * Returns `COALESCE(SUM("alias"."column"), 0)`: 0, not `NULL`, for a group without rows or a LEFT JOIN
+	 * without a match. Only a column whose property is a number. PostgreSQL sums integers into a `bigint`
+	 * and MySQL into a `DECIMAL`, which the drivers return as strings.
+	 * @example
+	 * t.sum('amountCents', { filter: t.where('status', "= 'paid'") })
+	 * // COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
+	 */
+	sum(columnName: NumericColumnName<T>, sumOptions: TableHelperSumOptions = {}) {
+		const { argument, suffix } = filtered('sum', this.column(columnName), sumOptions.filter, sumOptions.syntax, options.driver);
 
-		if (filter && syntax === 'filter') {
-			expression += ` FILTER (WHERE ${filter})`;
+		return `COALESCE(SUM(${argument})${suffix}, 0)`;
+	},
+	/**
+	 * Returns the PostgreSQL array of a column over the rows of a group, `{}` for a group without rows.
+	 * Other databases have no arrays and throw a `TypeError`: use `jsonAgg` there.
+	 * @example
+	 * images.arrayAgg('id', { distinct: true, orderBy: ['id', 'DESC'], filter: images.isNotNull('id') })
+	 * // COALESCE(array_agg(DISTINCT "image"."id" ORDER BY "image"."id" DESC) FILTER (WHERE "image"."id" IS NOT NULL), '{}')
+	 */
+	arrayAgg(columnName: ColumnName<T>, aggOptions: TableHelperArrayAggOptions<T> = {}) {
+		const { distinct = false, orderBy, filter } = aggOptions;
+
+		if (options.driver !== undefined && !isPostgresLikeDriver(options.driver)) {
+			throw new TypeError(`tableHelper.arrayAgg(): arrays are PostgreSQL's, the driver is "${options.driver}": use jsonAgg`);
 		}
 
-		return this.cast(expression, 'integer');
+		const order = orderBy ? aggregateOrder('arrayAgg', orderBy, (column) => this.column(column)) : undefined;
+
+		// PostgreSQL: "in an aggregate with DISTINCT, ORDER BY expressions must appear in argument list"
+		if (distinct && order && order.column !== columnName) {
+			throw new TypeError(
+				`tableHelper.arrayAgg(): with distinct, the array can only be ordered by "${columnName}", got "${order.column}"`
+			);
+		}
+
+		const aggregate = `array_agg(${distinct ? 'DISTINCT ' : ''}${this.column(columnName)}${order?.sql ?? ''})`;
+
+		// the untyped '{}' takes the type of the array
+		return `COALESCE(${aggregate}${filter ? ` FILTER (WHERE ${filter})` : ''}, '{}')`;
 	},
 	/**
 	 * Returns a JSON object of columns, keyed by the column names or by the keys of a `{ key: column }` map.
@@ -227,18 +326,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 			throw new TypeError("tableHelper.jsonAgg(): MySQL's JSON_ARRAYAGG takes no ORDER BY and no FILTER");
 		}
 
-		let order = '';
-
-		if (orderBy) {
-			const [column, direction] = typeof orderBy === 'string' ? [orderBy] : orderBy;
-
-			if (direction !== undefined && direction !== 'ASC' && direction !== 'DESC') {
-				throw new TypeError(`tableHelper.jsonAgg(): the order is 'ASC' or 'DESC', got "${String(direction)}"`);
-			}
-
-			order = ` ORDER BY ${this.column(column)}${direction ? ` ${direction}` : ''}`;
-		}
-
+		const order = orderBy ? aggregateOrder('jsonAgg', orderBy, (column) => this.column(column)).sql : '';
 		const aggregate = `${json.agg}(${expression}${order})${filter ? ` FILTER (WHERE ${filter})` : ''}`;
 
 		return `COALESCE(${aggregate}, ${json.emptyArray})`;
