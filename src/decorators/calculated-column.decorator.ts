@@ -4,7 +4,8 @@ export type CalculatedColumnOptions = {
   /**
    * The type the selected value is converted from, as for `@Column`: `'boolean'`, `'jsonb'`, `'timestamptz'`.
    * Defaults to the property's TypeScript type with `emitDecoratorMetadata`: `Number`, `String`, `Boolean`, `Date`.
-   * `Number` also turns PostgreSQL's bigint strings (a `COUNT`) into numbers.
+   * `Number` turns numeric strings (a PostgreSQL `COUNT`, an `AVG`) into numbers, decimals kept; `Boolean`
+   * reads `0` / `1`, `'0'` / `'1'` and `t` / `f` as well.
    */
   type?: ColumnType;
   /** Converts the selected value, e.g. JSON text from SQLite. Only `from` is used. */
@@ -48,6 +49,9 @@ export function CalculatedColumn(
       );
     }
 
+    const conversion = ownConversions.get(type);
+    const transformers = [options.transformer ?? []].flat();
+
     // the mode of TypeORM's @VirtualColumn: not a column of the table, never inserted or updated;
     // with no `query` and `select: false` TypeORM never selects it by itself
     getMetadataArgsStorage().columns.push({
@@ -55,12 +59,50 @@ export function CalculatedColumn(
       propertyName: String(propertyName),
       mode: 'virtual-property',
       options: {
-        type,
+        // the drivers parseInt a Number (AVG 150.5 → 150) and read MySQL's '0' as true, so these
+        // types are converted here; String is a type no driver converts. TypeORM applies `from` last to first
+        type: conversion ? String : type,
         select: false,
         insert: false,
         update: false,
-        transformer: options.transformer,
+        transformer: conversion ? [...transformers, conversion] : options.transformer,
       },
     });
   };
 }
+
+function toNumber(value: unknown): unknown {
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+
+  if (typeof value !== 'string' || value.trim() === '') {
+    return value;
+  }
+
+  const number = Number(value);
+
+  return Number.isNaN(number) ? value : number;
+}
+
+function toBoolean(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return !['', '0', 'f', 'false'].includes(value.trim().toLowerCase());
+  }
+
+  return Boolean(value);
+}
+
+const numberConversion: ValueTransformer = { from: toNumber, to: (value) => value };
+const booleanConversion: ValueTransformer = { from: toBoolean, to: (value) => value };
+
+const ownConversions = new Map<unknown, ValueTransformer>([
+  [Number, numberConversion],
+  [Boolean, booleanConversion],
+  ['boolean', booleanConversion],
+  ['bool', booleanConversion],
+]);

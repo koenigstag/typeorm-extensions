@@ -58,6 +58,27 @@ setupTest('CalculatedColumn', undefined, (context) => {
     ]);
   });
 
+  it('SHOULD keep the decimals of a number, and read a false flag as false on every database', async () => {
+    await seed();
+
+    const found = await users()
+      .addSelectCalculated(
+        nativeSql('(SELECT AVG("averaged"."id") FROM "images" "averaged" WHERE "averaged"."userId" = "user"."id")'),
+        'averageImageId',
+      )
+      .addSelectCalculated(
+        nativeSql('(EXISTS (SELECT 1 FROM "images" "any" WHERE "any"."userId" = "user"."id"))'),
+        'hasImages',
+      )
+      .getMany();
+
+    expect(found.map(({ id, averageImageId, hasImages }) => [id, averageImageId, hasImages])).toEqual([
+      [1, 1.5, true],
+      [2, 3.5, true],
+      [3, null, false],
+    ]);
+  });
+
   it('SHOULD fill the property of a joined entity, by its alias', async () => {
     await seed();
 

@@ -85,4 +85,10 @@ export class UserEntity {
 
   @CalculatedColumn('varchar')
   public latestImageUrl?: string | null;
+
+  @CalculatedColumn()
+  public averageImageId?: number;
+
+  @CalculatedColumn()
+  public hasImages?: boolean;
 }

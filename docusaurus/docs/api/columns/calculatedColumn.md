@@ -46,7 +46,9 @@ TypeORM's `@VirtualColumn({ query })` has one SQL query, which runs every time t
 
 The selected value is converted by the column's type, as for `@Column`:
 
-- by default the property's TypeScript type, with `emitDecoratorMetadata`: `number`, `string`, `boolean`, `Date`. A `number` also turns PostgreSQL's bigint strings into numbers, so a `COUNT(*)` comes back as a number;
+- by default the property's TypeScript type, with `emitDecoratorMetadata`: `number`, `string`, `boolean`, `Date`;
+- a `number` turns the numeric strings of the database into numbers, decimals kept: a PostgreSQL `COUNT(*)` comes back as `2`, an `AVG` as `1.5`. Past `Number.MAX_SAFE_INTEGER` a number loses precision: declare such a value as `string`;
+- a `boolean` is `false` for `false`, `0`, `'0'`, `'f'`, `'false'`, so `EXISTS (…)` works on MySQL too, where it is a number;
 - `@CalculatedColumn('jsonb')`, `@CalculatedColumn({ type: 'timestamptz' })` for other types. A union type (`string | null`) is reflected as `Object`: give it a type;
 - `@CalculatedColumn({ type: 'varchar', transformer: { from: (value) => …, to: (value) => value } })` converts further, e.g. JSON text from SQLite.
 
