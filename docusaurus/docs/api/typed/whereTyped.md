@@ -25,9 +25,9 @@ orWhereTyped(selection, condition?, params?, options?): SelectQueryBuilder<Entit
 ## Arguments
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects a field of entity. A callback that selects several columns (`u => [u.id, u.email]`) throws a `TypeError`: add one condition per column, or use [whereSearchTyped](./whereSearchTyped.md) to search several columns.
 - condition?: string: Operator for the query. It may reference a key of `params` as a placeholder (`:key` or `(:...keys)`); then the value is not appended automatically.
-- params?: unknown: Parameter for the condition. This can be an object `{ someValue: 'value' }` or the value itself `'value'`. A `Date`, a `Buffer` or a typed array is a value too: `whereTyped(u => u.createdAt, '>', since)` binds `since`.
+- params?: unknown: Parameter for the condition. This can be an object `{ someValue: 'value' }` or the value itself `'value'`. A `Date`, a `Buffer` or a typed array is a value too: `whereTyped(u => u.createdAt, '>', since)` binds `since`. An object whose value goes after the condition holds exactly one key: with more, or none, it throws a `TypeError` (only the first value used to be bound). An object whose keys the condition names can have any number: `whereTyped(u => u.id, 'BETWEEN :from AND :to', { from, to })`.
 - options?: \{ addValue?: boolean \}: Options for where logic.
-- options.addValue?: boolean: The `addValue` option is controlling whether it will paste **random uniq placeholder** to condition (if true) or work as default requiring you to pass placeholder yourself (if false). Supports primitive values (placeholder `:key`), array (placeholder `(:...key)`) and param object with one entry (takes first entry). Defaults to `true`, or to `false` when `condition` already references a key of `params` (e.g. `'LIKE :search'` with `{ search: '%John%' }`).
+- options.addValue?: boolean: The `addValue` option is controlling whether it will paste **random uniq placeholder** to condition (if true) or work as default requiring you to pass placeholder yourself (if false). Supports primitive values (placeholder `:key`), array (placeholder `(:...key)`) and a params object with one entry. Defaults to `true`, or to `false` when `condition` already references a key of `params` (e.g. `'LIKE :search'` with `{ search: '%John%' }`).
 
 Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; use `andWhereTyped` / `orWhereTyped` to add to them.
 
@@ -55,7 +55,7 @@ query.andWhereTyped(exec => exec.details.meta.endTs, '>=', { endTime: endDate.ge
   Arrays inside the JSON are values: `e => e.details.tags` compares the whole array.
 - **Types of values.** `->>` gives text on PostgreSQL, and text compares `'9' >= '10'` as true. So the path is cast to the type of the value it is compared with: a number to `numeric`, a boolean to `boolean`, a `Date` to `timestamptz`. A string, or a condition without a value (`= 'executed'`), stays text. On SQLite `->>` gives SQL values and nothing is cast.
 - **Indexes.** An expression index is used only for the same expression: `((details ->> 'outcome'))`, or `((details -> 'meta' ->> 'endTs')::numeric)` for the cast one. For equality on a hot path, `whereJsonContainsTyped` (`@>`, a GIN index) is the better fit.
-- **Where it works.** In `whereTyped` and the other typed where methods (`whereIsInTyped`, `whereIsAnyTyped`, `whereIsDistinctFromTyped`, …); `whereJsonContainsTyped` / `whereJsonHasKeyTyped` use `->`, the JSON value. Select, order and distinct take columns only and throw a `TypeError` for a JSON path. PostgreSQL (a `simple-json` column is read as `jsonb` there) and SQLite 3.38+; other databases throw a `TypeError`.
+- **Where it works.** In `whereTyped` and the other typed where methods (`whereIsInTyped`, `whereIsAnyTyped`, `whereIsDistinctFromTyped`, …); `whereJsonContainsTyped` / `whereJsonHasKeyTyped` use `->`, the JSON value. Select, order, distinct and group by take columns only and throw a `TypeError` for a JSON path. PostgreSQL (a `simple-json` column is read as `jsonb` there) and SQLite 3.38+; other databases throw a `TypeError`.
 
 ## Checking parameters: `strictParams`
 
@@ -91,7 +91,7 @@ query.whereTyped(e => e.id, 'IN', 'a');                     // error: IN takes a
 query.whereTyped(e => e.settings, '=', { settings: value }); // ok; the bare `value` doesn't compile
 ```
 
-Calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked: TypeScript can't infer the column type when one type argument is given.
+Calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked: TypeScript can't infer the column type when one type argument is given. Set the root with [`typed<Joins>()`](./typed.md) instead, and the calls are checked.
 
 ## Usage
 

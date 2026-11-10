@@ -26,7 +26,7 @@ interface ListWithTotals<Entity> {
 - `limit`: page size that was applied, or `null` with `loadAll`.
 - `offset`: number of skipped rows, or `null` with `loadAll`.
 - `hasMore`: whether rows follow the page. With a total it is `offset + list.length < total`; with `disableTotalsCalculation` the page is read one row longer and the extra row is dropped, so it is known without counting. `null` only with `loadAll`, where the page is every row. [getManyWithCursor](../getManyWithCursor.md) works the same way and always knows it.
-- `orderBy`: the ORDER BY of the query, as SQL — useful for logs and debugging. Its `selector` is the SQL selector, not a property of the entity: `orderByTyped` gives `"user"."created_at"`, `orderByArrayPosition` a generated `array_position_…` alias, and a raw `.orderBy('CASE …')` the expression itself. Don't put it in an API response for the client to send back as an [OrderParam](../../order/types/OrderParam.md); the names are the database's, not the entity's.
+- `orderBy`: the ORDER BY of the query, as SQL — useful for logs and debugging. Its `selector` is the SQL selector, not a property of the entity: `orderByTyped` gives `"user"."created_at"`, `orderByArrayPosition` a generated `array_position_…` alias, `orderByCalculated` a `calculated_…` one, and a raw `.orderBy('CASE …')` the expression itself. Don't put it in an API response for the client to send back as an [OrderParam](../../order/types/OrderParam.md); the names are the database's, not the entity's.
   Without an explicit order it is the `orderBy` of `@Entity`, which is what the SQL falls back to; empty only when the query also sets the `disable-global-order` option.
 
 ## Example

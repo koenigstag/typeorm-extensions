@@ -1,5 +1,5 @@
 import type { ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
-import type { WhereMethods } from '../types/extensions/where.types';
+import type { HavingMethods, WhereMethods } from '../types/extensions/where.types';
 import { createUniqueParameterName } from './sql.utils';
 import { toFieldSql } from './query-builder.utils';
 
@@ -60,9 +60,35 @@ export function hasParamPlaceholder(conditions: string, params?: unknown): boole
   return false;
 }
 
+/**
+ * A params object whose value goes after the condition (`'='`, `{ id: 1 }`) holds that one value. With other
+ * keys only the first was used and the rest dropped; with none the column was compared with NULL.
+ */
+function assertSingleValueParams(field: string, params: unknown): void {
+  if (!isParamsObject(params)) {
+    return;
+  }
+
+  const keys = Object.keys(params);
+
+  if (keys.length !== 1) {
+    throw new TypeError(
+      `Condition on "${field}": a params object without a placeholder in the condition holds the one value to compare with, ` +
+        `got ${keys.length} keys (${keys.join(', ') || 'none'}). Pass the value itself, or name the keys in the condition: '= :id'`
+    );
+  }
+}
+
+/** The builder's `where` / `having` method, bound to it: only a SelectQueryBuilder has `having`. */
+function addCondition<QB extends WhereExpressionBuilder>(builder: QB, method: WhereMethods | HavingMethods) {
+  const add = (builder as unknown as Record<WhereMethods | HavingMethods, (condition: string, parameters?: ObjectLiteral) => QB>)[method];
+
+  return (condition: string, parameters?: ObjectLiteral): QB => add.call(builder, condition, parameters);
+}
+
 export function attachWhere<QB extends WhereExpressionBuilder>(
   builder: QB,
-  method: WhereMethods,
+  method: WhereMethods | HavingMethods,
   field: string,
   conditions: string,
   params?: unknown,
@@ -71,6 +97,7 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   let { addValue } = options || {};
 
   if (method && typeof field === 'string' && typeof conditions === 'string') {
+    const fieldName = field;
     field = toFieldSql(builder, field);
 
     const hasParams = typeof params !== 'undefined';
@@ -78,6 +105,8 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
     addValue = addValue ?? !hasParamPlaceholder(conditions, params);
 
     if (addValue && hasParams) {
+      assertSingleValueParams(fieldName, params);
+
       // pick first value from params object or pass as is (a Date or a Buffer is a value too)
       const firstValue = isParamsObject(params) ? Object.values(params)[0] : params;
 
@@ -97,12 +126,9 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
 
       const valuePlaceholder = getValuePlaceholder(firstValue, paramName);
 
-      return builder[method](
-        `${field} ${conditions} ${valuePlaceholder}`,
-        queryParams
-      );
+      return addCondition(builder, method)(`${field} ${conditions} ${valuePlaceholder}`, queryParams);
     } else {
-      return builder[method](`${field} ${conditions}`, params as ObjectLiteral);
+      return addCondition(builder, method)(`${field} ${conditions}`, params as ObjectLiteral);
     }
   }
 

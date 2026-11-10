@@ -1,5 +1,6 @@
 import 'typeorm-extensions/extensions/where-array.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-array.extension';
+import { SelectQueryBuilder } from 'typeorm';
 import { setupTest, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { ArticleEntity } from '../models/postgres/article.entity';
@@ -204,5 +205,68 @@ setupTest('where-array.postgres', { entities: [ArticleEntity] }, (context) => {
     });
 
     expect(JSON.stringify(plan)).toMatch(/Bitmap Index Scan on articles_tags_gin/);
+  });
+});
+
+// an array inside a JSON column: jsonb operators, PostgreSQL only
+setupTest('where-array.json.postgres', { entities: [ArticleEntity] }, (context) => {
+  if (!isPostgres(context.typeormOptions.type)) {
+    it.skip('only supported on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  const seed = () =>
+    context.dataSource.getRepository(ArticleEntity).save(
+      [
+        ['a', ['x', 'y']],
+        ['b', ['x']],
+        ['c', ['z']],
+        ['d', null],
+      ].map(
+        ([title, flags]) =>
+          new ArticleEntity({
+            title: title as string,
+            tags: [],
+            meta: flags ? { status: 'live', flags: flags as string[] } : null,
+            legacyMeta: flags ? { status: 'live', flags: flags as string[] } : null,
+          }),
+      ),
+    );
+
+  const titles = async (build: (query: SelectQueryBuilder<ArticleEntity>) => unknown) => {
+    const query = context.dataSource.getRepository(ArticleEntity).createQueryBuilder('a').orderBy('a.id');
+    build(query);
+
+    return (await query.getMany()).map((article) => article.title);
+  };
+
+  it('SHOULD match by @>, <@ and ?| on a jsonb and a json column', async () => {
+    await seed();
+
+    expect(await titles((q) => q.whereArrayContainsTyped((a) => a.meta.flags, ['x']))).toEqual(['a', 'b']);
+    expect(await titles((q) => q.whereArrayContainedByTyped((a) => a.meta.flags, ['x', 'y']))).toEqual(['a', 'b']);
+    expect(await titles((q) => q.whereArrayOverlapsTyped((a) => a.meta.flags, ['y', 'z']))).toEqual(['a', 'c']);
+    expect(await titles((q) => q.whereArrayContainsTyped((a) => a.legacyMeta.flags, ['x']))).toEqual(['a', 'b']);
+  });
+
+  it('SHOULD match arrays only, not a string or an object at the path', async () => {
+    await seed();
+    await context.dataSource.getRepository(ArticleEntity).save([
+      new ArticleEntity({ title: 'e', tags: [], meta: { status: 'live', flags: 'x' as never } }),
+      new ArticleEntity({ title: 'f', tags: [], meta: { status: 'live', flags: { x: 1 } as never } }),
+    ]);
+
+    // jsonb reads "x" <@ ["x", "y"] as true, and ?| looks at the keys of an object
+    expect(await titles((q) => q.whereArrayContainedByTyped((a) => a.meta.flags, ['x', 'y']))).toEqual(['a', 'b']);
+    expect(await titles((q) => q.whereArrayOverlapsTyped((a) => a.meta.flags, ['x']))).toEqual(['a', 'b']);
+  });
+
+  it('SHOULD reject an overlap with other values than strings, and arrayType', () => {
+    const query = context.dataSource.getRepository(ArticleEntity).createQueryBuilder('a');
+
+    expect(() => query.whereArrayOverlapsTyped((a) => a.meta.flags, [1] as never)).toThrow(/takes strings/);
+    expect(() => query.whereArrayContainsTyped((a) => a.meta.flags, ['x'], 'text[]')).toThrow(/arrayType/);
   });
 });
