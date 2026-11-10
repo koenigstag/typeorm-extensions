@@ -12,7 +12,8 @@ export type GetRawManyWithTotalsOptions = Omit<GetManyWithTotalsOptions, 'useTak
   /**
    * An expression that counts the rows of the query by itself, such as `COUNT(DISTINCT "order"."user_id")`
    * for a query grouped by `"order"."user_id"`: cheaper than counting the query as a subquery.
-   * It replaces the select list, and GROUP BY and HAVING are dropped, so it can't count a query with HAVING.
+   * It replaces the select list, and GROUP BY, HAVING and DISTINCT are dropped: it can't count a query with HAVING,
+   * and counts a DISTINCT query only when it is a `COUNT(DISTINCT …)` itself.
    */
   countExpression?: string;
 };

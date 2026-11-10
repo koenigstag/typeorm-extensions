@@ -10,7 +10,7 @@
 
 - **`getManyWithTotals` with a cache id read the count and the page from one cache entry**: with `.cache('id', ms)` the count ran under the page query's id, so every call after the first got the other query's cached rows: an empty `list`. The count is now cached under `<id>-count`, as TypeORM's `getManyAndCount` does; `getRawManyWithTotals` does the same, and its default count subquery is cached too.
 
-- **`getManyWithTotals` no longer returns with a query in flight when the other one fails**: with the count and the page running at the same time, `Promise.all` rejected as soon as one failed, while the other kept running on its pooled connection and its outcome was dropped. The call now waits for both and then rejects with the first error, the count's if both failed.
+- **`getManyWithTotals` no longer returns with a query in flight when the other one fails**: with the count and the page running at the same time, `Promise.all` rejected as soon as one failed, while the other kept running on its pooled connection and its outcome was dropped. The call now waits for both and then rejects with the first error, the count's if both failed. A page that fails before its query starts, on a limit TypeORM rejects, waits for the count too.
 
 ## [2.2.0] - 2026-11-10
 

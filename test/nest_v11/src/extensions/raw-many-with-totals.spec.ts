@@ -71,6 +71,49 @@ setupTest('getRawManyWithTotals', undefined, (context) => {
     expect(page.list).toHaveLength(1);
   });
 
+  it('SHOULD count a DISTINCT query with a COUNT(DISTINCT) expression', async () => {
+    await seed();
+
+    const distinctStatuses = () => tickets().select('t.status', 'status').orderBy('t.status');
+    const distinct = await distinctStatuses()
+      .distinct(true)
+      .getRawManyWithTotals({ page: 1, pageSize: 1 }, { countExpression: 'COUNT(DISTINCT t.status)' });
+
+    expect(distinct).toMatchObject({ total: 2, hasMore: true });
+
+    if (postgresLikeDrivers.includes(databaseDriver)) {
+      // DISTINCT ON next to the aggregate would be an error
+      const distinctOn = await distinctStatuses()
+        .distinctOn(['t.status'])
+        .getRawManyWithTotals({ page: 1, pageSize: 1 }, { countExpression: 'COUNT(DISTINCT t.status)' });
+
+      expect(distinctOn).toMatchObject({ total: 2, hasMore: true });
+    }
+  });
+
+  it('SHOULD count with the native parameters of the query', async () => {
+    await seed();
+
+    const placeholder = postgresLikeDrivers.includes(databaseDriver) ? '$1' : '?';
+    const open = () => tickets().select('t.id', 'id').where(`t.status = ${placeholder}`).setNativeParameters({ status: 'open' });
+
+    expect(await open().getRawManyWithTotals({ page: 1, pageSize: 2 })).toMatchObject({ total: 3, hasMore: true });
+    expect(
+      await open().getRawManyWithTotals({ page: 1, pageSize: 2 }, { countExpression: 'COUNT(*)' }),
+    ).toMatchObject({ total: 3, hasMore: true });
+  });
+
+  it('SHOULD wait for the count when the page throws before it starts', async () => {
+    await seed();
+
+    // the limit error is thrown as the page query is built, with the count already running
+    await expect(
+      tickets()
+        .select('t.id', 'id')
+        .getRawManyWithTotals({ page: 1, pageSize: 'abc' as never }, { countExpression: 'COUNT(no_such_column)' }),
+    ).rejects.toThrow(/no_such_column/);
+  });
+
   it('SHOULD probe one row past the page with disableTotalsCalculation', async () => {
     await seed();
 

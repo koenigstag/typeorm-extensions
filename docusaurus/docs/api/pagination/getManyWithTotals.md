@@ -34,7 +34,7 @@ getManyWithTotals(
 
 ## What the count counts
 
-The count runs on the query **as it is**, so every condition already on the builder applies to it too. Only the pagination is left out: the clone is taken before `limit` / `offset` are applied, and TypeORM additionally drops `limit`, `offset`, `take`, `skip`, `groupBy` and the order from the count query.
+The count runs on the query **as it is**, so every condition already on the builder applies to it too. Only the pagination is left out: the clone is taken before `limit` / `offset` are applied, and TypeORM additionally drops `limit`, `offset`, `take`, `skip`, `groupBy` and the order from the count query. It keeps `HAVING`, though: with `groupBy` / `havingTyped` the total counts the entities the conditions select, not the groups the page lists. Page grouped rows with [getRawManyWithTotals](./getRawManyWithTotals.md), which counts them as they are.
 
 That makes one mistake easy to miss: a condition that belongs to a single page — the boundary of a cursor, `user.id > :lastId` — narrows the count as well, and `total` then counts the rows of that page's tail instead of the whole list (a first page reporting 60 and a second 35). Apply such a condition to a separate builder, or page with [getManyWithCursor](./getManyWithCursor.md), which is built for it.
 

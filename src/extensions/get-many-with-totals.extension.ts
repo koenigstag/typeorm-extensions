@@ -182,7 +182,11 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
   } else if (canCountConcurrently(builder)) {
     // the count clones the builder before readPage mutates it, so it has to start first: the two
     // queries would otherwise share one expression map, which each of them writes to
-    [total, rows] = await bothOrFirstError(read.count(builder), readPage());
+    const counting = read.count(builder);
+    // a page that throws before its query starts (a limit TypeORM rejects) waits for the count too
+    const reading = new Promise<Row[]>((resolve) => resolve(readPage()));
+
+    [total, rows] = await bothOrFirstError(counting, reading);
   } else {
     total = await read.count(builder);
     rows = await readPage();
@@ -257,7 +261,7 @@ function getQueryRunner<Entity extends ObjectLiteral>(
 /**
  * Counts the rows of a raw query without its pagination and ORDER BY. The query goes into a
  * subquery, so the count is that of its result rows whatever it groups or filters. A
- * `countExpression` replaces the select list instead, without GROUP BY and HAVING.
+ * `countExpression` replaces the select list instead, without GROUP BY, HAVING and DISTINCT.
  * Builds the count query before its first `await`, so the builder may change afterwards.
  */
 async function countRawRows<Entity extends ObjectLiteral>(
@@ -276,7 +280,8 @@ async function countRawRows<Entity extends ObjectLiteral>(
   let counting: Promise<CountRow | undefined>;
 
   if (countExpression) {
-    const counter = unpaged.select(countExpression, 'count').groupBy();
+    // the expression counts on its own: DISTINCT ON next to an aggregate is an error
+    const counter = unpaged.select(countExpression, 'count').groupBy().distinct(false).distinctOn([]);
     counter.expressionMap.havings = [];
     counting = counter.getRawOne<CountRow>();
   } else {
@@ -285,7 +290,8 @@ async function countRawRows<Entity extends ObjectLiteral>(
       .createQueryBuilder(getQueryRunner(builder))
       .select('COUNT(*)', 'count')
       .from(`(${unpaged.getQuery()})`, 'counted')
-      .setParameters(unpaged.getParameters());
+      .setParameters(unpaged.getParameters())
+      .setNativeParameters(unpaged.expressionMap.nativeParameters);
     const { cache, cacheId, cacheDuration } = unpaged.expressionMap;
     Object.assign(counter.expressionMap, { cache, cacheId, cacheDuration });
     counting = counter.getRawOne<CountRow>();

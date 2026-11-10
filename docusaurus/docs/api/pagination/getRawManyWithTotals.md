@@ -22,16 +22,16 @@ The count and the page run at the same time, and one after another on a builder 
 
 ### countExpression
 
-Counting the whole query as a subquery computes every row of it, aggregates included. When an expression of the query counts its rows by itself, pass it as `countExpression`: it replaces the select list, and `GROUP BY` and `HAVING` are dropped.
+Counting the whole query as a subquery computes every row of it, aggregates included. When an expression of the query counts its rows by itself, pass it as `countExpression`: it replaces the select list, and `GROUP BY`, `HAVING` and `DISTINCT` (`DISTINCT ON` too) are dropped.
 
 ```typescript
 // grouped by user: counting distinct users counts the rows
 query.getRawManyWithTotals(filter, { countExpression: 'COUNT(DISTINCT "order"."user_id")' })
 ```
 
-It can't count a query with `HAVING`: the groups `HAVING` drops are counted too. `COUNT(DISTINCT …)` also skips `NULL`, which a `GROUP BY` keeps as a group of its own.
+It can't count a query with `HAVING`: the groups `HAVING` drops are counted too. `COUNT(DISTINCT …)` also skips `NULL`, which a `GROUP BY` keeps as a group of its own. A `DISTINCT` query is counted right only by a `COUNT(DISTINCT …)` of its own columns.
 
-On MySQL the subquery has to name its columns uniquely, as a derived table: two selections both named `id` fail with `Duplicate column name`. TypeORM names a selection without an alias `alias_column`, so this happens only with explicit duplicate aliases.
+On MySQL the subquery has to name its columns uniquely, as a derived table: two selections both named `id` fail with `Duplicate column name`. TypeORM names a selection without an alias `alias_column`, but `select('*')` over a self-join or two tables with a column of the same name gives duplicates too. Alias the columns, or count with `countExpression`.
 
 ## Signature
 
