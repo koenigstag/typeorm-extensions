@@ -4,6 +4,13 @@
 
 ### New Features
 
+- **`getRawManyWithTotals`**: `getManyWithTotals` for raw rows, with the same result (`total`, `hasMore`, `orderBy`), concurrency and options except `useTakeAndSkip`: raw rows are paged with LIMIT / OFFSET. `total` counts the rows the query returns: the query is counted as a subquery, `SELECT COUNT(*) FROM (query)`, so a grouped query counts its groups and HAVING applies. `countExpression` counts with an expression instead (`COUNT(DISTINCT "order"."user_id")`), without GROUP BY and HAVING.
+
+### Bug Fixes
+
+- **`getManyWithTotals` with a cache id read the count and the page from one cache entry**: with `.cache('id', ms)` the count ran under the page query's id, so every call after the first got the other query's cached rows: an empty `list`. The count is now cached under `<id>-count`, as TypeORM's `getManyAndCount` does; `getRawManyWithTotals` does the same, and its default count subquery is cached too.
+
+- **`getManyWithTotals` no longer returns with a query in flight when the other one fails**: with the count and the page running at the same time, `Promise.all` rejected as soon as one failed, while the other kept running on its pooled connection and its outcome was dropped. The call now waits for both and then rejects with the first error, the count's if both failed. A page that fails before its query starts, on a limit TypeORM rejects, waits for the count too.
 - **`whereNotExists` / `andWhereNotExists` / `orWhereNotExists`**, and `whereExists` / `andWhereExists` / `orWhereExists` on update, delete and soft delete / restore queries: TypeORM has `EXISTS` on `SelectQueryBuilder` only, and no `NOT EXISTS`. The SQL is TypeORM's, so `NOT EXISTS` is the negation of its `whereExists`, except with a HAVING in the subquery: its GROUP BY stays, where TypeORM drops it and the HAVING then aggregates the whole subquery. A method is added only where the builder lacks it: TypeORM's own `whereExists` stays. The subquery's parameters get unique names, so two subqueries that both use `:status` keep their own values; with TypeORM's `whereExists` the value set last wins.
 - **`queryReturning` on `DataSource`, `EntityManager` and `Repository`**: runs a raw statement and resolves `{ records, affected }`, the same shape for every statement and driver. `query()` shapes its result by the command: on PostgreSQL an UPDATE or a DELETE resolves to `[rows, rowCount]` while a SELECT or an INSERT resolves to the rows, so taking the first element of an UPDATE … RETURNING yields the rows array instead of a row. On a manager bound to a query runner the statement runs on it, inside its transaction. On TypeORM 0.3's sqlite3 driver, whose runner reads no rows from an INSERT, UPDATE or DELETE, the `RETURNING` rows are read too.
 
