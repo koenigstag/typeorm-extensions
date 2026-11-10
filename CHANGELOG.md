@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`fromUnion` / `addCommonTableExpressionUnion`**: a UNION (or `UNION ALL`) of query builders as the FROM of a query or as a common table expression. The parameters of each part get unique names: pasting `getQuery()` and merging `getParameters()` lets two parts with a `:status` each read the last value, without an error. Raw SQL parts read the outer builder's parameters. On SQLite each part is wrapped in `SELECT * FROM (…)`, which it needs for the ORDER BY of an entity's default `orderBy`.
+- **`fromUnion` / `addCommonTableExpressionUnion`**: a UNION (or `UNION ALL`) of query builders as the FROM of a query or as a common table expression. The parameters of each part get unique names: pasting `getQuery()` and merging `getParameters()` lets two parts with a `:status` each read the last value, without an error. Raw SQL parts read the outer builder's parameters. On SQLite a part with an ORDER BY or a LIMIT, as of an entity's default `orderBy`, is wrapped in `SELECT * FROM (…)`, and the others stay bare, so a recursive CTE works there too.
 
 ## [2.2.0] - 2026-11-10
 

@@ -92,6 +92,21 @@ setupTest('union', undefined, (context) => {
     expect(owners.map(({ id }) => id)).toEqual([1, 2]);
   });
 
+  it('SHOULD build a recursive common table expression', async () => {
+    const rows = await context.dataSource
+      .createQueryBuilder()
+      .addCommonTableExpressionUnion(
+        [nativeSql('SELECT 1 AS "n"'), nativeSql('SELECT "n" + 1 AS "n" FROM "counter" WHERE "n" < 3')],
+        'counter',
+        { all: true, recursive: true },
+      )
+      .select('counter.n', 'n')
+      .from('counter', 'counter')
+      .getRawMany<{ n: number | string }>();
+
+    expect(rows.map(({ n }) => Number(n)).sort()).toEqual([1, 2, 3]);
+  });
+
   it('SHOULD throw for no queries', () => {
     expect(() => context.dataSource.createQueryBuilder().fromUnion([], 'u')).toThrow(/fromUnion: no queries to union/);
   });

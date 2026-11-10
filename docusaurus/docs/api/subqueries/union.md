@@ -14,7 +14,7 @@ query
   .setParameters({ ...open.getParameters(), ...closed.getParameters() });
 ```
 
-A query has one parameter namespace. If both parts were built by the same function, both have a `:status`, and the merged object keeps only the last value: both parts read `'closed'`, and nothing fails. `fromUnion` and `addCommonTableExpressionUnion` give the parameters of each part unique names first, so each part keeps its own.
+A query has one parameter namespace. If both parts were built by the same function, both have a `:status`, and the merged object keeps only the last value: both parts read `'closed'`, and nothing fails. `fromUnion` and `addCommonTableExpressionUnion` give the parameters of each part unique names first, so each part keeps its own. Build the parts as builders of their own, `dataSource.createQueryBuilder()` or a repository's: a part made with `query.subQuery()` hands each parameter to `query` as it is set, before it can be renamed, and overwrites one of the same name there.
 
 ```typescript
 const ticketsWithStatus = (status: string) =>
@@ -81,4 +81,4 @@ query
 
 ## Databases
 
-Each part is in parentheses, `(A) UNION (B)`, so a part may have its own ORDER BY and LIMIT. SQLite takes no parentheses there, nor an ORDER BY inside a part, which a query of an entity with a default `orderBy` has: on SQLite each part is `SELECT * FROM (A)` instead.
+Each part is in parentheses, `(A) UNION (B)`, so a part may have its own ORDER BY and LIMIT. SQLite takes no parentheses there, nor an ORDER BY inside a part, which a query of an entity with a default `orderBy` has: on SQLite a part with an ORDER BY, a LIMIT or an OFFSET is `SELECT * FROM (A)` instead, and the others stay bare. The recursive part of a CTE (`recursive: true`) can't be a subquery on SQLite, so it can't have an ORDER BY or a LIMIT there.

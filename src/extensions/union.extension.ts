@@ -80,12 +80,29 @@ function unionSql<Entity extends ObjectLiteral>(
   const branches = queries.map((query) => {
     const sql = typeof query === 'string' ? query : bindParameters(builder, query);
 
-    // SQLite takes neither parentheses around a part of a UNION nor an ORDER BY / LIMIT inside
-    // one, and a query of an entity with a default `orderBy` has an ORDER BY
-    return sqlite ? `SELECT * FROM (${sql})` : `(${sql})`;
+    if (!sqlite) {
+      return `(${sql})`;
+    }
+
+    // SQLite takes neither parentheses around a part of a UNION nor an ORDER BY / LIMIT inside one
+    // (a query of an entity with a default `orderBy` has an ORDER BY): such a part becomes a subquery.
+    // Only such a part: the recursive part of a CTE can't refer to the CTE from a subquery
+    return ordersOrLimits(query, sql) ? `SELECT * FROM (${sql})` : sql;
   });
 
   return branches.join(options?.all ? ' UNION ALL ' : ' UNION ');
+}
+
+const ORDER_OR_LIMIT = /\b(?:ORDER\s+BY|LIMIT|OFFSET)\b/i;
+
+function ordersOrLimits(query: UnionQuery, sql: string): boolean {
+  if (typeof query === 'string' || !('expressionMap' in query)) {
+    return ORDER_OR_LIMIT.test(sql);
+  }
+
+  const { allOrderBys, limit, offset, take, skip } = (query as SelectQueryBuilder<ObjectLiteral>).expressionMap;
+
+  return Object.keys(allOrderBys ?? {}).length > 0 || [limit, offset, take, skip].some((value) => value !== undefined);
 }
 
 function bindParameters<Entity extends ObjectLiteral>(
