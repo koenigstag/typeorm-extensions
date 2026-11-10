@@ -49,6 +49,8 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | | `t.count('email', { distinct: true })` | `CAST(COUNT(DISTINCT "user"."email") AS integer)` |
 | `sum(column, options?)` | `image.sum('size')` | `COALESCE(SUM("images"."size"), 0)` |
 | `arrayAgg(column, options?)` | `image.arrayAgg('id')` | `COALESCE(array_agg("images"."id"), '{}')` |
+| `atTimeZone(value, zone)` | `t.atTimeZone('createdAt', 'Europe/Kyiv')` | `("user"."createdAt" AT TIME ZONE 'Europe/Kyiv')` |
+| `dateTrunc(unit, value, zone?)` | `t.dateTrunc('day', 'createdAt', 'Europe/Kyiv')` | `date_trunc('day', "user"."createdAt", 'Europe/Kyiv')` |
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
 | `jsonColumn(column, operator, ...keys)` | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
 | `jsonPath(column, operator, ...keys)` | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
@@ -280,6 +282,40 @@ The functions follow the helper's `driver` option:
 | SQLite | `json_object` | `json_group_array` | returned as text: `JSON.parse` it; `orderBy` needs SQLite 3.44+ |
 
 Another `driver` (`mssql`, `oracle`, …) throws a `TypeError`: those databases have JSON functions of their own.
+
+## Time zones (PostgreSQL)
+
+```typescript
+atTimeZone(value: Column | { sql: string }, timeZone: TimeZone): string
+dateTrunc(unit: DateTruncUnit, value: Column | { sql: string }, timeZone?: TimeZone): string
+
+type TimeZone = string | { column: Column; fallback?: string } | { sql: string };
+```
+
+- **`atTimeZone`** is `(value AT TIME ZONE zone)`: a `timestamptz` becomes the wall-clock `timestamp` of that zone, and a `timestamp` is read as wall-clock time there and becomes a `timestamptz`.
+- **`dateTrunc`** is `date_trunc('unit', value)`. With a zone it is the three-argument form (PostgreSQL 12+): a `timestamptz` is truncated at the boundaries of that zone, so `'day'` starts at the local midnight, and the result is a `timestamptz` again. The unit is checked: `microseconds` … `millennium`, as PostgreSQL names them.
+
+The zone is one of:
+
+- a name or an offset, `'Europe/Kyiv'`, `'UTC'`, `'+02:00'`, written as an **escaped** string literal. An offset is UTC+2 for `'+02:00'`, as in ISO 8601: PostgreSQL reads a bare `'+02:00'` as a POSIX zone, UTC−2, so it is written as `'<+0200>-02:00'`, the POSIX zone of UTC+2. Offsets stored in a `column` reach PostgreSQL as they are. The literal is escaped: a zone taken from a request can't close the literal, unlike `AT TIME ZONE '${timezone}'` in a template string;
+- a column of the helper's table, `{ column: 'timezone' }`, with `fallback` for rows where it is `NULL`: `COALESCE("venue"."timezone", 'UTC')`;
+- an SQL expression, `{ sql: venue.column('timezone') }`.
+
+```typescript
+const order = tableHelper<OrderEntity>('order');
+
+// revenue per local day of the venue
+query
+  .select(order.dateTrunc('day', 'paidAt', { sql: venue.column('timezone') }), 'day')
+  .addSelect(order.sum('amountCents'), 'amountCents')
+  .groupBy('day');
+
+// wall-clock time of a booking in its own zone
+booking.atTimeZone('startsAt', { column: 'timezone', fallback: 'UTC' })
+// ("booking"."startsAt" AT TIME ZONE COALESCE("booking"."timezone", 'UTC'))
+```
+
+With a `driver` other than PostgreSQL's (MySQL, SQLite, `mssql`, …) both throw a `TypeError`.
 
 ## Usage
 
