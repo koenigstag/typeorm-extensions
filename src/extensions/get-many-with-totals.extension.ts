@@ -171,7 +171,7 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
   } else if (canCountConcurrently(builder)) {
     // the count clones the builder before readPage mutates it, so it has to start first: the two
     // queries would otherwise share one expression map, which each of them writes to
-    [total, rows] = await Promise.all([read.count(builder), readPage()]);
+    [total, rows] = await bothOrFirstError(read.count(builder), readPage());
   } else {
     total = await read.count(builder);
     rows = await readPage();
@@ -206,6 +206,25 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
     hasMore,
     orderBy,
   };
+}
+
+/**
+ * Both results, or the first error once both queries have settled. `Promise.all` would reject as soon as
+ * one fails, while the other still runs on its own connection: the call would return with a query in flight,
+ * whose outcome nobody reads. When both fail, the count's error is thrown, being the first query started.
+ */
+async function bothOrFirstError<A, B>(first: Promise<A>, second: Promise<B>): Promise<[A, B]> {
+  const [a, b] = await Promise.allSettled([first, second]);
+
+  if (a.status === 'rejected') {
+    throw a.reason;
+  }
+
+  if (b.status === 'rejected') {
+    throw b.reason;
+  }
+
+  return [a.value, b.value];
 }
 
 function getQueryRunner<Entity extends ObjectLiteral>(

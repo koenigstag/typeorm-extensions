@@ -1,6 +1,7 @@
 import 'typeorm-extensions/extensions/get-many-with-totals.extension';
 import { EntityManager } from 'typeorm';
-import { setupTest } from '../test-utils';
+import { setupTest, mysqlRun } from '../test-utils';
+import { databaseDriver, postgresLikeDrivers } from '../constants/database';
 import { TicketEntity } from '../models';
 
 setupTest('getRawManyWithTotals', undefined, (context) => {
@@ -90,5 +91,23 @@ setupTest('getRawManyWithTotals', undefined, (context) => {
 
     // the row inserted in the transaction is visible to the count only on its connection
     expect(total).toBe(5);
+  });
+
+  // a sleep in the page query only: the count's select list is the countExpression
+  const sleep = postgresLikeDrivers.includes(databaseDriver) ? 'pg_sleep(0.3)' : mysqlRun ? 'SLEEP(0.3)' : undefined;
+
+  (sleep ? it : it.skip)('SHOULD fail with the count error only once the page query is done', async () => {
+    await seed();
+    const started = Date.now();
+
+    await expect(
+      tickets()
+        .select('t.id', 'id')
+        .addSelect(sleep as string, 'slept')
+        .getRawManyWithTotals({ page: 1, pageSize: 2 }, { countExpression: 'COUNT(no_such_column)' }),
+    ).rejects.toThrow(/no_such_column/);
+
+    // without waiting the count fails in a few milliseconds, with the page still sleeping
+    expect(Date.now() - started).toBeGreaterThanOrEqual(250);
   });
 });

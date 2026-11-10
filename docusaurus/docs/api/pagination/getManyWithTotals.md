@@ -14,6 +14,8 @@ It runs two queries:
 
 They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — they run one after another instead: there is a single connection, on which the driver would serialise them anyway, and on `pg` that queue is deprecated.
 
+When one of them fails, the call waits for the other before it rejects with the first error (the count's, if both fail), so it never returns with a query still running on the pool.
+
 With `disableTotalsCalculation` only the second query runs, and it asks for `pageSize + 1` rows: the extra row is dropped from `list` and only tells `hasMore`, the way [getManyWithCursor](./getManyWithCursor.md) does it.
 
 ## Signature
