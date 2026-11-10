@@ -35,5 +35,8 @@ setupTest('innerJoinUnnest', undefined, (context) => {
     await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
 
     expect(await users().innerJoinUnnest('user.id', []).getMany()).toEqual([]);
+    expect(
+      await users().where('user.id = 1').orWhere('user.id = 2').innerJoinUnnest('user.id', []).getMany(),
+    ).toEqual([]);
   });
 });

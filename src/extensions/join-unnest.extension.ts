@@ -3,6 +3,7 @@ import { ArgsType } from '../types/util-types';
 import { patchPrototype } from '../utils/prototype.utils';
 import { findFieldColumn, toFieldSql } from '../utils/query-builder.utils';
 import { assertArrayType, createUniqueParameterName } from '../utils/sql.utils';
+import { andWhereNarrowing } from '../utils/where.utils';
 
 // declarations
 
@@ -54,7 +55,8 @@ function innerJoinUnnest<Entity extends ObjectLiteral>(
   const castTo = assertArrayType(arrayType ?? columnArrayType(builder, field));
 
   if (!array?.length) {
-    return builder.andWhere('FALSE');
+    // narrows the whole WHERE, as the join does: after .where(a).orWhere(b) not a OR b AND FALSE
+    return andWhereNarrowing(builder, 'FALSE');
   }
 
   const paramName = createUniqueParameterName('unnest');
