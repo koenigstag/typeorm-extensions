@@ -1,5 +1,5 @@
 import { DatabaseType, ObjectLiteral } from "typeorm";
-import { isMysqlLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
+import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
 
 export type TableHelperOptions = {
@@ -60,6 +60,11 @@ function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefi
 
 	if (isSqliteLikeDriver(driver)) {
 		return { mysql, object: 'json_object', agg: 'json_group_array', emptyArray: 'json_array()' };
+	}
+
+	// PostgreSQL's when no driver is given; SQL Server, Oracle and the rest have functions of their own
+	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
+		throw new TypeError(`tableHelper: the JSON functions are PostgreSQL's, MySQL / MariaDB's and SQLite's, the driver is "${driver}"`);
 	}
 
 	const type = jsonb ? 'jsonb' : 'json';
