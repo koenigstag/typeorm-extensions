@@ -2,7 +2,7 @@ import '../../order-by-array-position.extension';
 import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedSingleColumnKey, isTypedJsonPath } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { attachOrderByArrayPosition } from '../../../utils/order.utils';
 import type { ArgsType } from '../../../types/util-types';
@@ -48,9 +48,18 @@ const createOrderByArrayPositionTypedMethod = (replace: boolean) =>
     arrayType?: string
   ): SelectQueryBuilder<Entity> {
     const methodName = replace ? 'orderByArrayPositionTyped' : 'addOrderByArrayPositionTyped';
-    const column = getTypedSingleColumnKey<Type>(this, selection, methodName);
+    // a path into a JSON column is cast to the type of the values, as typed where methods do it,
+    // so a number in the JSON is compared as a number, not as its text
+    const value = Array.isArray(values) ? values.find((candidate) => candidate != null) : undefined;
+    const column = getTypedSingleColumnKey<Type>(this, selection, methodName, { value });
+    const jsonType = typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : undefined;
+    // a JSON value of another type, a "n/a" among numbers, would fail the cast: it goes last instead
+    const key =
+      jsonType && isTypedJsonPath<Type>(this, selection)
+        ? `CASE WHEN jsonb_typeof(CAST(${getTypedSingleColumnKey<Type>(this, selection, methodName, { accessor: 'json' })} AS jsonb)) = '${jsonType}' THEN ${column} END`
+        : column;
 
-    return attachOrderByArrayPosition(this, column, values, arrayType, replace);
+    return attachOrderByArrayPosition(this, key, values, arrayType, replace);
   };
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
