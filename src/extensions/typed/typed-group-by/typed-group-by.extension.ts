@@ -1,5 +1,5 @@
 import { ObjectLiteral, SelectQueryBuilder, WhereExpressionBuilder } from 'typeorm';
-import type { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
+import type { DeepUnwrapArray, KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 import type { TypedGroupByOptions } from '../../../types/extensions/typed-group-by.types';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
@@ -7,13 +7,19 @@ import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
+/** A value a column holds: a relation (`u => u.images`) or a JSON object is no column to group by. */
+type GroupedColumn = string | number | boolean | Date | ArrayBufferView | ArrayBuffer | null | undefined;
+
+/** One column, `user => user.id`, or several, `user => [user.id, user.email]`. */
+type GroupBySelection<Type extends ObjectLiteral> = (proxy: DeepUnwrapArray<Type>) => GroupedColumn | GroupedColumn[];
+
 export interface TypedGroupByMethods<Entity extends ObjectLiteral> {
   /**
    * Sets GROUP BY to the columns the callback selects: `user => user.id`, or several at once,
    * `user => [user.id, user.email]`. Replaces previously set GROUP BY.
    */
   groupByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
-    selection: KeyProxyCallback<Type>,
+    selection: GroupBySelection<Type>,
     options?: TypedGroupByOptions
   ): this;
 
@@ -21,7 +27,7 @@ export interface TypedGroupByMethods<Entity extends ObjectLiteral> {
    * Adds the columns the callback selects to GROUP BY.
    */
   addGroupByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
-    selection: KeyProxyCallback<Type>,
+    selection: GroupBySelection<Type>,
     options?: TypedGroupByOptions
   ): this;
 }

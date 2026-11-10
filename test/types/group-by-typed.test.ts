@@ -30,3 +30,7 @@ typed.addGroupByTyped((q) => [q.checkin.id, q.event.eventType]);
 checkIns.groupByTyped((c) => c.ticket);
 // @ts-expect-error the root is the aliases now, not the entity
 typed.groupByTyped((q) => q.customerId);
+// @ts-expect-error a relation is no column to group by
+checkIns.groupByTyped((c) => c.event);
+// @ts-expect-error nor in a list of columns
+checkIns.addGroupByTyped((c) => [c.id, c.event]);
