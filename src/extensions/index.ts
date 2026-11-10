@@ -15,4 +15,5 @@ export * from './calculated-column.extension';
 export * from './join-unnest.extension';
 export * from './join-lateral.extension';
 export * from './where-exists.extension';
+export * from './where-relation-exists.extension';
 export * from './query-returning.extension';
