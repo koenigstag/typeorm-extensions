@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`havingTyped` / `andHavingTyped` / `orHavingTyped`**: HAVING on an aggregate of a typed property, `havingTyped('COUNT', u => u.images.id, '>=', 2)`. `COUNT`, `COUNT DISTINCT`, `SUM`, `AVG`, `MIN`, `MAX`, and `'*'` for `COUNT(*)`. Parameters as in `whereTyped`; with `strictParams` the value is a number for counts, sums and averages and the column's value for `MIN` / `MAX`.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
