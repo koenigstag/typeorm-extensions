@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **A params object whose value goes after the condition takes one key**: `whereTyped(u => u.id, '=', { id: 1, email })` used the first value and dropped the others without a word, and `{}` compared the column with `NULL`. Both now throw a `TypeError`. Objects whose keys the condition names (`'BETWEEN :from AND :to'`) and `addValue: false` are as before.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
