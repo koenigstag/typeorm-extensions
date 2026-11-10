@@ -4,6 +4,7 @@
 
 ### New Features
 
+- **`whereNotExists` / `andWhereNotExists` / `orWhereNotExists`**, and `whereExists` / `andWhereExists` / `orWhereExists` on update, delete and soft delete / restore queries: TypeORM has `EXISTS` on `SelectQueryBuilder` only, and no `NOT EXISTS`. The SQL is TypeORM's, so `NOT EXISTS` is the negation of its `whereExists`, except with a HAVING in the subquery: its GROUP BY stays, where TypeORM drops it and the HAVING then aggregates the whole subquery. A method is added only where the builder lacks it: TypeORM's own `whereExists` stays. The subquery's parameters get unique names, so two subqueries that both use `:status` keep their own values; with TypeORM's `whereExists` the value set last wins.
 - **`queryReturning` on `DataSource`, `EntityManager` and `Repository`**: runs a raw statement and resolves `{ records, affected }`, the same shape for every statement and driver. `query()` shapes its result by the command: on PostgreSQL an UPDATE or a DELETE resolves to `[rows, rowCount]` while a SELECT or an INSERT resolves to the rows, so taking the first element of an UPDATE … RETURNING yields the rows array instead of a row. On a manager bound to a query runner the statement runs on it, inside its transaction. On TypeORM 0.3's sqlite3 driver, whose runner reads no rows from an INSERT, UPDATE or DELETE, the `RETURNING` rows are read too.
 
 ## [2.2.0] - 2026-11-10
