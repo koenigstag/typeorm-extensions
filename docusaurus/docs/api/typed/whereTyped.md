@@ -55,7 +55,7 @@ query.andWhereTyped(exec => exec.details.meta.endTs, '>=', { endTime: endDate.ge
   Arrays inside the JSON are values: `e => e.details.tags` compares the whole array.
 - **Types of values.** `->>` gives text on PostgreSQL, and text compares `'9' >= '10'` as true. So the path is cast to the type of the value it is compared with: a number to `numeric`, a boolean to `boolean`, a `Date` to `timestamptz`. A string, or a condition without a value (`= 'executed'`), stays text. On SQLite `->>` gives SQL values and nothing is cast.
 - **Indexes.** An expression index is used only for the same expression: `((details ->> 'outcome'))`, or `((details -> 'meta' ->> 'endTs')::numeric)` for the cast one. For equality on a hot path, `whereJsonContainsTyped` (`@>`, a GIN index) is the better fit.
-- **Where it works.** In `whereTyped` and the other typed where methods (`whereIsInTyped`, `whereIsAnyTyped`, `whereIsDistinctFromTyped`, …); `whereJsonContainsTyped` / `whereJsonHasKeyTyped` use `->`, the JSON value. Select, order and distinct take columns only and throw a `TypeError` for a JSON path. PostgreSQL (a `simple-json` column is read as `jsonb` there) and SQLite 3.38+; other databases throw a `TypeError`.
+- **Where it works.** In `whereTyped` and the other typed where methods (`whereIsInTyped`, `whereIsAnyTyped`, `whereIsDistinctFromTyped`, …); `whereJsonContainsTyped` / `whereJsonHasKeyTyped` use `->`, the JSON value. Select, order, distinct and group by take columns only and throw a `TypeError` for a JSON path. PostgreSQL (a `simple-json` column is read as `jsonb` there) and SQLite 3.38+; other databases throw a `TypeError`.
 
 ## Checking parameters: `strictParams`
 

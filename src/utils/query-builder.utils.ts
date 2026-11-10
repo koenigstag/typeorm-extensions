@@ -380,7 +380,7 @@ export function getTypedSelectionKey<Type extends ObjectLiteral>(
     if (resolved.jsonPath) {
       throw new TypeError(
         `Typed key "${keyHolder.getKeys().join('.')}" points into the JSON column "${resolved.propertyPath}": ` +
-          `select, order and distinct take columns only. For an expression use tableHelper().jsonColumn()`
+          `select, order, distinct and group by take columns only. For an expression use tableHelper().jsonColumn()`
       );
     }
 

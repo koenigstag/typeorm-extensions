@@ -4,6 +4,7 @@
 
 ### New Features
 
+- **`groupByTyped` / `addGroupByTyped`**: GROUP BY with typed callbacks on `SelectQueryBuilder`. One callback may select several columns (`user => [user.id, user.email]`), and columns of joined relations work too. Like `orderByTyped`, the key is `alias.property`, which TypeORM maps to the column, or with `useQuotes` the quoted database column, which a subquery in FROM needs. A path into a JSON column throws a `TypeError`, as in select, order and distinct. The callback starts at the root set with `typed<Root>()`, else at the entity.
 - **`typed<Root>()`** sets the root of the typed callbacks once for a query, instead of passing it to each call (`whereTyped<Joins>(…)`): `query.typed<{ checkin: CheckIn; event: Event }>().whereTyped((q) => q.event.eventType, '=', type)`. Type-only; the root carries through the chain, TypeORM's methods included, and `getMany()` still returns the entities. With `strictParams` the parameters of these calls are checked, which an explicit type argument turns off. The typed methods' default root is `TypedRoot<Entity>`: the entity, unless `typed()` set another. It works on a `SelectQueryBuilder<any>` too, and an entity loaded through it can be spread in code compiled with `declaration: true`.
 ### Bug Fixes
 
