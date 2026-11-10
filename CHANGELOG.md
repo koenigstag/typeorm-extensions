@@ -4,6 +4,7 @@
 
 ### New Features
 
+- **`leftJoinLateral` / `innerJoinLateral`**: `LEFT JOIN LATERAL` and `INNER JOIN LATERAL`, which TypeORM doesn't have, with a query builder, a factory or raw SQL as the subquery and `ON TRUE` by default. A query builder's or a factory's parameters get unique names, so a `:status` in the subquery doesn't clash with one in the outer query. They go through TypeORM's own subquery-join path. PostgreSQL, CockroachDB, MySQL 8.0.14+ and Oracle.
 - **`getRawManyWithTotals`**: `getManyWithTotals` for raw rows, with the same result (`total`, `hasMore`, `orderBy`), concurrency and options except `useTakeAndSkip`: raw rows are paged with LIMIT / OFFSET. `total` counts the rows the query returns: the query is counted as a subquery, `SELECT COUNT(*) FROM (query)`, so a grouped query counts its groups and HAVING applies. `countExpression` counts with an expression instead (`COUNT(DISTINCT "order"."user_id")`), without GROUP BY and HAVING.
 
 ### Bug Fixes
