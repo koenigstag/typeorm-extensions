@@ -11,3 +11,4 @@ export * from './cursor-pagination.extension';
 export * from './order-by-array-position.extension';
 export * from './typed';
 export * from './where-exists.extension';
+export * from './where-relation-exists.extension';

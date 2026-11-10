@@ -136,7 +136,7 @@ function withUniqueParameterNames(
   return [sql, renamed];
 }
 
-function attachExists<QB extends WhereExpressionBuilder>(
+export function attachExists<QB extends WhereExpressionBuilder>(
   builder: QB,
   method: WhereMethods,
   subQuery: SubQuery,
