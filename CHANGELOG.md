@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`@CalculatedColumn` and `addSelectCalculated`**: an entity property that a query fills with an SQL expression of its own. The decorator declares no column of the table (schema sync leaves it out, it is never inserted or updated, and TypeORM never selects it by itself); `addSelectCalculated(expression or subquery, property, alias?)` selects into it under the key TypeORM hydrates from, with the property checked against the entity type. The value is converted by the property's type, so a `number` turns a PostgreSQL `COUNT` into a number. Unlike TypeORM's `@VirtualColumn`, it costs nothing until a query asks for it.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
