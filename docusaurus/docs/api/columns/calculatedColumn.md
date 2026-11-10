@@ -33,7 +33,7 @@ const users = await userRepository
 
 `@CalculatedColumn()` is no column of the table:
 
-- schema sync and migrations leave it out, and it is never inserted or updated;
+- schema sync and migrations leave it out, and `save`, `insert` and `update` never write it;
 - TypeORM never selects it by itself: an entity loaded without `addSelectCalculated` has it `undefined`.
 
 `addSelectCalculated(selection, property, alias?)` selects the expression under the key TypeORM reads the property from (`user_imagesCount`, shortened past the driver's alias length limit the way TypeORM does it), so `getMany()` / `getOne()` put the value into the entities. The property is checked against the entity type, and must be a `@CalculatedColumn`, otherwise it throws a `TypeError`. Hand-written `addSelect(expression, 'user_imagesCount')` aliases break silently on a typo, a renamed property or a long alias.
@@ -77,6 +77,16 @@ The selected value is converted by the column's type, as for `@Column`:
 
 - The value is read when the entity is **selected as a whole**: the alias, as `createQueryBuilder('user')`, `leftJoinAndSelect` and `getMany()` do. With `select(['user.id', 'user.name'])` it isn't put into the entity.
 - `find()` options can't select it.
+
+### TypeORM versions
+
+The property is a TypeORM virtual property, as `@VirtualColumn` declares one, so the limits of those in older TypeORM versions apply:
+
+| | broken up to | fixed in |
+|---|---|---|
+| schema sync and migration generation don't drop the removed columns of its table: drop them by hand | 0.3.28 | 0.3.29, 1.0 |
+| a LEFT JOIN without a match, with the property selected on the joined alias, gives an entity of `null` columns instead of `null` | 0.3.21 | 0.3.22 |
+| `upsert` of an entity with the property set fails (`no such column: EXCLUDED.…`): unset it first | 0.3.31, the latest 0.3 | 1.0 |
 
 ## Signature
 
