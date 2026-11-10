@@ -12,6 +12,8 @@ sidebar_position: 1
 import { tableHelper } from 'typeorm-extensions/helpers';
 ```
 
+The names are the entity's property names, written into the SQL as they are: the helper has no entity metadata, so a column renamed with `@Column({ name: 'amount_cents' })` has to be named that way, `t.column('amount_cents' as never)`, or selected with a typed method, which maps it.
+
 `typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
 ## Signature

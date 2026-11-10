@@ -18,6 +18,9 @@ describe('tableHelper aggregates SQL', () => {
       'COALESCE(SUM("image"."userId") FILTER (WHERE "image"."id" > 1), 0)',
     );
     expect(() => images().sum('id', { filter, syntax: 'where' as never })).toThrow(/'case' or 'filter'/);
+    // MySQL has no FILTER (WHERE …): a TypeError instead of a syntax error from the database
+    expect(() => images('mysql').sum('id', { filter, syntax: 'filter' })).toThrow(/no FILTER/);
+    expect(() => images('mysql').count(undefined, { filter, syntax: 'filter' })).toThrow(/no FILTER/);
   });
 
   it('SHOULD aggregate a column into a PostgreSQL array, {} for no rows', () => {
@@ -33,6 +36,7 @@ describe('tableHelper aggregates SQL', () => {
     expect(() => images().arrayAgg('id', { orderBy: ['id', 'UP' as 'ASC'] })).toThrow(/'ASC' or 'DESC'/);
     expect(() => images('mysql').arrayAgg('id')).toThrow(/use jsonAgg/);
     expect(() => images('better-sqlite3').arrayAgg('id')).toThrow(/use jsonAgg/);
+    expect(() => images('mssql').arrayAgg('id')).toThrow(/use jsonAgg/);
   });
 
   it('SHOULD cast a count to SIGNED on MySQL, where CAST(… AS integer) is a syntax error', () => {
