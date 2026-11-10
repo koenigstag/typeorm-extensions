@@ -1,8 +1,9 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHED_FORMATTERS = 500;
 
-const LOCAL_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?)?$/;
-const DATE_TIME_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
+const DATE_TIME =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?$/i;
+const OFFSET = /^([+-])(\d{2}):?(\d{2})?$/;
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -79,14 +80,10 @@ export function assertTimeZone(timeZone: string): void {
 /**
  * Reads a date (`'2024-01-31'`, its midnight) or a date-time without an offset (`'2024-01-31 10:00'`) as
  * the wall clock of `timeZone`, and returns that instant. A date-time with an offset (`Z`, `+02:00`) is an
- * instant already and is returned as is. Any other string throws a `TypeError` naming `name`.
+ * instant already: it is returned as that `Date`. Any other string throws a `TypeError` naming `name`.
  */
-export function readInTimeZone(value: string, timeZone: string, name: string): Date | string {
-  if (DATE_TIME_WITH_OFFSET.test(value)) {
-    return value;
-  }
-
-  const match = LOCAL_DATE_TIME.exec(value);
+export function readInTimeZone(value: string, timeZone: string, name: string): Date {
+  const match = DATE_TIME.exec(value);
 
   if (match === null) {
     throw new TypeError(
@@ -95,7 +92,7 @@ export function readInTimeZone(value: string, timeZone: string, name: string): D
     );
   }
 
-  const [, year, month, day, hour = '0', minute = '0', second = '0', fraction = ''] = match;
+  const [, year, month, day, hour = '0', minute = '0', second = '0', fraction = '', offset] = match;
   const wallClock = new Date(0);
   wallClock.setUTCFullYear(Number(year), Number(month) - 1, Number(day));
   // a Date keeps milliseconds: finer fractions are dropped
@@ -108,5 +105,24 @@ export function readInTimeZone(value: string, timeZone: string, name: string): D
     throw new TypeError(`Invalid ${name} "${value}": not a calendar date and time`);
   }
 
-  return new Date(wallClockToInstant(wallClock.getTime(), timeZone));
+  if (offset === undefined) {
+    return new Date(wallClockToInstant(wallClock.getTime(), timeZone));
+  }
+
+  // an offset makes it an instant already; as text the databases would read it each their own way
+  return new Date(wallClock.getTime() - getOffsetMinutes(offset, value, name) * 60_000);
+}
+
+function getOffsetMinutes(offset: string, value: string, name: string): number {
+  if (offset.toUpperCase() === 'Z') {
+    return 0;
+  }
+
+  const [, sign, hours, minutes = '00'] = OFFSET.exec(offset) as RegExpExecArray;
+
+  if (Number(hours) > 23 || Number(minutes) > 59) {
+    throw new TypeError(`Invalid ${name} "${value}": not a UTC offset`);
+  }
+
+  return (sign === '-' ? -1 : 1) * (Number(hours) * 60 + Number(minutes));
 }

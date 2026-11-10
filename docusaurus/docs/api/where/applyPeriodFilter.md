@@ -89,7 +89,7 @@ With `timeZone`, the strings are read as the wall clock of that zone and passed 
 |---|---|
 | `'2024-01-31'` | midnight in New York: `2024-01-31T05:00:00Z` (the whole-day rules above still apply) |
 | `'2024-01-31 10:00'`, `'2024-01-31T10:00:00.500'` | that time in New York |
-| `'2024-01-31T10:00:00Z'`, `'2024-01-31 10:00+02:00'` | an instant already: as is |
+| `'2024-01-31T10:00:00Z'`, `'2024-01-31 10:00+02:00'` | an instant already: that `Date` (as text each database would read the offset its own way) |
 | a `Date` | an instant already: as is |
 | any other string (`'yesterday'`) | `TypeError` |
 

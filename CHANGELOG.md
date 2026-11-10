@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`timeZone` in `applyPeriodFilter` / `applyPeriodFilterTyped`**: reads a date (`'2024-01-31'`) and a date-time without an offset (`'2024-01-31 10:00'`) as the wall clock of an IANA time zone, so a period of days is the user's days: `{ periodFrom: '2024-01-01', periodTo: '2024-01-31' }` in `America/New_York` is `>= 2024-01-01T05:00Z AND < 2024-02-01T05:00Z`. Converted in JavaScript (`Intl`), so the column stays bare in SQL and keeps its index, on every database; daylight saving time as PostgreSQL's `AT TIME ZONE` handles it. `Date`s and strings with an offset stay as they are, other strings and unknown zones throw a `TypeError`.
+- **`timeZone` in `applyPeriodFilter` / `applyPeriodFilterTyped`**: reads a date (`'2024-01-31'`) and a date-time without an offset (`'2024-01-31 10:00'`) as the wall clock of an IANA time zone, so a period of days is the user's days: `{ periodFrom: '2024-01-01', periodTo: '2024-01-31' }` in `America/New_York` is `>= 2024-01-01T05:00Z AND < 2024-02-01T05:00Z`. Converted in JavaScript (`Intl`), so the column stays bare in SQL and keeps its index, on every database; daylight saving time as PostgreSQL's `AT TIME ZONE` handles it. `Date`s stay as they are, strings with an offset (`Z`, `+02:00`) become that instant, other strings and unknown zones throw a `TypeError`.
 
 ## [2.2.0] - 2026-11-10
 

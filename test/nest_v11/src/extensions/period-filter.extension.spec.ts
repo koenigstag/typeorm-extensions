@@ -153,12 +153,15 @@ setupTest('period-filter.sql', undefined, (context) => {
     ]);
   });
 
-  it('SHOULD keep instants as they are with a timeZone, and strings without one', () => {
+  it('SHOULD keep Dates, turn strings with an offset into their instants, and keep strings without a timeZone', () => {
     const from = new Date('2024-01-01T10:00:00.000Z');
 
     expect(
-      conditionsAndValues({ periodFrom: from, periodTo: '2024-01-31T10:00:00+02:00' }, { timeZone: 'Asia/Tokyo' })[1],
-    ).toEqual([from, '2024-01-31T10:00:00+02:00']);
+      conditionsAndValues({ periodFrom: from, periodTo: '2024-01-31 10:00+0530' }, { timeZone: 'Asia/Tokyo' })[1],
+    ).toEqual([from, new Date('2024-01-31T04:30:00.000Z')]);
+    expect(conditionsAndValues({ periodFrom: '2024-01-31T10:00:00.250z' }, { timeZone: 'Asia/Tokyo' })[1]).toEqual([
+      new Date('2024-01-31T10:00:00.250Z'),
+    ]);
 
     for (const timeZone of [undefined, null, '']) {
       expect(conditionsAndValues({ periodTo: '2024-01-31' }, { timeZone })[1]).toEqual(['2024-02-01']);
@@ -172,6 +175,9 @@ setupTest('period-filter.sql', undefined, (context) => {
     );
     expect(() => conditionsAndValues({ periodFrom: '2024-01-31 25:00' }, { timeZone: 'UTC' })).toThrow(
       /Invalid periodFrom "2024-01-31 25:00": not a calendar date and time/,
+    );
+    expect(() => conditionsAndValues({ periodTo: '2024-01-31T10:00+24:00' }, { timeZone: 'UTC' })).toThrow(
+      /Invalid periodTo "2024-01-31T10:00\+24:00": not a UTC offset/,
     );
   });
 
@@ -271,6 +277,10 @@ setupTest('period-filter.rows', undefined, (context) => {
       users[1].id,
       users[2].id,
     ]);
+    // as text, each database would read the offset its own way
+    expect(
+      await filterIds({ periodFrom: '2024-01-31T07:00:00+02:00', periodTo: '2024-02-01T04:30:00Z' }, { timeZone }),
+    ).toEqual([users[1].id, users[2].id]);
   });
 
   it('SHOULD delete rows of a period', async () => {
