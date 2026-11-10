@@ -29,4 +29,23 @@ setupTest('typed-where.options', undefined, (context) => {
       /WHERE "user"\."id" = :id/,
     );
   });
+
+  it('SHOULD take one key in a params object whose value goes after the condition', () => {
+    const query = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+
+    // only `id` was used, `email` dropped without a word; an empty object compared with NULL
+    expect(() => query().whereTyped((u) => u.id, '=', { id: 1, email: 'a@b.c' })).toThrow(
+      /params object .* got 2 keys \(id, email\)/,
+    );
+    expect(() => query().andWhereTyped((u) => u.id, '=', {})).toThrow(/got 0 keys/);
+
+    // keys named in the condition, or a value itself, are as before
+    expect(sqlOf(query().whereTyped((u) => u.id, 'BETWEEN :from AND :to', { from: 1, to: 3 }))).toMatch(
+      /WHERE "user"\."id" BETWEEN :from AND :to/,
+    );
+    expect(sqlOf(query().whereTyped((u) => u.id, '=', { id: 1 }))).toMatch(/WHERE "user"\."id" = :where\w+/);
+    expect(sqlOf(query().whereTyped((u) => u.createdAt, '<', new Date()))).toMatch(
+      /WHERE "user"\."createdAt" < :where\w+/,
+    );
+  });
 });
