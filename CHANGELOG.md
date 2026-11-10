@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`leftJoinLateral` / `innerJoinLateral`**: `LEFT JOIN LATERAL` and `INNER JOIN LATERAL`, which TypeORM doesn't have, with a query builder, a factory or raw SQL as the subquery and `ON TRUE` by default. A query builder's or a factory's parameters get unique names, so a `:status` in the subquery doesn't clash with one in the outer query. They go through TypeORM's own subquery-join path. PostgreSQL, CockroachDB, MySQL 8.0.14+ and Oracle.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
