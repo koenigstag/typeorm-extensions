@@ -1,4 +1,5 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import type { Alias } from 'typeorm/query-builder/Alias';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
 import type { EntityMetadata } from 'typeorm/metadata/EntityMetadata';
@@ -123,15 +124,17 @@ function attachRelationExists<Entity extends ObjectLiteral>(
   const dot = key.indexOf('.');
   const ownerAlias = key.slice(0, dot);
   const propertyPath = key.slice(dot + 1);
-  const owner = builder.expressionMap.aliases.find((candidate) => candidate.name === ownerAlias);
+  const aliases = queryAliases(builder);
+  const owner = aliases.find((candidate) => candidate.name === ownerAlias);
   const relation = owner?.hasMetadata ? owner.metadata.findRelationWithPropertyPath(propertyPath) : undefined;
 
   if (!relation) {
     throw new TypeError(`${methodName}: ${key} is not a relation of an entity of the query`);
   }
 
-  // in the subquery the alias would hide the outer one the join condition refers to
-  if (builder.expressionMap.aliases.some((candidate) => candidate.name === alias)) {
+  // in the subquery the alias would hide the outer one the join condition refers to; SQLite matches
+  // names without case, so 'USER' would hide 'user' there
+  if (aliases.some((candidate) => candidate.name.toLowerCase() === alias.toLowerCase())) {
     throw new TypeError(`${methodName}: the alias "${alias}" is already used by the query, choose another one`);
   }
 
@@ -148,6 +151,25 @@ function attachRelationExists<Entity extends ObjectLiteral>(
   andWhereNarrowing(subQuery, correlation);
 
   return attachExists(builder, method, subQuery, negate);
+}
+
+type NestedQuery = { expressionMap: { aliases: Alias[]; mainAlias?: Alias }; parentQueryBuilder?: NestedQuery };
+
+/**
+ * The aliases of the query and of the queries it is part of. Inside `Brackets` the builder has the outer
+ * query's main alias but none of its joins: those are on its parent.
+ */
+function queryAliases<Entity extends ObjectLiteral>(builder: SelectQueryBuilder<Entity>): Alias[] {
+  const aliases: Alias[] = [];
+  // parentQueryBuilder is protected in TypeORM's types
+  let query = builder as unknown as NestedQuery | undefined;
+
+  for (; query; query = query.parentQueryBuilder) {
+    const { aliases: own, mainAlias } = query.expressionMap;
+    aliases.push(...own, ...(mainAlias ? [mainAlias] : []));
+  }
+
+  return aliases;
 }
 
 type ColumnSql = (aliasName: string, columnName: string) => string;

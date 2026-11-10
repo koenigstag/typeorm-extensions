@@ -1,6 +1,16 @@
 import 'typeorm-extensions/extensions/where-relation-exists.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
-import { Column, Entity, JoinColumn, JoinTable, ManyToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Brackets,
+  Column,
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { createFakeUsers, setupTest } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 
@@ -181,5 +191,23 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
       /andWhereRelationExists: user\.firstName is not a relation/,
     );
     expect(() => users().andWhereRelationExists((u) => u.images, 'user')).toThrow(/the alias "user" is already used/);
+    // SQLite would read "USER" as the outer "user"
+    expect(() => users().andWhereRelationExists((u) => u.images, 'USER')).toThrow(/the alias "USER" is already used/);
+  });
+
+  it('SHOULD look in a relation inside Brackets', async () => {
+    await seedImages();
+
+    // (has images OR is user 3) AND is not user 1
+    const query = users()
+      .where(
+        new Brackets((where) =>
+          (where as SelectQueryBuilder<UserEntity>).whereRelationExists((u) => u.images, 'image').orWhere('user.id = 3'),
+        ),
+      )
+      .andWhere('user.id <> 1')
+      .orderBy('user.id');
+
+    expect(await userIds(query)).toEqual([2, 3]);
   });
 });

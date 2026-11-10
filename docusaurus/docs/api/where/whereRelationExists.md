@@ -29,7 +29,9 @@ WHERE EXISTS (
 - **Relations:** one-to-many and many-to-one, one-to-one from either side, and many-to-many from either side, through its junction table (`INNER JOIN` of the junction in the subquery).
 - **The callback** gets the subquery, a `SelectQueryBuilder` of the related entity with `alias` as its main alias, so typed methods work on it. The join condition is added after the callback's conditions, wrapped so that an `orWhere` of the callback can't escape it and a `where` can't replace it.
 - **Parameters** of the subquery get unique names, as in [whereNotExists](./whereNotExists.md#parameters): a `:status` inside doesn't read the value of an outer `:status`.
-- **`alias`** names the related entity in the subquery. It must not be an alias of the outer query, which the join condition refers to: that throws a `TypeError`, as does a property that isn't a relation.
+- **`alias`** names the related entity in the subquery. It must not be an alias of the outer query, which the join condition refers to, also in another letter case (SQLite reads `USER` as `user`): that throws a `TypeError`, as does a property that isn't a relation.
+- **Inside `Brackets`** it works on a `SelectQueryBuilder`, whose `Brackets` callback is typed as a `WhereExpressionBuilder`: cast it, `(where as SelectQueryBuilder<User>).whereRelationExists(…)`.
+- **Lazy relations** (`Promise<Image[]>`) aren't typed by the callback: TypeScript rejects them.
 
 ## Signature
 
