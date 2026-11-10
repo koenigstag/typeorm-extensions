@@ -90,9 +90,11 @@ async function queryReturning<Row>(
     (manager as EntityManager & { dataSource?: DataSource }).dataSource ?? manager.connection;
   const queryRunner = boundQueryRunner ?? dataSource.createQueryRunner();
 
-  // TypeORM's runner of the sqlite3 driver runs a statement that starts with `INSERT ` / `UPDATE ` /
-  // `DELETE ` without reading rows, which drops a RETURNING; after a line break it reads them
-  const sql = dataSource.options.type === 'sqlite' && WRITE_RETURNING.test(query) ? `\n${query}` : query;
+  // TypeORM 0.3's runner of the sqlite3 driver runs a statement that starts with `INSERT ` / `UPDATE ` /
+  // `DELETE ` without reading rows, which drops a RETURNING; after a line break it reads them.
+  // A string: TypeORM 1.x has no 'sqlite' driver type
+  const driverType: string = dataSource.options.type;
+  const sql = driverType === 'sqlite' && WRITE_RETURNING.test(query) ? `\n${query}` : query;
 
   try {
     const result = await queryRunner.query(sql, parameters, true);
