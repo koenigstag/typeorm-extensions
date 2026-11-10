@@ -48,6 +48,8 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
 | `jsonColumn(column, operator, ...keys)` | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
 | `jsonPath(column, operator, ...keys)` | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
+| `jsonBuildObject(columns, options?)` | `image.jsonBuildObject(['id', 'url'])` | `json_build_object('id', "images"."id", 'url', "images"."url")` |
+| `jsonAgg(expression, options?)` | `image.jsonAgg(image.column('url'))` | `COALESCE(json_agg("images"."url"), CAST('[]' AS json))` |
 
 Notes:
 - Without an alias, `column()` returns just the column (`"email"`). `join()` needs an alias, the helper's or its `alias` argument; without one it throws a `TypeError`.
@@ -192,6 +194,52 @@ t.jsonColumn('metadata', '->>', 'settings', 'theme') // "user"."metadata" -> 'se
 t.jsonColumn('metadata', '->', 'settings')           // "user"."metadata" -> 'settings'
 t.jsonPath('metadata', '->>', 'settings', 'theme')   // -> 'settings' ->> 'theme'
 ```
+
+## JSON objects and arrays
+
+`jsonBuildObject` builds a JSON object from columns, `jsonAgg` aggregates an expression over the rows of a group into a JSON array. Together they return a row with its related rows nested, in one query:
+
+```typescript
+const image = tableHelper<ImageEntity>('image', { driver: 'postgres' });
+
+const users = await userRepository
+  .createQueryBuilder('user')
+  .select('user.id', 'id')
+  .addSelect(
+    image.jsonAgg(image.jsonBuildObject({ imageId: 'id', src: 'url' }), {
+      orderBy: ['createdAt', 'DESC'],
+      filter: image.isNotNull('id'),
+    }),
+    'images'
+  )
+  .leftJoin('user.images', 'image')
+  .groupBy('user.id')
+  .getRawMany();
+
+// [{ id: 1, images: [{ imageId: 2, src: '…' }, { imageId: 1, src: '…' }] }, { id: 3, images: [] }]
+```
+
+```sql
+COALESCE(
+  json_agg(json_build_object('imageId', "image"."id", 'src', "image"."url") ORDER BY "image"."createdAt" DESC)
+    FILTER (WHERE "image"."id" IS NOT NULL),
+  CAST('[]' AS json)
+)
+```
+
+- **Columns are checked against the entity type**: the columns of `jsonBuildObject`, as a list (keys are the column names) or as a `{ key: column }` map, and the column of `orderBy`. Keys are escaped as SQL string literals.
+- **`[]` for a group without rows**: `jsonAgg` wraps the aggregate in `COALESCE(…, [])`, since an aggregate over no rows is `NULL`.
+- **`filter`** aggregates only the matching rows. After a LEFT JOIN without a match the row has `NULL` columns, which would otherwise come out as `[{"imageId": null, "src": null}]`: filter on a non-null column of the joined table, `image.isNotNull('id')`.
+- **`orderBy`** orders the array by a column of the helper's table: `'createdAt'` or `['createdAt', 'DESC']`.
+- **`jsonb: true`** uses `jsonb_build_object` / `jsonb_agg` (PostgreSQL).
+
+The functions follow the helper's `driver` option:
+
+| Database | Object | Array | Notes |
+|---|---|---|---|
+| PostgreSQL, CockroachDB (default) | `json_build_object` / `jsonb_build_object` | `json_agg` / `jsonb_agg` | parsed by the driver |
+| MySQL / MariaDB | `JSON_OBJECT` | `JSON_ARRAYAGG` | no `orderBy`, `filter` or `jsonb`: they throw a `TypeError` |
+| SQLite | `json_object` | `json_group_array` | returned as text: `JSON.parse` it; `orderBy` needs SQLite 3.44+ |
 
 ## Usage
 

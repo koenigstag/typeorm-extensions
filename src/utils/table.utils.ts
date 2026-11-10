@@ -1,5 +1,5 @@
 import { DatabaseType, ObjectLiteral } from "typeorm";
-import { quoteIdentifier, quoteIdentifierPath } from './sql.utils';
+import { isMysqlLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
 
 export type TableHelperOptions = {
@@ -28,6 +28,47 @@ export type TableHelperCountOptions = {
 	 */
 	syntax?: 'case' | 'filter';
 };
+
+export type TableHelperJsonOptions = {
+	/** `jsonb_build_object` / `jsonb_agg` instead of the `json` functions. PostgreSQL only. */
+	jsonb?: boolean;
+};
+
+type ColumnName<T> = keyof T & string;
+
+export type TableHelperJsonAggOptions<T> = TableHelperJsonOptions & {
+	/** Orders the array by a column of the helper's table, ascending or in the given direction. Not on MySQL. */
+	orderBy?: ColumnName<T> | readonly [ColumnName<T>, 'ASC' | 'DESC'];
+	/**
+	 * Aggregates only the rows that match, e.g. `images.isNotNull('id')`: after a LEFT JOIN without a match
+	 * the row has `NULL` columns, which would otherwise come out as `[{"id": null}]`. Not on MySQL.
+	 */
+	filter?: string;
+};
+
+/** The JSON functions of a database: PostgreSQL's unless the driver is MySQL / MariaDB or SQLite. */
+function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefined) {
+	const mysql = isMysqlLikeDriver(driver);
+
+	if (jsonb && (mysql || isSqliteLikeDriver(driver))) {
+		throw new TypeError(`tableHelper: jsonb is PostgreSQL's, the driver is "${driver}"`);
+	}
+
+	if (mysql) {
+		return { mysql, object: 'JSON_OBJECT', agg: 'JSON_ARRAYAGG', emptyArray: 'JSON_ARRAY()' };
+	}
+
+	if (isSqliteLikeDriver(driver)) {
+		return { mysql, object: 'json_object', agg: 'json_group_array', emptyArray: 'json_array()' };
+	}
+
+	const type = jsonb ? 'jsonb' : 'json';
+
+	// CAST, not `::json`: TypeORM would read `:json` as a parameter
+	return { mysql, object: `${type}_build_object`, agg: `${type}_agg`, emptyArray: `CAST('[]' AS ${type})` };
+}
+
+const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
 	? JsonFieldTuple<NonNullable<V>>
@@ -138,6 +179,62 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		}
 
 		return this.cast(expression, 'integer');
+	},
+	/**
+	 * Returns a JSON object of columns, keyed by the column names or by the keys of a `{ key: column }` map.
+	 * Every column is checked against the entity type.
+	 * @example
+	 * t.jsonBuildObject(['id', 'url'])              // json_build_object('id', "image"."id", 'url', "image"."url")
+	 * t.jsonBuildObject({ imageId: 'id', src: 'url' }) // json_build_object('imageId', "image"."id", 'src', "image"."url")
+	 * // MySQL: JSON_OBJECT(…), SQLite: json_object(…); { jsonb: true }: jsonb_build_object(…)
+	 */
+	jsonBuildObject(
+		columns: readonly ColumnName<T>[] | Readonly<Record<string, ColumnName<T>>>,
+		jsonOptions: TableHelperJsonOptions = {}
+	) {
+		const entries: [string, ColumnName<T>][] = Array.isArray(columns)
+			? (columns as readonly ColumnName<T>[]).map((column) => [column, column])
+			: Object.entries(columns as Readonly<Record<string, ColumnName<T>>>);
+
+		if (!entries.length) {
+			throw new TypeError('tableHelper.jsonBuildObject() needs at least one column');
+		}
+
+		const pairs = entries.map(([key, column]) => `${sqlString(key)}, ${this.column(column)}`);
+
+		return `${jsonFunctions(options.driver, jsonOptions.jsonb).object}(${pairs.join(', ')})`;
+	},
+	/**
+	 * Returns the JSON array of an expression over the rows of a group, `[]` for a group without rows
+	 * (the aggregate alone gives `NULL` there). Use it with GROUP BY, or in a subquery.
+	 * @example
+	 * images.jsonAgg(images.jsonBuildObject(['id', 'url']), { orderBy: ['id', 'DESC'], filter: images.isNotNull('id') })
+	 * // COALESCE(json_agg(json_build_object(…) ORDER BY "image"."id" DESC) FILTER (WHERE "image"."id" IS NOT NULL), CAST('[]' AS json))
+	 * // MySQL: COALESCE(JSON_ARRAYAGG(…), JSON_ARRAY()), without ORDER BY and FILTER; SQLite: json_group_array(…)
+	 */
+	jsonAgg(expression: string, aggOptions: TableHelperJsonAggOptions<T> = {}) {
+		const { orderBy, filter, jsonb } = aggOptions;
+		const json = jsonFunctions(options.driver, jsonb);
+
+		if (json.mysql && (orderBy || filter)) {
+			throw new TypeError("tableHelper.jsonAgg(): MySQL's JSON_ARRAYAGG takes no ORDER BY and no FILTER");
+		}
+
+		let order = '';
+
+		if (orderBy) {
+			const [column, direction] = typeof orderBy === 'string' ? [orderBy] : orderBy;
+
+			if (direction !== undefined && direction !== 'ASC' && direction !== 'DESC') {
+				throw new TypeError(`tableHelper.jsonAgg(): the order is 'ASC' or 'DESC', got "${String(direction)}"`);
+			}
+
+			order = ` ORDER BY ${this.column(column)}${direction ? ` ${direction}` : ''}`;
+		}
+
+		const aggregate = `${json.agg}(${expression}${order})${filter ? ` FILTER (WHERE ${filter})` : ''}`;
+
+		return `COALESCE(${aggregate}, ${json.emptyArray})`;
 	},
 	/** Returns `CAST(expression AS type)`. */
 	cast(expression: string, type: string) {
