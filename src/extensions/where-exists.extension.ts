@@ -5,6 +5,7 @@ import {
   UpdateQueryBuilder,
   WhereExpressionBuilder,
 } from 'typeorm';
+import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import type { WhereMethods } from '../types/extensions';
 import { patchPrototype } from '../utils/prototype.utils';
 import { createUniqueParameterName } from '../utils/sql.utils';
@@ -58,6 +59,12 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
     extends WhereExistsMethods,
       WhereNotExistsMethods {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral>
+    extends WhereExistsMethods,
+      WhereNotExistsMethods {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 
 // patching
@@ -94,7 +101,7 @@ const notExistsMethods: { prototype: WhereNotExistsMethods } = {
 
 // only where the builder lacks them: SelectQueryBuilder keeps TypeORM's own whereExists /
 // andWhereExists / orWhereExists, and a later TypeORM that adds any of these keeps its own
-[SelectQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder].forEach((builder) => {
+[SelectQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder, SoftDeleteQueryBuilder].forEach((builder) => {
   patchPrototype(builder, existsMethods, { onlyMissing: true });
   patchPrototype(builder, notExistsMethods, { onlyMissing: true });
 });

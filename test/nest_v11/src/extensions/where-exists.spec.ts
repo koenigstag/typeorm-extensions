@@ -1,7 +1,32 @@
 import 'typeorm-extensions/extensions/where-exists.extension';
-import { Brackets, DeleteQueryBuilder, SelectQueryBuilder, UpdateQueryBuilder } from 'typeorm';
+import {
+  Brackets,
+  Column,
+  DeleteDateColumn,
+  DeleteQueryBuilder,
+  Entity,
+  PrimaryGeneratedColumn,
+  SelectQueryBuilder,
+  UpdateQueryBuilder,
+} from 'typeorm';
 import { setupTest, createFakeUsers, nativeSql } from '../test-utils';
-import { TicketEntity, UserEntity } from '../models';
+import { ImageEntity, TicketEntity, UserEntity } from '../models';
+
+@Entity({ name: 'wx_notes' })
+class NoteEntity {
+  constructor(partial: Partial<NoteEntity> = {}) {
+    Object.assign(this, partial);
+  }
+
+  @PrimaryGeneratedColumn('increment')
+  public id: number;
+
+  @Column({ type: 'integer', name: 'owner_id' })
+  public ownerId: number;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  public deletedAt?: Date | null;
+}
 
 setupTest('whereNotExists', undefined, (context) => {
   // users 1–3; user 1 has an open ticket, user 2 a done one, user 3 none
@@ -111,5 +136,28 @@ setupTest('whereNotExists', undefined, (context) => {
       ['open', 1],
       ['orphan', 99],
     ]);
+  });
+});
+
+setupTest('whereNotExists on soft delete', { entities: [UserEntity, ImageEntity, NoteEntity] }, (context) => {
+  it('SHOULD add NOT EXISTS to a soft delete query, inside Brackets too', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 1 }));
+    await context.dataSource.getRepository(NoteEntity).save([new NoteEntity({ ownerId: 1 }), new NoteEntity({ ownerId: 99 })]);
+
+    const owner = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .where(`${nativeSql('"user"."id"')} = ${nativeSql('"wx_notes"."owner_id"')}`);
+
+    await context.dataSource
+      .createQueryBuilder()
+      .softDelete()
+      .from(NoteEntity)
+      .where(new Brackets((where) => where.whereNotExists(owner)))
+      .execute();
+
+    const kept = await context.dataSource.getRepository(NoteEntity).find({ order: { id: 'ASC' } });
+
+    expect(kept.map(({ ownerId }) => ownerId)).toEqual([1]);
   });
 });
