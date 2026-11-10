@@ -29,6 +29,14 @@ typed.leftJoin('checkin.event', 'e').andWhereTyped((q) => q.checkin.id, '=', 'c'
 const loaded: Promise<CheckIn[]> = typed.getMany();
 void loaded;
 
+// a spread copy carries no symbol key, which declaration files can't name (TS4053 / TS4058)
+async function spreadCopy() {
+  const copy = { ...(await typed.getOneOrFail()) };
+  const noSymbolKey: [Extract<keyof typeof copy, symbol>] extends [never] ? true : false = true;
+  void noSymbolKey;
+}
+void spreadCopy;
+
 // without typed() the entity is the root, and an explicit root still wins
 checkIns.whereTyped((q) => q.customerId, '=', 'c');
 checkIns.whereTyped<Joins>((q) => q.event.eventType, '=', 'class');
