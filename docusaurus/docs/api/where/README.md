@@ -11,6 +11,7 @@ This category provides a set of extensions for `WHERE` conditions on `SelectQuer
 ### Methods
 - [whereIsIn](./whereIsIn): add `IN` / `NOT IN` conditions by column name.
 - [whereIsAny](./whereIsAny): add `= ANY(array)` conditions by column name, with the array bound as one parameter (PostgreSQL).
+- [innerJoinUnnest](./innerJoinUnnest): keep the rows whose column is in an array by joining `unnest(array)`, an alternative plan to `= ANY` for large arrays (PostgreSQL).
 - [whereArrayContains / ContainedBy / Overlaps](./whereArray): add `@>`, `<@`, `&&` conditions on array columns (PostgreSQL).
 - [whereJsonContains / whereJsonHasKey](./whereJson): add `@>` and `?` conditions on JSON columns (PostgreSQL).
 - [whereIsDistinctFrom](./whereIsDistinctFrom): add null-safe `IS [NOT] DISTINCT FROM` conditions (any database).

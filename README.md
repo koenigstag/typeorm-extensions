@@ -59,9 +59,8 @@ For more information, please refer to the [documentation](https://koenigstag.git
 ## ToDo list
 
 - [x] Add tests for pagination and order extensions
-- [ ] Virtual column decorator and its query-builder methods (`addSelectVirtual`, `orderByVirtual`, `getManyWithVirtual`, `getOneWithVirtual`)
-- [ ] Add `withVirtualColumns` option to `findManyWithTotals` method to use `getManyWithVirtual` instead of `getMany`
-- [ ] Add `isVirtual` option to `OrderParam` to indicate usage of `orderByVirtual` method
+- [x] Calculated columns: the `@CalculatedColumn` decorator and `addSelectCalculated`. `getMany`, `getOne` and `getManyWithTotals` fill them as they are, so they need no variants of their own
+- [x] Order by a calculated column: `orderByCalculated`, and `applyOrder` orders a `@CalculatedColumn` field by its value
 
 ## License
 

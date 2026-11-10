@@ -7,6 +7,7 @@ import {
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
 import { getDriverType } from '../../../utils/sql.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -16,7 +17,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Creates SELECT query.
      * Replaces all previous selections if they exist.
      */
-    selectTyped<Type extends ObjectLiteral = Entity>(
+    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       selectionAliasName?: string,
@@ -36,7 +37,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Creates SELECT query and selects given data.
      * Replaces all previous selections if they exist.
      */
-    selectTyped<Type extends ObjectLiteral = Entity>(
+    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
       useQuotes?: boolean
@@ -45,7 +46,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     /**
      * Adds new selection to the SELECT query.
      */
-    addSelectTyped<Type extends ObjectLiteral = Entity>(
+    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       selectionAliasName?: string,
@@ -63,7 +64,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     /**
      * Adds new selection to the SELECT query.
      */
-    addSelectTyped<Type extends ObjectLiteral = Entity>(
+    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
       useQuotes?: boolean
@@ -77,7 +78,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     selectTyped<
       Entity extends ObjectLiteral,
-      Type extends ObjectLiteral = Entity
+      Type extends ObjectLiteral = TypedRoot<Entity>
     >(
       this: SelectQueryBuilder<Entity>,
       selection?:
@@ -102,7 +103,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
     },
     addSelectTyped<
       Entity extends ObjectLiteral,
-      Type extends ObjectLiteral = Entity
+      Type extends ObjectLiteral = TypedRoot<Entity>
     >(
       this: SelectQueryBuilder<Entity>,
       selection?:
@@ -134,7 +135,7 @@ patchPrototype(SelectQueryBuilder, extension);
 
 const attachSelectMethod = <
   Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = Entity
+  Type extends ObjectLiteral = TypedRoot<Entity>
 >(
   query: SelectQueryBuilder<Entity>,
   method: 'select' | 'addSelect',

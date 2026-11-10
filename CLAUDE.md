@@ -74,6 +74,11 @@ Flow for a change:
 
 Never open a pull request for new work straight against `main`, and never commit new work to `main` directly.
 
+## Releases
+
+- Pushing a tag `vX.Y.Z` runs `npm-publish.yml`, which publishes the package. The tag has to match `version` in `package.json`, or the workflow fails before publishing.
+- A prerelease (`2.2.0-rc.0`, tag `v2.2.0-rc.0`) is published under the `next` dist-tag. `npm install typeorm-extensions` and `^2.x` ranges keep the last release; `typeorm-extensions@2.2.0-rc.0` or `typeorm-extensions@next` install the prerelease. Mark its GitHub release as a pre-release.
+
 - Commit messages are short, imperative style (e.g., "Add table helper util", "Refactor useDoubleQuotes to useQuotes")
 
 ## Key Patterns
