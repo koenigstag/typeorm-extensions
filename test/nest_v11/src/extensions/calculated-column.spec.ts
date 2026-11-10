@@ -1,5 +1,8 @@
 import 'typeorm-extensions/extensions/calculated-column.extension';
 import 'typeorm-extensions/extensions/order.extension';
+import 'typeorm-extensions/extensions/cursor-pagination.extension';
+import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
+import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
 import { setupTest, createFakeUsers, createFakeImages, nativeSql } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 
@@ -171,5 +174,16 @@ setupTest('CalculatedColumn', undefined, (context) => {
       expect(() => users().addOrderByCalculated('firstName')).toThrow(/UserEntity\.firstName is not a @CalculatedColumn/);
       expect(() => users().applyOrder<UserEntity>({ field: 'imagesCount' })).toThrow(/applyOrder: .* isn't selected/);
     });
+  });
+
+  it('SHOULD throw for a calculated property where the table needs a column', async () => {
+    expect(() => users().whereTyped((u) => u.imagesCount, '>', 1)).toThrow(/imagesCount is a @CalculatedColumn/);
+    expect(() => users().orderByTyped((u) => u.imagesCount)).toThrow(/imagesCount is a @CalculatedColumn/);
+    await expect(
+      context.dataSource
+        .getRepository(UserEntity)
+        .createQueryBuilder('user')
+        .getManyWithCursor({ pageSize: 1 }, { orderBy: [{ field: 'imagesCount', direction: 'ASC' }] }),
+    ).rejects.toThrow(/"imagesCount" is not a column/);
   });
 });
