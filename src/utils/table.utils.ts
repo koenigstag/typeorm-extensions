@@ -110,8 +110,13 @@ function aggregateOrder<T>(method: string, orderBy: AggregateOrder<T>, toSql: (c
 	return { column, sql: ` ORDER BY ${toSql(column)}${direction ? ` ${direction}` : ''}` };
 }
 
-/** A column of the helper's table, or an SQL expression: `{ sql: 'MAX("order"."paidAt")' }`. */
-export type TableHelperExpression<T> = ColumnName<T> | { sql: string };
+/** A column of the helper's table whose property is a `Date`. */
+type DateColumnName<T> = {
+	[K in keyof T & string]: [NonNullable<T[K]>] extends [Date] ? K : never;
+}[keyof T & string];
+
+/** A date column of the helper's table, or an SQL expression: `{ sql: 'MAX("order"."paidAt")' }`. */
+export type TableHelperExpression<T> = DateColumnName<T> | { sql: string };
 
 /**
  * A time zone: a name or an ISO 8601 offset (`'Europe/Kyiv'`, `'UTC'`, `'+02:00'` = UTC+2), written into the SQL as an escaped string
@@ -153,7 +158,7 @@ const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
 ];
 
 function assertPostgres(method: string, driver: DatabaseType | undefined) {
-	if (isMysqlLikeDriver(driver) || isSqliteLikeDriver(driver)) {
+	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
 		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"`);
 	}
 }

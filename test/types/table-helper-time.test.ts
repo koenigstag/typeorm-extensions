@@ -18,3 +18,7 @@ booking.atTimeZone('endsAt', 'UTC');
 booking.dateTrunc('day', 'startsAt', { column: 'zone' });
 // @ts-expect-error not a unit of date_trunc
 booking.dateTrunc('days', 'startsAt');
+// @ts-expect-error not a date column
+booking.atTimeZone('id', 'UTC');
+// @ts-expect-error not a date column
+booking.dateTrunc('day', 'timezone');

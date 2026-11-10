@@ -46,6 +46,7 @@ describe('tableHelper time SQL', () => {
     expect(() => order().atTimeZone('paidAt', ' ')).toThrow(/the time zone is empty/);
     expect(() => order('mysql').atTimeZone('paidAt', 'UTC')).toThrow(/PostgreSQL only, the driver is "mysql"/);
     expect(() => order('better-sqlite3').dateTrunc('day', 'paidAt')).toThrow(/PostgreSQL only/);
+    expect(() => order('mssql').atTimeZone('paidAt', 'UTC')).toThrow(/PostgreSQL only, the driver is "mssql"/);
   });
 });
 
