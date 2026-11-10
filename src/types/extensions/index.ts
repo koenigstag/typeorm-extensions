@@ -7,3 +7,4 @@ export * from './period.types';
 export * from './cursor-pagination.types';
 export * from './search.types';
 export * from './join-lateral.types';
+export * from './query-returning.types';
