@@ -102,6 +102,25 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
     expect(await userIds(query)).toEqual([1, 2]);
   });
 
+  it('SHOULD keep the GROUP BY of a callback with HAVING', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    // user 1 has two images with different urls, user 2 two with the same url
+    await context.dataSource
+      .getRepository(ImageEntity)
+      .save([[1, 'a'], [1, 'b'], [2, 'c'], [2, 'c']].map(([userId, url], i) => new ImageEntity({ id: i + 1, userId: userId as number, url: url as string })));
+
+    expect(
+      await userIds(
+        users().andWhereRelationExists((u) => u.images, 'image', (images) => images.groupBy('image.url').having('COUNT(*) > 1')),
+      ),
+    ).toEqual([2]);
+    expect(
+      await userIds(
+        users().andWhereRelationNotExists((u) => u.images, 'image', (images) => images.groupBy('image.url').having('COUNT(*) > 1')),
+      ),
+    ).toEqual([1, 3]);
+  });
+
   it('SHOULD look in a many-to-one relation', async () => {
     await seedImages();
 
