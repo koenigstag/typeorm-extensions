@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`whereNotExists` / `andWhereNotExists` / `orWhereNotExists`**, and `whereExists` / `andWhereExists` / `orWhereExists` on update and delete queries: TypeORM has `EXISTS` on `SelectQueryBuilder` only, and no `NOT EXISTS`. The SQL is TypeORM's, so `NOT EXISTS` is the negation of its `whereExists`, except with a HAVING in the subquery: its GROUP BY stays, where TypeORM drops it and the HAVING then aggregates the whole subquery. A method is added only where the builder lacks it: TypeORM's own `whereExists` stays. The subquery's parameters get unique names, so two subqueries that both use `:status` keep their own values; with TypeORM's `whereExists` the value set last wins.
+- **`whereNotExists` / `andWhereNotExists` / `orWhereNotExists`**, and `whereExists` / `andWhereExists` / `orWhereExists` on update, delete and soft delete / restore queries: TypeORM has `EXISTS` on `SelectQueryBuilder` only, and no `NOT EXISTS`. The SQL is TypeORM's, so `NOT EXISTS` is the negation of its `whereExists`, except with a HAVING in the subquery: its GROUP BY stays, where TypeORM drops it and the HAVING then aggregates the whole subquery. A method is added only where the builder lacks it: TypeORM's own `whereExists` stays. The subquery's parameters get unique names, so two subqueries that both use `:status` keep their own values; with TypeORM's `whereExists` the value set last wins.
 
 ## [2.2.0] - 2026-11-10
 

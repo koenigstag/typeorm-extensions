@@ -8,12 +8,12 @@ sidebar_position: 8
 
 `NOT EXISTS (subquery)` conditions, and `EXISTS` conditions where TypeORM has none.
 
-TypeORM has `whereExists` / `andWhereExists` / `orWhereExists` on `SelectQueryBuilder`, but no `NOT EXISTS`, and no `EXISTS` on `UpdateQueryBuilder` or `DeleteQueryBuilder`. This extension adds what is missing:
+TypeORM has `whereExists` / `andWhereExists` / `orWhereExists` on `SelectQueryBuilder`, but no `NOT EXISTS`, and no `EXISTS` on `UpdateQueryBuilder`, `DeleteQueryBuilder` or the `SoftDeleteQueryBuilder` of `softDelete()` / `restore()`. This extension adds what is missing:
 
 | Builder | `whereExists` / `andWhereExists` / `orWhereExists` | `whereNotExists` / `andWhereNotExists` / `orWhereNotExists` |
 |---|---|---|
 | `SelectQueryBuilder` | TypeORM's own | added |
-| `UpdateQueryBuilder`, `DeleteQueryBuilder` | added | added |
+| `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`) | added | added |
 
 A method is added only where the builder doesn't have it already, so TypeORM's own methods, in this version or a later one, stay as they are. Inside `Brackets` the callback gets a builder of the query's class, with the same methods.
 
