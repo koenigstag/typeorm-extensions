@@ -43,4 +43,4 @@ The root keys are the aliases of the query (the main one included) and their ent
 typed<Root extends ObjectLiteral>(): SelectQueryBuilder<WithTypedRoot<Entity, Root>>
 ```
 
-`WithTypedRoot<Entity, Root>` is the entity with an optional symbol method that only types carry, left out of `{ ...entity }` copies, so declaration files (`declaration: true`) never have to name it; `TypedRoot<Entity>` reads the root back. Both are exported for helpers that take such a builder.
+`WithTypedRoot<Entity, Root>` is the entity with an optional symbol method that only types carry, left out of `{ ...entity }` copies, so declaration files (`declaration: true`) never have to name it; `TypedRoot<Entity>` reads the root back. Both are exported for helpers that take such a builder, with a concrete entity: `(qb: SelectQueryBuilder<WithTypedRoot<CheckIn, Joins>>) => …`. A helper generic over the entity, `WithTypedRoot<E, Joins>`, can't use the root: TypeScript can't work it out while `E` is open. On a builder without an entity type (`SelectQueryBuilder<any>`, from `dataSource.createQueryBuilder()`), `typed()` sets the root too.

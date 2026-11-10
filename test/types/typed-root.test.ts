@@ -47,3 +47,10 @@ typed.whereTyped((q) => q.customerId, '=', 'c');
 typed.andWhereTyped((q) => q.ticket.id, '=', 'c');
 // @ts-expect-error a number for a string column (strictParams is on in these type tests)
 typed.whereTyped((q) => q.event.eventType, '=', 1);
+
+// a builder without an entity type, as dataSource.createQueryBuilder() gives
+declare const anyQuery: SelectQueryBuilder<any>;
+
+anyQuery.typed<Joins>().whereTyped((q) => q.event.eventType, '=', 'class');
+// @ts-expect-error not a property of the root
+anyQuery.typed<Joins>().whereTyped((q) => q.event.notAColumn, '=', 'class');

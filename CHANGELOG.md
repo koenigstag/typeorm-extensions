@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`typed<Root>()`** sets the root of the typed callbacks once for a query, instead of passing it to each call (`whereTyped<Joins>(…)`): `query.typed<{ checkin: CheckIn; event: Event }>().whereTyped((q) => q.event.eventType, '=', type)`. Type-only; the root carries through the chain, TypeORM's methods included, and `getMany()` still returns the entities. With `strictParams` the parameters of these calls are checked, which an explicit type argument turns off. The typed methods' default root is `TypedRoot<Entity>`: the entity, unless `typed()` set another.
+- **`typed<Root>()`** sets the root of the typed callbacks once for a query, instead of passing it to each call (`whereTyped<Joins>(…)`): `query.typed<{ checkin: CheckIn; event: Event }>().whereTyped((q) => q.event.eventType, '=', type)`. Type-only; the root carries through the chain, TypeORM's methods included, and `getMany()` still returns the entities. With `strictParams` the parameters of these calls are checked, which an explicit type argument turns off. The typed methods' default root is `TypedRoot<Entity>`: the entity, unless `typed()` set another. It works on a `SelectQueryBuilder<any>` too, and an entity loaded through it can be spread in code compiled with `declaration: true`.
 
 ## [2.2.0] - 2026-11-10
 

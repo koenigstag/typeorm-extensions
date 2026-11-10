@@ -4,6 +4,9 @@ import { patchPrototype } from '../../utils/prototype.utils';
 
 // declarations
 
+// SelectQueryBuilder<any> (dataSource.createQueryBuilder()): `any & { … }` is `any`, which would drop the root
+type KnownEntity<Entity> = 0 extends 1 & Entity ? ObjectLiteral : Entity;
+
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
@@ -22,7 +25,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      *   .selectTyped((q) => q.checkin.customerId, 'customerId')
      *   .whereTyped((q) => q.event.eventType, '=', type) // instead of whereTyped<Joins>(…)
      */
-    typed<Root extends ObjectLiteral>(): SelectQueryBuilder<WithTypedRoot<Entity, Root>>;
+    typed<Root extends ObjectLiteral>(): SelectQueryBuilder<WithTypedRoot<KnownEntity<Entity>, Root>>;
   }
 }
 
@@ -32,8 +35,8 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     typed<Entity extends ObjectLiteral, Root extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>
-    ): SelectQueryBuilder<WithTypedRoot<Entity, Root>> {
-      return this as unknown as SelectQueryBuilder<WithTypedRoot<Entity, Root>>;
+    ): SelectQueryBuilder<WithTypedRoot<KnownEntity<Entity>, Root>> {
+      return this as unknown as SelectQueryBuilder<WithTypedRoot<KnownEntity<Entity>, Root>>;
     },
   },
 };
