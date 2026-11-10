@@ -5,6 +5,7 @@ import 'typeorm-extensions/extensions/where-is-any.extension';
 import { setupTest, createFakeUsers, createFakeImages, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
+import { ArticleEntity } from '../models/postgres/article.entity';
 
 // SQL generation does not depend on the database
 setupTest('order-by-array-position.sql', undefined, (context) => {
@@ -107,5 +108,41 @@ setupTest('order-by-array-position.postgres', undefined, (context) => {
 
     expect(result.map((user) => user.id)).toEqual(order.slice(0, 2));
     expect(result[1].images).toHaveLength(2);
+  });
+});
+
+// a path into a JSON column, cast to the type of the values: PostgreSQL only
+setupTest('order-by-array-position.json.postgres', { entities: [ArticleEntity] }, (context) => {
+  if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  it('SHOULD order by the position of a JSON value, a number compared as a number', async () => {
+    await context.dataSource.getRepository(ArticleEntity).save(
+      [
+        ['a', 'draft', 1],
+        ['b', 'live', 2],
+        ['c', 'archived', 3],
+      ].map(
+        ([title, status, score]) =>
+          new ArticleEntity({ title: title as string, tags: [], meta: { status: status as string, score: score as number } }),
+      ),
+    );
+
+    const articles = () => context.dataSource.getRepository(ArticleEntity).createQueryBuilder('a');
+
+    // jsonb keeps the scale: the text of this score is '3.0', which equals 3 only as a number
+    await context.dataSource.query(`UPDATE "articles" SET "meta" = '{"status": "archived", "score": 3.0}' WHERE "title" = 'c'`);
+
+    const byStatus = await articles().orderByArrayPositionTyped((a) => a.meta.status, ['live', 'archived', 'draft']).getMany();
+    const byScore = await articles().orderByArrayPositionTyped((a) => a.meta.score, [3, 1, 2]).getMany();
+    const byScoreAsIntegers = await articles().orderByArrayPositionTyped((a) => a.meta.score, [3, 1, 2], 'int[]').getMany();
+
+    expect(byStatus.map(({ title }) => title)).toEqual(['b', 'c', 'a']);
+    expect(byScore.map(({ title }) => title)).toEqual(['c', 'a', 'b']);
+    expect(byScoreAsIntegers.map(({ title }) => title)).toEqual(['c', 'a', 'b']);
   });
 });

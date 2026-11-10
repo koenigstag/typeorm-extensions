@@ -47,7 +47,10 @@ const createOrderByArrayPositionTypedMethod = (replace: boolean) =>
     arrayType?: string
   ): SelectQueryBuilder<Entity> {
     const methodName = replace ? 'orderByArrayPositionTyped' : 'addOrderByArrayPositionTyped';
-    const column = getTypedSingleColumnKey<Type>(this, selection, methodName);
+    // a path into a JSON column is cast to the type of the values, as typed where methods do it,
+    // so a number in the JSON is compared as a number, not as its text
+    const value = Array.isArray(values) ? values.find((candidate) => candidate != null) : undefined;
+    const column = getTypedSingleColumnKey<Type>(this, selection, methodName, { value });
 
     return attachOrderByArrayPosition(this, column, values, arrayType, replace);
   };

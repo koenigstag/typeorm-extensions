@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **`whereArrayContainsTyped` / `ContainedByTyped` / `OverlapsTyped` on an array inside a JSON column**: the path was read as text and compared with an array operator, an error in the database. It is now compared with jsonb operators: `@>` and `<@` against the values as a JSON array, and `?|` for an overlap of strings.
+- **`orderByArrayPositionTyped` on a value inside a JSON column** compared the value as text: a stored `3.0` didn't match `3`, and with `arrayType: 'int[]'` the query failed. The value is now cast to the type of the values, as typed where methods do.
+
 ## [2.2.0] - 2026-11-10
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.

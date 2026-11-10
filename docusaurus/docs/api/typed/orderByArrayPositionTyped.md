@@ -9,6 +9,10 @@ sidebar_position: 6.5
 
 **PostgreSQL only** (and compatible databases such as CockroachDB).
 
+### A value inside a JSON column
+
+A path into a JSON column (`a => a.meta.score`) is read as text and cast to the type of the values, as typed where methods do: a number is compared as a number, so a stored `3.0` takes the position of `3`. With `arrayType` the array is cast too (`'int[]'`); PostgreSQL 13+ compares `integer[]` with a `numeric` value.
+
 ## Signature
 ```typescript
 orderByArrayPositionTyped(selection: KeyProxyCallback<Entity>, values: readonly unknown[], arrayType?: string): this

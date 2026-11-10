@@ -7,7 +7,9 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedSingleColumnKey, isTypedJsonPath } from '../../../utils/query-builder.utils';
+import { createUniqueParameterName } from '../../../utils/sql.utils';
+import type { WhereMethods } from '../../../types/extensions';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import { ArgsType } from '../../../types/util-types';
 import type { WhereArrayMethods } from '../../where-array.extension';
@@ -185,6 +187,58 @@ function attachWhereArrayTyped<
 
   const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
 
+  if (isTypedJsonPath<Type>(builder, where)) {
+    return attachWhereJsonArray(builder, method, where, values, arrayType);
+  }
+
   // .andWhereArrayContains(`"table"."column"`, ['value'])
   return builder[method](key, values, arrayType);
+}
+
+const JSON_ARRAY_METHOD = /^(where|andWhere|orWhere)Array(Contains|ContainedBy|Overlaps)$/;
+
+const JSON_ARRAY_OPERATORS = { Contains: '@>', ContainedBy: '<@', Overlaps: '?|' } as const;
+
+/**
+ * The array conditions on an array inside a JSON column, with jsonb operators: `@>` and `<@` against the
+ * values as a JSON array, and `?|` (any of the strings is an element) for the overlap. Empty arrays keep
+ * PostgreSQL's semantics, as for array columns.
+ */
+function attachWhereJsonArray<Type extends ObjectLiteral, QB extends WhereExpressionBuilder>(
+  builder: QB,
+  method: keyof WhereArrayMethods,
+  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
+  values: ArgsType,
+  arrayType: string | undefined
+): QB {
+  const methodName = `${method}Typed`;
+  const [, whereMethod, condition] = JSON_ARRAY_METHOD.exec(method) as unknown as [
+    string,
+    WhereMethods,
+    keyof typeof JSON_ARRAY_OPERATORS,
+  ];
+
+  if (!Array.isArray(values)) {
+    throw new TypeError(`${methodName} expects an array of values, got ${values}`);
+  }
+
+  if (arrayType !== undefined) {
+    throw new TypeError(`${methodName}: arrayType is for array columns, not for an array inside a JSON column`);
+  }
+
+  const jsonArray = `CAST(${getTypedSingleColumnKey<Type>(builder, where, methodName, { accessor: 'json' })} AS jsonb)`;
+  const paramName = createUniqueParameterName(whereMethod);
+
+  if (condition === 'Overlaps') {
+    if (!values.every((value) => typeof value === 'string')) {
+      throw new TypeError(`${methodName} on an array inside a JSON column takes strings: the ?| operator matches string elements`);
+    }
+
+    return builder[whereMethod](`${jsonArray} ?| CAST(:${paramName} AS text[])`, { [paramName]: values });
+  }
+
+  return builder[whereMethod](
+    `${jsonArray} ${JSON_ARRAY_OPERATORS[condition]} CAST(:${paramName} AS jsonb)`,
+    { [paramName]: JSON.stringify(values) }
+  );
 }

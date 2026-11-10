@@ -290,6 +290,19 @@ export function getTypedColumnKey<Type extends ObjectLiteral>(
   return Array.isArray(keyHolder) ? keyHolder.map(toKey) : toKey(keyHolder);
 }
 
+/** Whether a typed callback selects a path inside a JSON column, `u => u.metadata.tags`, rather than a column. */
+export function isTypedJsonPath<Type extends ObjectLiteral>(
+  builder: WhereExpressionBuilder,
+  callback: KeyProxyCallback<Type>
+): boolean {
+  const keyHolder = getKeyHolder<Type>(callback, true);
+
+  return (
+    !Array.isArray(keyHolder) &&
+    Boolean(resolveTypedKey(builder as unknown as QueryBuilder<ObjectLiteral>, keyHolder.getKeys()).jsonPath)
+  );
+}
+
 /**
  * Quoted column of a typed callback that must select exactly one column
  * (`whereIsAnyTyped`, `whereArrayContainsTyped`, …). Throws a `TypeError` for several columns:

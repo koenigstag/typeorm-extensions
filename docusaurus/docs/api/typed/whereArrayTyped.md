@@ -11,6 +11,18 @@ The property is mapped to its database column (`@Column({ name })`), and on `Upd
 
 **PostgreSQL only** (and compatible databases such as CockroachDB).
 
+### An array inside a JSON column
+
+A path into a JSON column (`a => a.meta.flags`) is compared with jsonb operators instead of the array ones, against the values as a JSON array:
+
+| Method | SQL |
+|---|---|
+| `whereArrayContainsTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) @> CAST(:values AS jsonb)` |
+| `whereArrayContainedByTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) <@ CAST(:values AS jsonb)` |
+| `whereArrayOverlapsTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) ?| CAST(:values AS text[])` |
+
+`?|` matches string elements, so the overlap takes strings only; `arrayType` is for array columns. Both throw a `TypeError` otherwise. `json`, `jsonb` and `simple-json` columns work alike. PostgreSQL only.
+
 ## Signature
 ```typescript
 whereArrayContainsTyped(selection: KeyProxyCallback<Entity>, values: readonly unknown[], arrayType?: string): this
