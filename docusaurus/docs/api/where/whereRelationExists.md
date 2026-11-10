@@ -55,6 +55,12 @@ type Joins = { user: UserEntity; community: CommunityEntity };
 query
   .leftJoin('user.community', 'community')
   .andWhereRelationExists<InterestEntity, Joins>(joins => joins.community.interests, 'interest')
+
+// or with the root set once by typed<Joins>(): only the related entity is named
+query
+  .leftJoin('user.community', 'community')
+  .typed<Joins>()
+  .andWhereRelationExists<InterestEntity>(joins => joins.community.interests, 'interest')
 ```
 
 ```typescript

@@ -1,5 +1,6 @@
 import { SelectQueryBuilder } from 'typeorm';
 import 'typeorm-extensions';
+import type { WithTypedRoot } from '../../src/types/modules/typed-root.types';
 
 class Image {
   id: number;
@@ -26,3 +27,9 @@ users.andWhereRelationExists((u) => u.images, 'image', (images) => images.andWhe
 type Joins = { user: User; image: Image };
 declare const joined: SelectQueryBuilder<User>;
 joined.andWhereRelationExists<Image, Joins>((j) => j.user.images, 'other', (others) => others.andWhereTyped((i) => i.url, '=', 'x'));
+
+// with the root set by typed<Joins>(), only the related type is given
+declare const typed: SelectQueryBuilder<WithTypedRoot<User, Joins>>;
+typed.andWhereRelationExists<Image>((j) => j.user.images, 'other', (others) => others.andWhereTyped((i) => i.url, '=', 'x'));
+// @ts-expect-error the root is the aliases now, not the entity
+typed.andWhereRelationExists<Image>((j) => j.images, 'other');

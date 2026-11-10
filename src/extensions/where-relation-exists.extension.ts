@@ -4,6 +4,7 @@ import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
 import type { EntityMetadata } from 'typeorm/metadata/EntityMetadata';
 import type { WhereMethods } from '../types/extensions';
 import type { DeepUnwrapArray, KeyPathEnd, KeyProxyCallback } from '../types/modules/proxy-callback.types';
+import type { TypedRoot } from '../types/modules/typed-root.types';
 import { attachExists } from './where-exists.extension';
 import { patchPrototype } from '../utils/prototype.utils';
 import { getTypedSelectionKey } from '../utils/query-builder.utils';
@@ -31,37 +32,37 @@ type RelatedCondition<Related extends ObjectLiteral> = (subQuery: SelectQueryBui
  */
 export interface WhereRelationExistsMethods<Entity extends ObjectLiteral> {
   /** Sets `WHERE EXISTS (…)` over the relation, replacing the WHERE conditions set before. */
-  whereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  whereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `AND EXISTS (…)` over the relation. */
-  andWhereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  andWhereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `OR EXISTS (…)` over the relation. */
-  orWhereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  orWhereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Sets `WHERE NOT EXISTS (…)` over the relation, replacing the WHERE conditions set before. */
-  whereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  whereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `AND NOT EXISTS (…)` over the relation. */
-  andWhereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  andWhereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `OR NOT EXISTS (…)` over the relation. */
-  orWhereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  orWhereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>

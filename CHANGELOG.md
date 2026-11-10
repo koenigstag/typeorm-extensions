@@ -5,7 +5,7 @@
 ### New Features
 
 - **`whereNotExists` / `andWhereNotExists` / `orWhereNotExists`**, and `whereExists` / `andWhereExists` / `orWhereExists` on update and delete queries: TypeORM has `EXISTS` on `SelectQueryBuilder` only, and no `NOT EXISTS`. The SQL is TypeORM's, so `NOT EXISTS` is the exact negation of its `whereExists`. A method is added only where the builder lacks it: TypeORM's own `whereExists` stays. The subquery's parameters get unique names, so two subqueries that both use `:status` keep their own values; with TypeORM's `whereExists` the value set last wins.
-- **`whereRelationExists` / `whereRelationNotExists`** (and `and…` / `or…`): `EXISTS` / `NOT EXISTS` over a relation picked by a typed callback, with the join condition from the relation's metadata: one-to-many, many-to-one, one-to-one and many-to-many through the junction table. A callback narrows the related rows; the join condition is added after it and can't be dropped or bypassed by its `where` / `orWhere`. Subquery parameters get unique names.
+- **`whereRelationExists` / `whereRelationNotExists`** (and `and…` / `or…`): `EXISTS` / `NOT EXISTS` over a relation picked by a typed callback, with the join condition from the relation's metadata: one-to-many, many-to-one, one-to-one and many-to-many through the junction table. A callback narrows the related rows; the join condition is added after it and can't be dropped or bypassed by its `where` / `orWhere`. Subquery parameters get unique names. The callback starts at the root set with `typed<Root>()`, else at the entity.
 
 ## [2.2.0] - 2026-11-10
 
