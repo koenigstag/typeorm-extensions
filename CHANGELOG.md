@@ -2,7 +2,7 @@
 
 ## [2.2.0] - Unreleased
 
-Published for testing as `2.2.0-rc.1` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+Published for testing as `2.2.0-rc.2` under the `next` dist-tag: `npm install typeorm-extensions@next`.
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
