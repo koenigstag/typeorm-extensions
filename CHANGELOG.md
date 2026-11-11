@@ -2,7 +2,7 @@
 
 ## [2.2.0] - Unreleased
 
-Published for testing as `2.2.0-rc.1` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+Published for testing as `2.2.0-rc.2` under the `next` dist-tag: `npm install typeorm-extensions@next`.
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
@@ -44,6 +44,7 @@ One change can make working code throw: a params object that goes after the cond
 - **`whereArrayContainsTyped` / `ContainedByTyped` / `OverlapsTyped` on an array inside a JSON column**: the path was read as text and compared with an array operator, an error in the database. It is now compared with jsonb operators: `@>` and `<@` against the values as a JSON array, and `?|` for an overlap of strings, on arrays only: a string or an object at the path doesn't match.
 - **`orderByArrayPositionTyped` on a value inside a JSON column** compared the value as text: a stored `3.0` didn't match `3`, and with `arrayType: 'int[]'` the query failed. The value is now cast to the type of the values, as typed where methods do; a value of another JSON type goes last instead of failing the cast.
 - **`tableHelper.count()` on MySQL**: `CAST(COUNT(…) AS integer)` is a syntax error there. With `driver: 'mysql'` it casts `AS SIGNED`.
+- **Column names inside `Brackets` and subqueries**: the builder TypeORM passes to a `Brackets` callback has the outer query's main alias but none of its aliases, so typed keys there kept the property name: `where.whereTyped((o) => o.calculatedAmount, …)` gave `"o"."calculatedAmount"` instead of the `@Column({ name: 'calculated_amount' })` column, an error in the database; the same for a joined alias (`j.u.fullName`) and for string fields (`whereIsIn('u.fullName', …)`). In a subquery, an alias of the outer query had the same problem. Aliases are now looked up in the queries the builder is part of too.
 
 ## [2.1.0] - 2026-11-09
 
