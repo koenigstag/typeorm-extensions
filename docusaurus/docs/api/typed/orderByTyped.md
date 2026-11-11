@@ -28,7 +28,7 @@ addOrderByTyped(
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects fields of entity. A path into a JSON column (`user => user.metadata.role`) throws a `TypeError`: for a JSON value use [tableHelper](../utils/tableHelper.md#jsonb) `jsonColumn`.
 - order?: 'ASC' | 'DESC': Order direction. Default is 'ASC'.
 - nulls?: 'NULLS FIRST' | 'NULLS LAST': NULLS ordering.
-- options?: `TypedOrderByOptions`: `{ useQuotes?: boolean }`. With `useQuotes: true` the key is the quoted database column (`"user"."updated_at"`, `@Column({ name })` applied) instead of `user.updatedAt`. Default `false`: `user.updatedAt`, which TypeORM maps to the column itself. Replaces the `useDoubleQuotes` argument of 1.3.x.
+- options?: `TypedOrderByOptions`: `{ useQuotes?: boolean }`. With `useQuotes: true` the key is the quoted database column (`"user"."updated_at"`, `@Column({ name })` applied) instead of `user.updatedAt`. Without it: `user.updatedAt`, which TypeORM maps to the column itself. An alias without metadata, a subquery or a table in FROM or a join that isn't an entity (`.from('recent_events', 'recentEvents')`), is quoted unless `useQuotes: false` is passed: TypeORM leaves its keys as written, and PostgreSQL folds an unquoted `recentEvents.startsAt` to `recentevents.startsat`. An alias the query doesn't know yet when the method is called isn't quoted. On PostgreSQL a column that raw SQL names without quotes (`AS userId`) is `userid`: quote it in the SQL (`AS "userId"`) or pass `useQuotes: false`. Replaces the `useDoubleQuotes` argument of 1.3.x.
 
 ## Usage
 

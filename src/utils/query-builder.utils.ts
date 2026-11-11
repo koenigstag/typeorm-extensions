@@ -380,12 +380,22 @@ export function getTypedSingleColumnKey<Type extends ObjectLiteral>(
   return key;
 }
 
+// an alias the query doesn't know yet may still get metadata (a join added later), so it stays unquoted
+function isAliasWithoutMetadata(queryBuilder: QueryBuilder<ObjectLiteral>, aliasName: string | undefined): boolean {
+  const alias = aliasName === undefined ? undefined : findQueryAlias(queryBuilder, aliasName);
+
+  return alias !== undefined && !alias.hasMetadata;
+}
+
 /**
- * Key for typed select / order / distinct on a SelectQueryBuilder.
+ * Key for typed select / order / distinct / group by on a SelectQueryBuilder.
  *
  * Without quotes it is `alias.propertyPath` (`user.name`, `images.url`, `p.address.city`),
  * which TypeORM maps to the column itself. With `useQuotes` it is the quoted database column
- * (`"t"."ticket_status"`), since TypeORM doesn't map quoted keys. Strings are kept as is.
+ * (`"t"."ticket_status"`), since TypeORM doesn't map quoted keys. An alias of the query without
+ * metadata (a subquery or a CTE in FROM or a join) is quoted unless `useQuotes` is `false`:
+ * TypeORM leaves its keys as written, and PostgreSQL folds an unquoted `cte.firstName` to `firstname`.
+ * Strings are kept as is.
  */
 export function getTypedSelectionKey<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
@@ -408,7 +418,7 @@ export function getTypedSelectionKey<Type extends ObjectLiteral>(
       );
     }
 
-    if (useQuotes) {
+    if (useQuotes ?? isAliasWithoutMetadata(queryBuilder, resolved.aliasName)) {
       return toQuotedColumnKey(queryBuilder, resolved);
     }
 
