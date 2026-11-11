@@ -1,12 +1,10 @@
 # Changelog
 
-## [2.2.0] - Unreleased
-
-Published for testing as `2.2.0-rc.3` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+## [2.2.0] - 2026-11-11
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
-One change can make working code throw: a params object that goes after the condition (`whereTyped(u => u.id, '=', { id })`) has to hold exactly one key, see **Bug Fixes**.
+Two changes can make working code fail: a params object that goes after the condition (`whereTyped(u => u.id, '=', { id })`) has to hold exactly one key, and a camelCase typed key in select / order / group by / distinct for a subquery column that raw SQL names without quotes no longer matches it on PostgreSQL. See **Bug Fixes**.
 
 ### New Features
 

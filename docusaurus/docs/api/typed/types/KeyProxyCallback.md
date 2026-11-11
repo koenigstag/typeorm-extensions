@@ -30,6 +30,8 @@ type KeyProxyCallback<Entity> = (
 
 The property is mapped to its database column (`@Column({ name })`, embedded columns) through the metadata of its alias: where methods and `useQuotes` emit the quoted column, e.g. `"user"."created_at"`.
 
+The mapping happens when the method is called, through the aliases the query has at that moment, so join first. A where method, or `useQuotes`, called before the join that adds its alias keeps the property name: `"usr"."receiptsEmail"` for `@Column({ name: 'receipts_email' })`, which the database rejects. Without quotes, select, order and group by give `alias.property`, which TypeORM maps when it builds the SQL, so for them the order doesn't matter.
+
 A relation column is keyed by the relation property name, so join the relation with that alias:
 
 ```typescript
@@ -98,7 +100,7 @@ query.where((qb) => {
 })
 ```
 
-A single-level key (`(q) => q.chatRoomId`) needs the main alias, so before `from()` it throws a `TypeError`. Column names are mapped through aliases the query already knows: a quoted key (where methods, `useQuotes`) for a renamed column needs `from()` to come first.
+A single-level key (`(q) => q.chatRoomId`) needs the main alias, so before `from()` it throws a `TypeError`. Column names are mapped through aliases the query already knows: a quoted key (where methods, `useQuotes`) for a renamed column needs `from()`, and the join that adds its alias, to come first.
 
 ## Example
 
