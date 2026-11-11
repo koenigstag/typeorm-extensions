@@ -15,6 +15,9 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   return `:${paramName}`;
 }
 
+/** A condition that ends with an operator, `=`, `>=`, `LIKE`, `IN`, `@>`: it needs a value after it. */
+const OPERATOR_AT_END = /(?:[=<>!~@&|?]|\b(?:LIKE|ILIKE|IN|SIMILAR TO|DISTINCT FROM|BETWEEN|ANY|ALL))\s*$/i;
+
 const isDate = (value: unknown): value is Date =>
   Object.prototype.toString.call(value) === '[object Date]';
 
@@ -103,6 +106,13 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
     const hasParams = typeof params !== 'undefined';
     // `addValue` defaults to `true` unless `conditions` already references one of the `params` keys
     addValue = addValue ?? !hasParamPlaceholder(conditions, params);
+
+    if (addValue && !hasParams && OPERATOR_AT_END.test(conditions)) {
+      throw new TypeError(
+        `The value after "${fieldName} ${conditions.trim()}" is undefined, which leaves the condition without ` +
+          `an operand. Pass the value, null to compare with NULL, or a condition without one ('IS NULL')`
+      );
+    }
 
     if (addValue && hasParams) {
       assertSingleValueParams(fieldName, params);

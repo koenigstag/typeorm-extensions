@@ -10,6 +10,7 @@ sidebar_position: 7
 - Properties are mapped to their columns, whatever their database names (`@Column({ name })`); embedded properties (`p => p.address.city`) and relations with a join column (`i => i.user`) work too.
 - A property that isn't a column throws a `TypeError`. TypeORM's own `returning(['…'])` silently skips unknown names.
 - The returned rows are in `execute()`'s `raw`, keyed by database column name.
+- TypeORM adds the columns it reads back into the entity, as with `returning([…])`: on INSERT the generated ones (id, create and update date, version, columns with a default) unless `updateEntity(false)` is set; on UPDATE and soft delete the update date and version (and the delete date) when `whereEntity()` is used. For exactly the listed columns, use TypeORM's `returning('"id", "status"')` with a string.
 
 Available on `InsertQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder`. On other databases (SQLite, MySQL) it throws TypeORM's `ReturningStatementNotSupportedError`, like `returning`.
 
