@@ -160,7 +160,7 @@ const attachSelectMethod = <
     const arrayOfKeys = selection.flatMap((select) =>
       select instanceof KeyHolder
         ? (getSqlKeyFromProxyCallback<Type>(select, () => query.alias, useQuotes, getDriverType(query)) as string)
-        : getTypedSelectionKey<Type>(query, select, useQuotes)
+        : getTypedSelectionKey<Type>(query, select, useQuotes, `${method}Typed`)
     );
 
     return query[method](arrayOfKeys);
@@ -168,7 +168,8 @@ const attachSelectMethod = <
     const keyArrayOrSingleKey = getTypedSelectionKey<Type>(
       query,
       selection,
-      useQuotes
+      useQuotes,
+      `${method}Typed`
     );
 
     if (Array.isArray(keyArrayOrSingleKey)) {

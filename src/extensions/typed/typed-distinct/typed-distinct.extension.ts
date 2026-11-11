@@ -34,7 +34,7 @@ SelectQueryBuilder.prototype.distinctOnTyped = function <
 	...distinctOn: Array<KeyProxyCallback<Type>>
 ): SelectQueryBuilder<Entity> {
 	if (Array.isArray(distinctOn) && distinctOn.length) {
-		const keys = distinctOn.map((callback) => getTypedSelectionKey<Type>(this, callback)).flat();
+		const keys = distinctOn.map((callback) => getTypedSelectionKey<Type>(this, callback, undefined, 'distinctOnTyped')).flat();
 
 		return this.distinctOn(keys as string[]);
 	}

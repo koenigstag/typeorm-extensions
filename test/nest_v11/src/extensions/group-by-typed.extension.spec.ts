@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/typed/typed-group-by/typed-group-by.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { createFakeUser, nativeSql, setupTest, sqlOf } from '../test-utils';
-import { ImageEntity, TicketEntity, UserEntity } from '../models';
+import { ImageEntity, PersonEntity, TicketEntity, UserEntity } from '../models';
 
 setupTest('group-by-typed', undefined, (context) => {
   it('SHOULD group by the database column of the property', async () => {
@@ -88,5 +88,32 @@ setupTest('group-by-typed', undefined, (context) => {
 
     // @ts-expect-error not a property of the entity
     userQuery.addGroupByTyped((u) => u.nickname);
+  });
+
+  it('SHOULD group by a JSON column as a whole and reject a relation or an embedded entity', async () => {
+    const users = context.dataSource.getRepository(UserEntity);
+
+    const metadata = { role: 'admin', settings: { theme: 'dark', status: 'on' } };
+
+    await users.save([createFakeUser({ metadata }), createFakeUser({ metadata })]);
+
+    const byMetadata = users
+      .createQueryBuilder('user')
+      .select('COUNT(*)', 'count')
+      .groupByTyped((u) => u.metadata)
+      .setOption('disable-global-order');
+
+    expect(sqlOf(byMetadata)).toContain('GROUP BY "user"."metadata"');
+    expect((await byMetadata.getRawMany()).map((row) => Number(row.count))).toEqual([2]);
+
+    const byOwner = context.dataSource.getRepository(ImageEntity).createQueryBuilder('image').groupByTyped((i) => i.user);
+    expect(sqlOf(byOwner)).toContain('GROUP BY "image"."userId"');
+
+    expect(() => users.createQueryBuilder('user').groupByTyped((u) => u.images)).toThrow(
+      /groupByTyped: "images" is a relation without a join column in its table/,
+    );
+    expect(() =>
+      context.dataSource.getRepository(PersonEntity).createQueryBuilder('p').addGroupByTyped((p) => [p.id, p.address]),
+    ).toThrow(/addGroupByTyped|groupByTyped: "address" is an embedded entity/);
   });
 });

@@ -52,7 +52,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	}
 
 	if (typeof selection === 'function') {
-		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes) as string;
+		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes, 'orderByTyped') as string;
 
 		return this.orderBy(key, order, nulls);
 	}
@@ -75,7 +75,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	}
 
 	if (typeof selection === 'function') {
-		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes) as string;
+		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes, 'addOrderByTyped') as string;
 
 		return this.addOrderBy(key, order, nulls);
 	}
