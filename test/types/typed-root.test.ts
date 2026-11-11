@@ -1,4 +1,4 @@
-import { SelectQueryBuilder } from 'typeorm';
+import { Brackets, SelectQueryBuilder } from 'typeorm';
 import 'typeorm-extensions';
 
 class Event {
@@ -40,6 +40,18 @@ void spreadCopy;
 // without typed() the entity is the root, and an explicit root still wins
 checkIns.whereTyped((q) => q.customerId, '=', 'c');
 checkIns.whereTyped<Joins>((q) => q.event.eventType, '=', 'class');
+
+// an explicit root on the untyped builder of a Brackets callback, with a type parameter for it
+function byEventType<T extends Event | (Event & { capacity: number })>(query: SelectQueryBuilder<T>) {
+  query.andWhere(
+    new Brackets((where) => {
+      where.whereTyped<T>((q) => q.eventType, '=', { eventType: 'class' });
+      where.orWhereIsInTyped<T>((q) => q.id, ['a']);
+    }),
+  );
+  query.andWhereTyped<T>((q) => q.eventType, '=', { eventType: 'class' });
+}
+void byEventType;
 
 // @ts-expect-error the root is the aliases now, not the entity
 typed.whereTyped((q) => q.customerId, '=', 'c');
