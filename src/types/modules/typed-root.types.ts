@@ -14,9 +14,15 @@ declare class TypedRootMark<Root> {
  */
 export type WithTypedRoot<Entity, Root extends ObjectLiteral> = Entity & TypedRootMark<Root>;
 
-/** The root of a builder's typed callbacks: the one set with `typed<Root>()`, or else its entity. */
-export type TypedRoot<Entity> = Entity extends TypedRootMark<infer Root>
-  ? Root extends ObjectLiteral
-    ? Root
+/**
+ * The root of a builder's typed callbacks: the one set with `typed<Root>()`, or else its entity. The key check
+ * comes first: without `strictNullChecks` an entity with an index signature (`ObjectLiteral`) matches the
+ * optional mark too, and its root would be inferred as `unknown`.
+ */
+export type TypedRoot<Entity> = typeof typedRoot extends keyof Entity
+  ? Entity extends TypedRootMark<infer Root>
+    ? Root extends ObjectLiteral
+      ? Root
+      : Entity
     : Entity
   : Entity;

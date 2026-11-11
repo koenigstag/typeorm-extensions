@@ -232,11 +232,12 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
 async function bothOrFirstError<A, B>(first: Promise<A>, second: Promise<B>): Promise<[A, B]> {
   const [a, b] = await Promise.all([settle(first), settle(second)]);
 
-  if (!a.fulfilled) {
+  // `=== false`: without strictNullChecks `!fulfilled` doesn't narrow the union
+  if (a.fulfilled === false) {
     throw a.reason;
   }
 
-  if (!b.fulfilled) {
+  if (b.fulfilled === false) {
     throw b.reason;
   }
 
