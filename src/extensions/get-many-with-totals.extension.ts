@@ -14,6 +14,7 @@ import type {
 } from '../types/extensions';
 import type { OrderType } from '../types/interfaces/ordering.interface';
 import { patchPrototype } from '../utils/prototype.utils';
+import { resolveDeferredKeys } from '../utils/query-builder.utils';
 
 // declarations
 
@@ -208,11 +209,13 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
   // falls back to the `orderBy` of @Entity, and respects the `disable-global-order` option
   const orderBy: OrderType[] = Object.entries(
     builder.expressionMap.allOrderBys ?? {}
-  ).map(([selector, value]) =>
-    typeof value === 'string'
+  ).map(([key, value]) => {
+    const selector = resolveDeferredKeys(builder, key);
+
+    return typeof value === 'string'
       ? { selector, order: value }
-      : { selector, order: value.order, nulls: value.nulls }
-  );
+      : { selector, order: value.order, nulls: value.nulls };
+  });
 
   return {
     list,
