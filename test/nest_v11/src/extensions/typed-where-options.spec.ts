@@ -60,5 +60,10 @@ setupTest('typed-where.options', undefined, (context) => {
     expect(sqlOf(query().whereTyped((u) => u.email, 'IS NULL', email))).toMatch(/WHERE "user"\."email" IS NULL/);
     expect(sqlOf(query().whereTyped((u) => u.email, '=', null))).toMatch(/WHERE "user"\."email" = NULL/);
     expect(sqlOf(query().whereTyped((u) => u.email, '=', { email }))).toMatch(/WHERE "user"\."email" = NULL/);
+
+    // a placeholder set later with setParameter, even one named like an operator
+    for (const condition of ['ILIKE :like', 'IN (:...in)', '= :any', '= ANY(:all)', 'BETWEEN :between AND :and']) {
+      expect(sqlOf(query().whereTyped((u) => u.email, condition))).toContain(`WHERE "user"."email" ${condition}`);
+    }
   });
 });

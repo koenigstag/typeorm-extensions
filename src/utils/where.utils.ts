@@ -15,8 +15,11 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   return `:${paramName}`;
 }
 
-/** A condition that ends with an operator, `=`, `>=`, `LIKE`, `IN`, `@>`: it needs a value after it. */
-const OPERATOR_AT_END = /(?:[=<>!~@&|?]|\b(?:LIKE|ILIKE|IN|SIMILAR TO|DISTINCT FROM|BETWEEN|ANY|ALL))\s*$/i;
+/**
+ * A condition that ends with an operator, `=`, `>=`, `LIKE`, `IN`, `@>`: it needs a value after it. A word after
+ * `:` or `.` is a parameter or a column (`ILIKE :like`, `= t.in`), not an operator.
+ */
+const OPERATOR_AT_END = /(?:[=<>!~@&|?]|(?<![\w$:.])(?:LIKE|ILIKE|IN|SIMILAR TO|DISTINCT FROM|BETWEEN|ANY|ALL))\s*$/i;
 
 const isDate = (value: unknown): value is Date =>
   Object.prototype.toString.call(value) === '[object Date]';

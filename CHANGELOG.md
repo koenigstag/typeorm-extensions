@@ -2,7 +2,7 @@
 
 ## [2.2.0] - Unreleased
 
-Published for testing as `2.2.0-rc.4` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+Published for testing as `2.2.0-rc.5` under the `next` dist-tag: `npm install typeorm-extensions@next`.
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore`, and `orderBy` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
@@ -48,7 +48,7 @@ One change can make working code throw: a params object that goes after the cond
 - **Typed select / order / group by / distinct on an alias without metadata**: without `useQuotes`, `orderByTyped` / `addOrderByTyped`, `selectTyped` / `addSelectTyped`, `groupByTyped` / `addGroupByTyped` and `distinctOnTyped` gave `alias.property` for every alias. TypeORM maps that to the column only for an alias with metadata; for a subquery or a table in FROM or a join that isn't an entity (`.from('recent_events', 'recentEvents')`) it stays as written, and PostgreSQL folds the unquoted `recentEvents.startsAt` to `recentevents.startsat`: `missing FROM-clause entry for table "recentevents"`. Keys of such an alias are now quoted, as typed where methods already did; `useQuotes: false` keeps them unquoted in the methods that take it. A column that raw SQL names without quotes (`SELECT id AS userId`) is `userid` on PostgreSQL, so a camelCase key for it (`cte.userId`), which used to match after folding, now doesn't: quote the column name in the SQL (`AS "userId"`), or pass `useQuotes: false`.
 - **Typed keys on an alias added after the call**: typed where methods, and select / order / group by with `useQuotes`, mapped the property to its column through the aliases the query had when the method was called. Before the join that adds the alias, `whereTyped((j) => j.usr.receiptsEmail, …)` kept the property name, `"usr"."receiptsEmail"`, instead of the `@Column({ name: 'receipts_email' })` column; the same for string fields (`whereIsIn('usr.receiptsEmail', …)`). Such keys are now resolved when TypeORM builds the SQL, as it does for unquoted keys. An alias that is still unknown then, or has no metadata, keeps the property name as before.
 - **Typed select / order / group by / distinct on a relation without a join column or an embedded entity** (`user => user.images`, `person => person.address`) built SQL the database rejects. They now throw a `TypeError`. A many-to-one relation still selects its join column.
-- **A typed where with an `undefined` value after an operator**: `whereTyped((u) => u.email, '=', undefined)` gave `"user"."email" =`, a syntax error in the database. It now throws a `TypeError` that names the condition. `null` and `{ email: undefined }` compare with `NULL`, as before.
+- **A typed where with an `undefined` value after an operator**: `whereTyped((u) => u.email, '=', undefined)` gave `"user"."email" =`, a syntax error in the database. It now throws a `TypeError` that names the condition. A condition that ends with a parameter set later (`'ILIKE :like'` with `setParameter`) is unaffected, and `null` and `{ email: undefined }` compare with `NULL`, as before.
 
 ## [2.1.0] - 2026-11-09
 
