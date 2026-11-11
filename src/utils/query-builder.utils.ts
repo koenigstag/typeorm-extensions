@@ -1,5 +1,6 @@
 import type { EntityMetadata, ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
+import type { Alias } from 'typeorm/query-builder/Alias';
 import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import { createKeyTooDeepError, getKeyHolder, KeyHolder, MAX_KEY_DEPTH } from './proxy-key.utils';
 import { isJsonColumn, JsonPathSqlOptions, toJsonPathSql } from './json-path.utils';
@@ -35,16 +36,41 @@ function requireMainAliasName(queryBuilder: QueryBuilder<ObjectLiteral>, key: st
   return mainAlias.name;
 }
 
+type AliasScope = {
+  expressionMap?: { aliases: Alias[]; mainAlias?: Alias };
+  parentQueryBuilder?: AliasScope;
+};
+
+/**
+ * An alias of the query by name, or of a query it is part of. The builder of a `Brackets` callback has the
+ * outer query's main alias but an empty alias list: the aliases, joins included, are on its parent. A subquery
+ * sees the aliases of the outer query too, its own first.
+ */
+function findQueryAlias(queryBuilder: QueryBuilder<ObjectLiteral>, aliasName: string): Alias | undefined {
+  // parentQueryBuilder is protected in TypeORM's types
+  for (let query = queryBuilder as unknown as AliasScope | undefined; query; query = query.parentQueryBuilder) {
+    const { aliases = [], mainAlias } = query.expressionMap ?? {};
+    const alias =
+      aliases.find((candidate) => candidate.name === aliasName) ??
+      (mainAlias?.name === aliasName ? mainAlias : undefined);
+
+    if (alias) {
+      return alias;
+    }
+  }
+
+  return undefined;
+}
+
 /** Entity metadata of a query alias (the main alias when `aliasName` is undefined), if it has any. */
 function getAliasMetadata(
   queryBuilder: QueryBuilder<ObjectLiteral>,
   aliasName: string | undefined
 ): EntityMetadata | undefined {
-  const expressionMap = queryBuilder.expressionMap;
   const alias =
     aliasName === undefined
-      ? expressionMap?.mainAlias
-      : expressionMap?.aliases.find((queryAlias) => queryAlias.name === aliasName);
+      ? queryBuilder.expressionMap?.mainAlias
+      : findQueryAlias(queryBuilder, aliasName);
 
   return alias?.hasMetadata ? alias.metadata : undefined;
 }
@@ -115,9 +141,7 @@ export function toFieldSql(builder: WhereExpressionBuilder, field: string): stri
 
   if (dot > 0) {
     const aliasName = field.slice(0, dot);
-    const metadata = queryBuilder.expressionMap?.aliases.some((alias) => alias.name === aliasName)
-      ? getAliasMetadata(queryBuilder, aliasName)
-      : undefined;
+    const metadata = getAliasMetadata(queryBuilder, aliasName);
     const column = metadata && findColumn(metadata, field.slice(dot + 1));
 
     if (column) {
@@ -246,7 +270,7 @@ function resolveTypedKeyPath(
     };
   }
 
-  const queryAlias = expressionMap?.aliases.find((alias) => alias.name === firstKey);
+  const queryAlias = findQueryAlias(queryBuilder, firstKey);
 
   if (!queryAlias && mainAlias) {
     const mainMetadata = getAliasMetadata(queryBuilder, undefined);
