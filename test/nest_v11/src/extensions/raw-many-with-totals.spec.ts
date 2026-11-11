@@ -1,8 +1,10 @@
 import 'typeorm-extensions/extensions/get-many-with-totals.extension';
-import { EntityManager } from 'typeorm';
+import { EntityManager, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { setupTest, mysqlRun } from '../test-utils';
 import { databaseDriver, postgresLikeDrivers } from '../constants/database';
 import { TicketEntity } from '../models';
+
+type NativeParametersSetter = { setNativeParameters(parameters: ObjectLiteral): unknown };
 
 setupTest('getRawManyWithTotals', undefined, (context) => {
   // owners 1, 1, 2 and none: 4 rows, 3 owner groups
@@ -91,11 +93,19 @@ setupTest('getRawManyWithTotals', undefined, (context) => {
     }
   });
 
-  it('SHOULD count with the native parameters of the query', async () => {
+  // TypeORM 1.x has no native parameters
+  const withNativeParameters = typeof (SelectQueryBuilder.prototype as unknown as Partial<NativeParametersSetter>).setNativeParameters === 'function';
+
+  (withNativeParameters ? it : it.skip)('SHOULD count with the native parameters of the query', async () => {
     await seed();
 
     const placeholder = postgresLikeDrivers.includes(databaseDriver) ? '$1' : '?';
-    const open = () => tickets().select('t.id', 'id').where(`t.status = ${placeholder}`).setNativeParameters({ status: 'open' });
+    const open = () => {
+      const query = tickets().select('t.id', 'id').where(`t.status = ${placeholder}`);
+      (query as unknown as NativeParametersSetter).setNativeParameters({ status: 'open' });
+
+      return query;
+    };
 
     expect(await open().getRawManyWithTotals({ page: 1, pageSize: 2 })).toMatchObject({ total: 3, hasMore: true });
     expect(
@@ -106,12 +116,13 @@ setupTest('getRawManyWithTotals', undefined, (context) => {
   it('SHOULD wait for the count when the page throws before it starts', async () => {
     await seed();
 
-    // the limit error is thrown as the page query is built, with the count already running
+    // the limit error is thrown as the page query is built, with the count already running;
+    // the message, not toThrow: better-sqlite3's error is no Error to jest when its class is from another realm
     await expect(
       tickets()
         .select('t.id', 'id')
         .getRawManyWithTotals({ page: 1, pageSize: 'abc' as never }, { countExpression: 'COUNT(no_such_column)' }),
-    ).rejects.toThrow(/no_such_column/);
+    ).rejects.toMatchObject({ message: expect.stringMatching(/no_such_column/) });
   });
 
   it('SHOULD probe one row past the page with disableTotalsCalculation', async () => {

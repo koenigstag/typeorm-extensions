@@ -8,7 +8,7 @@ import {
 import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import type { WhereMethods } from '../types/extensions';
 import { patchPrototype } from '../utils/prototype.utils';
-import { createUniqueParameterName } from '../utils/sql.utils';
+import { withUniqueParameterNames } from '../utils/parameter.utils';
 
 // declarations
 
@@ -107,37 +107,6 @@ const notExistsMethods: { prototype: WhereNotExistsMethods } = {
 });
 
 // implementation
-
-// TypeORM's placeholder syntax, `:name` and `:...name`, as its drivers match it
-const PARAMETER_PLACEHOLDER = /:(\.\.\.)?([A-Za-z0-9_.]+)/g;
-
-/**
- * Renames the subquery's parameters to unique names. A query has one parameter namespace, so two
- * subqueries with a `:status` each would otherwise both read whichever value was set last.
- */
-function withUniqueParameterNames(
-  condition: string,
-  parameters: ObjectLiteral
-): [string, ObjectLiteral] {
-  const names = new Map(
-    Object.keys(parameters).map((name) => [name, createUniqueParameterName(name)])
-  );
-
-  const sql = condition.replace(
-    PARAMETER_PLACEHOLDER,
-    (placeholder, spread: string | undefined, name: string) => {
-      const unique = names.get(name);
-
-      return unique ? `:${spread ?? ''}${unique}` : placeholder;
-    }
-  );
-
-  const renamed = Object.fromEntries(
-    Object.entries(parameters).map(([name, value]) => [names.get(name), value])
-  );
-
-  return [sql, renamed];
-}
 
 export function attachExists<QB extends WhereExpressionBuilder>(
   builder: QB,
