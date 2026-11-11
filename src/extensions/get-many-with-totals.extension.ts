@@ -259,6 +259,8 @@ function getQueryRunner<Entity extends ObjectLiteral>(
   return (builder as unknown as { queryRunner?: QueryRunner }).queryRunner;
 }
 
+type NativeParametersSetter = { setNativeParameters(parameters: ObjectLiteral): unknown };
+
 /**
  * Counts the rows of a raw query without its pagination and ORDER BY. The query goes into a
  * subquery, so the count is that of its result rows whatever it groups or filters. A
@@ -291,8 +293,14 @@ async function countRawRows<Entity extends ObjectLiteral>(
       .createQueryBuilder(getQueryRunner(builder))
       .select('COUNT(*)', 'count')
       .from(`(${unpaged.getQuery()})`, 'counted')
-      .setParameters(unpaged.getParameters())
-      .setNativeParameters(unpaged.expressionMap.nativeParameters);
+      .setParameters(unpaged.getParameters());
+    // TypeORM 0.3's `$1` / `?` parameters; 1.x has none
+    const { nativeParameters } = unpaged.expressionMap as { nativeParameters?: ObjectLiteral };
+
+    if (nativeParameters) {
+      (counter as unknown as NativeParametersSetter).setNativeParameters(nativeParameters);
+    }
+
     const { cache, cacheId, cacheDuration } = unpaged.expressionMap;
     Object.assign(counter.expressionMap, { cache, cacheId, cacheDuration });
     counting = counter.getRawOne<CountRow>();
