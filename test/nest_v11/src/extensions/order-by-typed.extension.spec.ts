@@ -1,4 +1,5 @@
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
+import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
 import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
 import { createFakeUsers, mysqlRun, nativeSql, setupTest, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
@@ -102,5 +103,29 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
       [nativeSql('"user"."email"')]: 'ASC',
       'user.id': 'DESC',
     });
+  });
+
+  // TypeORM leaves keys of an alias without metadata as written, and PostgreSQL folds unquoted camelCase
+  it('SHOULD quote keys of an alias without metadata unless useQuotes is false', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    type Joins = { userNames: { userId: number } };
+
+    const fromSubQuery = () =>
+      context.dataSource
+        .createQueryBuilder()
+        .from((qb) => qb.from(UserEntity, 'u').select('u.id', 'userId'), 'userNames');
+
+    const query = fromSubQuery()
+      .selectTyped<Joins>((j) => j.userNames.userId)
+      .orderByTyped<Joins>((j) => j.userNames.userId, 'DESC');
+
+    expect(sqlOf(query)).toMatch(/^SELECT "userNames"\."userId" FROM \(.+\) "userNames" ORDER BY "userNames"\."userId" DESC$/);
+
+    const ids = (await query.getRawMany<{ userId: number }>()).map((row) => Number(row.userId));
+    expect(ids).toEqual([...ids].sort((a, b) => b - a));
+    expect(ids).toHaveLength(3);
+
+    const unquoted = fromSubQuery().orderByTyped<Joins>((j) => j.userNames.userId, 'DESC', undefined, { useQuotes: false });
+    expect(unquoted.expressionMap.orderBys).toEqual({ 'userNames.userId': 'DESC' });
   });
 });
