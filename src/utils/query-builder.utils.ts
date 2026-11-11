@@ -1,7 +1,8 @@
 import { QueryBuilder } from 'typeorm';
-import type { EntityMetadata, ObjectLiteral, WhereExpressionBuilder } from 'typeorm';
+import type { DataSource, EntityMetadata, ObjectLiteral, WhereExpressionBuilder } from 'typeorm';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import type { Alias } from 'typeorm/query-builder/Alias';
+import { QueryExpressionMap } from 'typeorm/query-builder/QueryExpressionMap';
 import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import { createKeyTooDeepError, getKeyHolder, KeyHolder, MAX_KEY_DEPTH } from './proxy-key.utils';
 import { isJsonColumn, JsonPathSqlOptions, toJsonPathSql } from './json-path.utils';
@@ -67,59 +68,136 @@ function findQueryAlias(queryBuilder: QueryBuilder<ObjectLiteral>, aliasName: st
 const DEFERRED_KEY_START = '\uE000';
 const DEFERRED_PROPERTY = '\uE001';
 const DEFERRED_FIELD = '\uE002';
+const DEFERRED_UNQUOTED = '\uE004';
 const DEFERRED_KEY_END = '\uE003';
-const DEFERRED_KEY = /\uE000([^\uE000-\uE003]+)([\uE001\uE002])([^\uE000-\uE003]+)\uE003/g;
+const DEFERRED_KEY = /\uE000([^\uE000-\uE004]+)([\uE001\uE002\uE004])([^\uE000-\uE004]+)\uE003/g;
 const TWO_PART_FIELD = /^([A-Za-z_][\w$]*)\.([A-Za-z_][\w$]*)$/;
 
 /**
- * Placeholder for a column of an alias the query doesn't have yet, e.g. a join added after the call. TypeORM maps
- * property names when it builds the SQL, and so does `resolveDeferredKeys` with these, once the alias is known.
+ * Placeholder for a column of an alias the query doesn't have yet, e.g. a join added after the call: resolved when
+ * the alias is added (`resolveAliasKeys`) or, at the latest, when the SQL is built (`resolveDeferredKeys`).
  */
 function deferColumnKey(aliasName: string, separator: string, name: string): string {
   return `${DEFERRED_KEY_START}${aliasName}${separator}${name}${DEFERRED_KEY_END}`;
 }
 
 /**
- * Replaces placeholders of `deferColumnKey` in SQL built by `builder`: the database column through the entity of
- * the alias, quoted, `"usr"."receipts_email"`. An alias still unknown or without an entity keeps the name.
+ * SQL of a deferred key for `alias`, undefined while the query doesn't have it:
+ * - a quoted key: the database column through the alias' entity, quoted, `"usr"."receipts_email"`; the name
+ *   quoted without an entity;
+ * - an unquoted one (select, order, group by, distinct without `useQuotes`): `alias.property` on an alias with an
+ *   entity, which TypeORM maps and reads as a column of the entity; quoted on an alias without one (a subquery, a
+ *   CTE), as on an alias known at the call; as written on an unknown alias.
  */
+function toDeferredKeySql(
+  alias: Alias | undefined,
+  aliasName: string,
+  separator: string,
+  name: string,
+  escape: (identifier: string) => string
+): string {
+  const metadata = alias?.hasMetadata ? alias.metadata : undefined;
+
+  if (separator === DEFERRED_UNQUOTED) {
+    return metadata || !alias ? `${aliasName}.${name}` : `${escape(aliasName)}.${escape(name)}`;
+  }
+
+  const column =
+    metadata && (separator === DEFERRED_FIELD ? findColumn(metadata, name) : metadata.findColumnWithPropertyPath(name));
+  const columnName = column && !column.isVirtualProperty ? column.databaseName : name;
+
+  return `${escape(aliasName)}.${escape(columnName)}`;
+}
+
+/** Replaces placeholders of `deferColumnKey` in SQL built by `builder`, through the aliases it has by then. */
 export function resolveDeferredKeys(builder: WhereExpressionBuilder, statement: string): string {
   if (typeof statement !== 'string' || !statement.includes(DEFERRED_KEY_START)) {
     return statement;
   }
 
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
+  const escape = (identifier: string) => queryBuilder.escape(identifier);
 
-  return statement.replace(DEFERRED_KEY, (_match, aliasName: string, separator: string, name: string) => {
-    const metadata = getAliasMetadata(queryBuilder, aliasName);
-    const column =
-      metadata && (separator === DEFERRED_FIELD ? findColumn(metadata, name) : metadata.findColumnWithPropertyPath(name));
-    const columnName = column && !column.isVirtualProperty ? column.databaseName : name;
+  return statement.replace(DEFERRED_KEY, (_match, aliasName: string, separator: string, name: string) =>
+    toDeferredKeySql(findQueryAlias(queryBuilder, aliasName), aliasName, separator, name, escape)
+  );
+}
 
-    return `${queryBuilder.escape(aliasName)}.${queryBuilder.escape(columnName)}`;
-  });
+/**
+ * Resolves the placeholders of a new alias in select, order, group by and distinct on, which TypeORM reads before it
+ * builds the SQL: a select of `alias.property` is how it knows to fill the property of a joined entity.
+ */
+function resolveAliasKeys(expressionMap: QueryExpressionMap, alias: Alias): void {
+  // `connection` (TypeORM 0.3) or `dataSource` (1.x), protected in its types; read only when a key is found
+  const { connection, dataSource } = expressionMap as unknown as { connection?: DataSource; dataSource?: DataSource };
+  const escape = (identifier: string) => (connection ?? dataSource)!.driver.escape(identifier);
+  const hasKey = (statement: unknown): statement is string =>
+    typeof statement === 'string' && statement.includes(DEFERRED_KEY_START);
+  const resolve = (statement: string) =>
+    hasKey(statement)
+      ? statement.replace(DEFERRED_KEY, (match, aliasName: string, separator: string, name: string) =>
+          aliasName === alias.name ? toDeferredKeySql(alias, aliasName, separator, name, escape) : match
+        )
+      : statement;
+
+  // new objects and arrays: a clone shares them with the query it was cloned from
+  if (expressionMap.selects.some((select) => hasKey(select.selection))) {
+    expressionMap.selects = expressionMap.selects.map((select) =>
+      hasKey(select.selection) ? { ...select, selection: resolve(select.selection) } : select
+    );
+  }
+
+  if (expressionMap.groupBys.some(hasKey)) {
+    expressionMap.groupBys = expressionMap.groupBys.map(resolve);
+  }
+
+  if (expressionMap.selectDistinctOn?.some(hasKey)) {
+    expressionMap.selectDistinctOn = expressionMap.selectDistinctOn.map(resolve);
+  }
+
+  if (Object.keys(expressionMap.orderBys).some(hasKey)) {
+    expressionMap.orderBys = Object.fromEntries(
+      Object.entries(expressionMap.orderBys).map(([key, order]) => [resolve(key), order])
+    );
+  }
 }
 
 const DEFERRED_KEYS_INSTALLED = Symbol.for('typeorm-extensions.deferredKeys');
 
-// TypeORM 0.3.12 maps property names in each part of the query, later versions once in the whole query
 function installDeferredKeyResolution(): void {
-  const prototype = QueryBuilder.prototype as unknown as Record<string | symbol, unknown>;
+  const builderPrototype = QueryBuilder.prototype as unknown as Record<string | symbol, unknown>;
+  const mapPrototype = QueryExpressionMap.prototype as unknown as Record<string | symbol, unknown>;
 
-  if (prototype[DEFERRED_KEYS_INSTALLED]) {
+  if (builderPrototype[DEFERRED_KEYS_INSTALLED]) {
     return;
   }
 
-  prototype[DEFERRED_KEYS_INSTALLED] = true;
+  builderPrototype[DEFERRED_KEYS_INSTALLED] = true;
 
+  // TypeORM 0.3.12 maps property names in each part of the query, later versions once in the whole query; keys are
+  // resolved first, so an unquoted `alias.property` is mapped too
   for (const method of ['replacePropertyNames', 'replacePropertyNamesForTheWholeQuery']) {
-    const original = prototype[method];
+    const original = builderPrototype[method];
 
     if (typeof original === 'function') {
-      prototype[method] = function (this: QueryBuilder<ObjectLiteral>, statement: string): string {
-        return resolveDeferredKeys(this as unknown as WhereExpressionBuilder, original.call(this, statement));
+      builderPrototype[method] = function (this: QueryBuilder<ObjectLiteral>, statement: string): string {
+        return original.call(this, resolveDeferredKeys(this as unknown as WhereExpressionBuilder, statement));
       };
     }
+  }
+
+  const createAlias = mapPrototype.createAlias;
+
+  if (typeof createAlias === 'function') {
+    mapPrototype.createAlias = function (this: QueryExpressionMap, ...args: unknown[]): Alias {
+      const alias: Alias = createAlias.apply(this, args);
+
+      if (alias?.name) {
+        resolveAliasKeys(this, alias);
+      }
+
+      return alias;
+    };
   }
 }
 
@@ -476,7 +554,7 @@ function assertTableColumnKey({ metadata, propertyPath }: ResolvedTypedKey, keys
   }
 }
 
-// an alias the query doesn't know yet may still get metadata (a join added later), so it stays unquoted
+// an alias the query doesn't know yet is resolved when it is added (`resolveAliasKeys`)
 function isAliasWithoutMetadata(queryBuilder: QueryBuilder<ObjectLiteral>, aliasName: string | undefined): boolean {
   const alias = aliasName === undefined ? undefined : findQueryAlias(queryBuilder, aliasName);
 
@@ -521,6 +599,17 @@ export function getTypedSelectionKey<Type extends ObjectLiteral>(
 
     if (useQuotes ?? isAliasWithoutMetadata(queryBuilder, resolved.aliasName)) {
       return toQuotedColumnKey(queryBuilder, resolved);
+    }
+
+    // an alias added later decides then: TypeORM maps an entity's keys, a subquery's are quoted
+    if (
+      useQuotes === undefined &&
+      columnsFor !== undefined &&
+      resolved.aliasName !== undefined &&
+      !resolved.metadata &&
+      !findQueryAlias(queryBuilder, resolved.aliasName)
+    ) {
+      return deferColumnKey(resolved.aliasName, DEFERRED_UNQUOTED, resolved.propertyPath);
     }
 
     return resolved.aliasName === undefined
