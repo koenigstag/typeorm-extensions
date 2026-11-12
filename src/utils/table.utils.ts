@@ -240,17 +240,7 @@ export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
-/**
- * Creates a type-safe SQL helper for building column references, WHERE expressions,
- * JOIN clauses, and JSONB accessors for a given entity type.
- *
- * @example
- * const t = tableHelper<UserEntity>('user');
- * t.column('email')              // → "user"."email"
- * t.where('id', '= :id')        // → "user"."id" = :id
- * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
- */
-export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}) => ({
+const createTableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}) => ({
 	alias,
 	/**
 	 * Returns a quoted SQL column identifier, e.g. `"alias"."column"`. The column is always quoted as one
@@ -499,3 +489,41 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		return `date_trunc('${unit}', ${toExpression(value, toColumn)}${zone})`;
 	}
 });
+
+type TableHelperMemberName = keyof ReturnType<typeof createTableHelper>;
+
+/**
+ * The helper `tableHelper` returns: its methods, and each column of the table as a read-only property,
+ * `t.email` for `t.column('email')`. A column named like a member (`alias`, `count`, …) is the member there.
+ */
+export type TableHelper<T extends ObjectLiteral> = ReturnType<typeof createTableHelper<T>> & {
+	readonly [K in Exclude<ColumnName<T>, TableHelperMemberName>]: string;
+};
+
+// keys that JavaScript, Node and test tools read on any object (await, JSON.stringify, util.inspect, Jest): they
+// must stay undefined, as must symbols. The members of Object.prototype are in the target already
+const PROTOCOL_KEYS: ReadonlySet<string> = new Set(['then', 'toJSON', 'inspect', 'asymmetricMatch', '$$typeof', 'nodeType']);
+
+const columnAccess: ProxyHandler<{ column(columnName: string): string }> = {
+	get(target, key, receiver) {
+		if (typeof key === 'symbol' || key in target || PROTOCOL_KEYS.has(key)) {
+			return Reflect.get(target, key, receiver);
+		}
+
+		return target.column(key);
+	},
+};
+
+/**
+ * Creates a type-safe SQL helper for building column references, WHERE expressions,
+ * JOIN clauses, and JSONB accessors for a given entity type.
+ *
+ * @example
+ * const t = tableHelper<UserEntity>('user');
+ * t.column('email')              // → "user"."email"
+ * t.email                        // → "user"."email", the same
+ * t.where('id', '= :id')        // → "user"."id" = :id
+ * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
+ */
+export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}): TableHelper<T> =>
+	new Proxy(createTableHelper<T>(alias, options), columnAccess) as TableHelper<T>;
