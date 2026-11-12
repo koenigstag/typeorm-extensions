@@ -67,7 +67,7 @@ anyQuery.typed<Joins>().whereTyped((q) => q.event.eventType, '=', 'class');
 // @ts-expect-error not a property of the root
 anyQuery.typed<Joins>().whereTyped((q) => q.event.notAColumn, '=', 'class');
 
-// a marked builder goes where the builder of its entity does (SelectQueryBuilder<ObjectLiteral>: typed-imports/)
+// a marked builder goes where the builder of its entity does
 const ofEntity: SelectQueryBuilder<CheckIn> = typed;
 void ofEntity;
 
@@ -101,6 +101,9 @@ void customerRows;
 void subQueryRows;
 // @ts-expect-error a builder of an entity doesn't cast to unrelated rows, marked or not
 void (typed as SelectQueryBuilder<CustomerRow>);
+// and casts to the builder of rows it has the columns of, marked or not
+void (checkIns as SelectQueryBuilder<Pick<CheckIn, 'customerId'>>);
+void (typed as SelectQueryBuilder<Pick<CheckIn, 'customerId'>>);
 
 // a helper generic over the entity takes a marked builder, its type argument the entity
 declare function entityOf<T extends ObjectLiteral>(query: SelectQueryBuilder<T>): T;
@@ -131,3 +134,25 @@ typed.distinctOnTyped((q) => q.event.id).andWhereTyped((q) => q.checkin.customer
 typed.whereIsIn('checkin.id', ['a']).andWhereIsNotIn('event.id', []).andWhereTyped((q) => q.checkin.id, '=', 'c');
 typed.whereIsAny('checkin.id', ['a']).andWhereIsNotAny('event.id', []).andWhereTyped((q) => q.checkin.id, '=', 'c');
 typed.applyOrder({ field: 'checkin.id' }).applyPaginationFilter({ page: 1 }).andWhereTyped((q) => q.checkin.id, '=', 'c');
+
+// the root import loads getManyWithCursor too: a builder still goes where SelectQueryBuilder<ObjectLiteral> does
+declare function countRows(query: SelectQueryBuilder<ObjectLiteral>): Promise<number>;
+
+function keepRoot<Q extends SelectQueryBuilder<ObjectLiteral>>(query: Q): Q {
+  return query;
+}
+
+void countRows(checkIns);
+void countRows(typed);
+void countRows(anyQuery.typed<Joins>().from(CheckIn, 'checkin'));
+keepRoot(typed).andWhereTyped((q) => q.event.eventType, '=', 'class');
+
+// and orders by the properties of the builder's entity, marked or not
+const cursorPage = typed.getManyWithCursor({ pageSize: 10 }, { orderBy: [{ field: 'customerId', direction: 'DESC' }] });
+const cursorList: Equal<Awaited<typeof cursorPage>['list'], CheckIn[]> = true;
+void cursorList;
+void checkIns.getManyWithCursor(null, { orderBy: [{ field: 'id' }] });
+// @ts-expect-error not a property of the entity
+void typed.getManyWithCursor(null, { orderBy: [{ field: 'eventType' }] });
+// @ts-expect-error not a property of the entity
+void checkIns.getManyWithCursor(null, { orderBy: [{ field: 'eventType' }] });

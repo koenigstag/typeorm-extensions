@@ -25,6 +25,8 @@ export { InvalidCursorError } from '../utils/cursor.utils';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
+    // generic over the entity of `this`: the property names of `orderBy` in a parameter would make the builder
+    // invariant in its entity, and no SelectQueryBuilder<Entity> assignable to SelectQueryBuilder<ObjectLiteral>
     /**
      * Loads a page with keyset (cursor) pagination: instead of OFFSET, the rows after the last row of
      * the previous page, `WHERE (createdAt, id) < (:lastCreatedAt, :lastId)`. Pages stay fast however
@@ -36,10 +38,11 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * The query builder itself is not changed. Throws `InvalidCursorError` for a cursor that can't
      * be decoded or was made for another order.
      */
-    getManyWithCursor(
+    getManyWithCursor<CursorEntity extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<CursorEntity>,
       cursorFilter: CursorPaginationFilter | null | undefined,
-      options: GetManyWithCursorOptions<Entity>
-    ): Promise<ListWithCursor<Entity>>;
+      options: GetManyWithCursorOptions<CursorEntity>
+    ): Promise<ListWithCursor<CursorEntity>>;
   }
 }
 

@@ -1,5 +1,5 @@
 import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
-// getManyWithCursor, which the root import loads, keeps every builder from SelectQueryBuilder<ObjectLiteral>
+// the typed extensions alone, without the rest of the root import
 import '../../../src/extensions/typed';
 import type { TypedRoot, WithTypedRoot } from '../../../src/types/modules/typed-root.types';
 

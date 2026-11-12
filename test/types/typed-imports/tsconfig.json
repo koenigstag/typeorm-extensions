@@ -1,5 +1,5 @@
 {
-  // the typed extensions loaded one by one, without getManyWithCursor, which the root import loads too
+  // the typed extensions loaded one by one, without the rest of the root import
   "extends": "../tsconfig.json",
   "include": ["./*.ts"]
 }
