@@ -35,4 +35,22 @@ setupTest('typed', undefined, (context) => {
 
     expect(found.map(({ id }) => id)).toEqual([2]);
   });
+
+  it('SHOULD keep the root set before from(), its keys resolved against the aliases from() adds', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+    await context.dataSource
+      .getRepository(ImageEntity)
+      .save(await createFakeImages({ count: 2, getOverrides: (i) => ({ id: i + 1, userId: 2, url: `image-${i + 1}` }) }));
+
+    const query = context.dataSource
+      .createQueryBuilder()
+      .typed<Joins>()
+      .from(UserEntity, 'user')
+      .select('user')
+      .leftJoin('user.images', 'images')
+      .whereTyped((q) => q.images.url, '=', 'image-2');
+
+    expect(sqlOf(query)).toMatch(/SELECT .* FROM "users" "user" LEFT JOIN "images" "images" ON .* WHERE "images"\."url" = :where\w+/);
+    expect((await query.getMany()).map(({ id }) => id)).toEqual([2]);
+  });
 });

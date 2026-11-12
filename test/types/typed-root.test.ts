@@ -71,10 +71,24 @@ anyQuery.typed<Joins>().whereTyped((q) => q.event.notAColumn, '=', 'class');
 const ofEntity: SelectQueryBuilder<CheckIn> = typed;
 void ofEntity;
 
-// from() types the builder by its entity again, so typed() goes after it
+// from() and addFrom() type the builder by their entity and keep the root, set before or after them
 anyQuery.from(CheckIn, 'checkin').typed<Joins>().whereTyped((q) => q.checkin.customerId, '=', 'c');
-// @ts-expect-error the root set before from() is gone
-anyQuery.typed<Joins>().from(CheckIn, 'checkin').whereTyped((q) => q.checkin.customerId, '=', 'c');
+const fromAfterRoot = anyQuery.typed<Joins>().from(CheckIn, 'checkin');
+fromAfterRoot.whereTyped((q) => q.checkin.customerId, '=', 'c');
+const fromAfterRootEntities: Promise<CheckIn[]> = fromAfterRoot.getMany();
+void fromAfterRootEntities;
+anyQuery.typed<Joins>().from('check_ins', 'checkin').addFrom(Event, 'event').andWhereTyped((q) => q.event.id, '=', 'e');
+// @ts-expect-error not a property of the root, which a subquery in FROM keeps too
+anyQuery.typed<Joins>().from((sub) => sub.from(Event, 'e'), 'event').andWhereTyped((q) => q.event.notAColumn, '=', 'e');
+// @ts-expect-error not a property of the root
+anyQuery.typed<Joins>().from(CheckIn, 'checkin').addFrom((sub) => sub.from(Event, 'e'), 'event').orderByTyped((q) => q.event.notAColumn);
+// @ts-expect-error from() keeps the root, not the entity's properties
+anyQuery.typed<Joins>().from(CheckIn, 'checkin').whereTyped((q) => q.customerId, '=', 'c');
+// without typed() from() gives the builder of its entity, as before
+anyQuery.from(CheckIn, 'checkin').whereTyped((q) => q.customerId, '=', 'c');
+// a subquery is a query of its own: it starts without the root of the outer one
+// @ts-expect-error not a key of the subquery's entity
+typed.subQuery().from(CheckIn, 'inner').whereTyped((q) => q.checkin.id, '=', 'c');
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 

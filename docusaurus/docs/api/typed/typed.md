@@ -33,7 +33,7 @@ query
 - **The root carries through the chain**, TypeORM's own methods and this library's included (`.andWhere(…)`, `.leftJoin(…)`, `.selectTyped(…)`), and `getMany()` still returns the builder's entities.
 - **With `strictParams`**, the parameters of these calls are checked against the columns. An explicit type argument (`whereTyped<Joins>(…)`) turns that check off, since TypeScript can't infer the other type arguments when one is given; `typed<Joins>()` leaves no type argument on the calls.
 - An explicit root on a call still wins over the one set with `typed()`.
-- **Call it after `from()`**: `from(Entity, 'alias')` types the builder by its entity again and drops the root, so `dataSource.createQueryBuilder().from(CheckIn, 'checkin').typed<Joins>()`, not `.typed<Joins>().from(…)`. Typed calls made before `from()` keep the root they were given.
+- **`from()` and `addFrom()` keep the root**, so it may go before them: `dataSource.createQueryBuilder().typed<Joins>().from(CheckIn, 'checkin')` is a builder of `CheckIn` whose typed calls take `Joins`, as `.from(CheckIn, 'checkin').typed<Joins>()` is. The root names the aliases of the query, which a FROM doesn't change. A subquery (`subQuery()`, the factory of `from((sub) => …)`) is a query of its own and starts without it, and so do the builders that `insert()`, `update()`, `delete()`, `softDelete()` and `restore()` return.
 - A second call replaces the root; it doesn't merge the two.
 
 The root keys are the aliases of the query (the main one included) and their entities: `{ checkin: CheckIn; event: Event }` for `createQueryBuilder('checkin')` joined with `event`. To keep the main entity's properties at the top too, pass `typed<CheckIn & { event: Event }>()`.
