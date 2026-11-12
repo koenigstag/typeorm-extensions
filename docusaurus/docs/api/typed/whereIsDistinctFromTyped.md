@@ -7,7 +7,7 @@ sidebar_position: 5.8
 ## Description
 Typesafe null-safe comparisons: the column comes from an entity property instead of a string. They work like [whereIsDistinctFrom / whereIsNotDistinctFrom](../where/whereIsDistinctFrom.md): `NULL` equals `NULL` and differs from any other value, in the syntax of the database (`IS [NOT] DISTINCT FROM`, `<=>` on MySQL / MariaDB, `IS [NOT]` on SQLite).
 
-The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
+The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column is not prefixed with an alias.
 
 ## Signature
 ```typescript

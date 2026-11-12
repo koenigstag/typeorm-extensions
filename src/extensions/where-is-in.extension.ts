@@ -5,6 +5,7 @@ import {
   UpdateQueryBuilder,
   DeleteQueryBuilder,
 } from 'typeorm';
+import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import { patchPrototype } from '../utils/prototype.utils';
 import { ArgsType } from '../types/util-types';
 import { WhereMethods } from '../types/extensions';
@@ -186,6 +187,51 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   }
 }
 
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> {
+    /**
+     * Sets WHERE IN condition in the query builder.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsIn(field: string, array?: ArgsType): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new AND WHERE IN condition in the query builder.
+     */
+    andWhereIsIn(field: string, array?: ArgsType): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new OR WHERE IN condition in the query builder.
+     */
+    orWhereIsIn(field: string, array?: ArgsType): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Sets WHERE NOT IN condition in the query builder.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsNotIn(field: string, array?: ArgsType): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new AND WHERE NOT IN condition in the query builder.
+     */
+    andWhereIsNotIn(
+      field: string,
+      array?: ArgsType
+    ): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new OR WHERE NOT IN condition in the query builder.
+     */
+
+    orWhereIsNotIn(
+      field: string,
+      array?: ArgsType
+    ): SoftDeleteQueryBuilder<Entity>;
+  }
+}
+
 // patching
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
@@ -287,6 +333,7 @@ const queryBuilders = [
   SelectQueryBuilder,
   UpdateQueryBuilder,
   DeleteQueryBuilder,
+  SoftDeleteQueryBuilder,
 ];
 
 queryBuilders.forEach((builder) => {

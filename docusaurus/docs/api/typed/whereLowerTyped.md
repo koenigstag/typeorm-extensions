@@ -16,7 +16,7 @@ LOWER("user"."email") IN (LOWER(:p_0), LOWER(:p_1))
 
 - `null` / `undefined` for `whereLowerEqualsTyped`, or an empty / missing list for `whereIsInLowerTyped`, matches nothing (`FALSE`), like `whereIsIn`.
 - `whereIsInLowerTyped` binds one parameter per value, since each one is wrapped separately.
-- Works on any database. On `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
+- Works on any database. On `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column is not prefixed with an alias.
 
 ## Signature
 ```typescript

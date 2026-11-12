@@ -12,7 +12,7 @@ An empty (or missing) array doesn't produce invalid SQL like `IN ()`:
 - `IN` with an empty array becomes `FALSE` (no rows match);
 - `NOT IN` with an empty array becomes `TRUE` (the condition doesn't filter anything).
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 

@@ -7,7 +7,7 @@ sidebar_position: 5.9
 ## Description
 `applyPeriodFilterTyped` filters rows by a period of an entity property. It works like [applyPeriodFilter](../where/applyPeriodFilter.md): optional, inclusive ends (`includeFrom` / `includeTo` to exclude them), date-only strings as whole days, days and times read in a [`timeZone`](../where/applyPeriodFilter.md#time-zones), conditions added with AND around existing ones.
 
-The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
+The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column is not prefixed with an alias.
 
 The callback may also go into a JSON column ([paths into JSON columns](./whereTyped.md#paths-into-json-columns)), e.g. `e => e.details.finishedAt` for a date stored as an ISO string. The value is compared as a timestamp, not as text: on PostgreSQL it is cast to `timestamptz`, on SQLite rewritten with `strftime` in the format TypeORM writes dates in.
 

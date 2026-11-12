@@ -4,6 +4,7 @@ import {
   UpdateQueryBuilder,
   DeleteQueryBuilder,
 } from 'typeorm';
+import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import type { TypedLowerOptions } from '../../../types/extensions/search.types';
 import type { WhereMethods } from '../../../types/extensions/where.types';
@@ -100,6 +101,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereLowerMethods<Entity> {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereLowerMethods<Entity> {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
 // patching
@@ -182,6 +187,7 @@ const queryBuilders = [
   SelectQueryBuilder,
   UpdateQueryBuilder,
   DeleteQueryBuilder,
+  SoftDeleteQueryBuilder,
 ];
 
 queryBuilders.forEach((builder) => {

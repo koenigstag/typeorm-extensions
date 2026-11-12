@@ -5,6 +5,7 @@ import {
   UpdateQueryBuilder,
   DeleteQueryBuilder,
 } from 'typeorm';
+import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import { patchPrototype } from '../utils/prototype.utils';
 import { toFieldSql } from '../utils/query-builder.utils';
 import { ArgsType } from '../types/util-types';
@@ -180,6 +181,47 @@ declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   }
 }
 
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> {
+    /**
+     * Sets WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
+     * The array is bound as a single parameter instead of one parameter per value.
+     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsAny(field: string, array?: ArgsType, arrayType?: string): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new AND WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
+     */
+    andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new OR WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
+     */
+    orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Sets WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL):
+     * the field differs from every value of the array.
+     * If you had previously WHERE expression defined,
+     * calling this function will override previously set WHERE conditions.
+     */
+    whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new AND WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SoftDeleteQueryBuilder<Entity>;
+
+    /**
+     * Adds new OR WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
+     */
+    orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SoftDeleteQueryBuilder<Entity>;
+  }
+}
+
 // patching
 
 type ArrayComparison = '= ANY' | '<> ALL';
@@ -216,6 +258,7 @@ const queryBuilders = [
   SelectQueryBuilder,
   UpdateQueryBuilder,
   DeleteQueryBuilder,
+  SoftDeleteQueryBuilder,
 ];
 
 queryBuilders.forEach((builder) => {

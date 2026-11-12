@@ -14,7 +14,7 @@ sidebar_position: 3
 
 **PostgreSQL only** (and compatible databases such as CockroachDB): it needs array parameters.
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 
