@@ -87,7 +87,8 @@ function deferColumnKey(aliasName: string, separator: string, name: string): str
  *   quoted without an entity;
  * - an unquoted one (select, order, group by, distinct without `useQuotes`): `alias.property` on an alias with an
  *   entity, which TypeORM maps and reads as a column of the entity; quoted on an alias without one (a subquery, a
- *   CTE), as on an alias known at the call; as written on an unknown alias.
+ *   CTE), as on an alias known at the call, and on an alias the query never has, which only raw SQL adds (a LATERAL
+ *   subquery in the condition of a raw join): TypeORM can't map it, and PostgreSQL would fold it to lower case.
  */
 function toDeferredKeySql(
   alias: Alias | undefined,
@@ -99,7 +100,7 @@ function toDeferredKeySql(
   const metadata = alias?.hasMetadata ? alias.metadata : undefined;
 
   if (separator === DEFERRED_UNQUOTED) {
-    return metadata || !alias ? `${aliasName}.${name}` : `${escape(aliasName)}.${escape(name)}`;
+    return metadata ? `${aliasName}.${name}` : `${escape(aliasName)}.${escape(name)}`;
   }
 
   const column =
@@ -567,8 +568,9 @@ function isAliasWithoutMetadata(queryBuilder: QueryBuilder<ObjectLiteral>, alias
  * Without quotes it is `alias.propertyPath` (`user.name`, `images.url`, `p.address.city`),
  * which TypeORM maps to the column itself. With `useQuotes` it is the quoted database column
  * (`"t"."ticket_status"`), since TypeORM doesn't map quoted keys. An alias of the query without
- * metadata (a subquery or a CTE in FROM or a join) is quoted unless `useQuotes` is `false`:
- * TypeORM leaves its keys as written, and PostgreSQL folds an unquoted `cte.firstName` to `firstname`.
+ * metadata (a subquery or a CTE in FROM or a join), or one the query still doesn't have when the SQL
+ * is built, is quoted unless `useQuotes` is `false`: TypeORM leaves its keys as written, and
+ * PostgreSQL folds an unquoted `cte.firstName` to `firstname`.
  * Strings are kept as is.
  */
 export function getTypedSelectionKey<Type extends ObjectLiteral>(

@@ -1,5 +1,7 @@
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
 import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
+import 'typeorm-extensions/extensions/typed/typed-group-by/typed-group-by.extension';
+import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
 import { createFakeUsers, mysqlRun, nativeSql, setupTest, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
@@ -146,6 +148,43 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
     const ids = (await query.getRawMany<{ userId: number }>()).map((row) => Number(row.userId));
     expect(ids).toEqual([...ids].sort((a, b) => b - a));
     expect(ids).toHaveLength(3);
+  });
+
+  // an alias that only raw SQL adds, as a LATERAL subquery in the condition of a raw join does
+  it('SHOULD quote keys of an alias the query never registers', async () => {
+    const users = await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    const escape = (name: string) => context.dataSource.driver.escape(name);
+    type Joins = { user: UserEntity; names: { userId: number } };
+
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .selectTyped<Joins>((j) => j.names.userId, 'userId')
+      .addSelect('COUNT(*)', 'count')
+      .innerJoin(
+        '(SELECT 1)',
+        '__names__',
+        `1 = 1 INNER JOIN (SELECT ${escape('id')} AS ${escape('userId')} FROM ${escape('users')}) ${escape('names')} ` +
+          `ON ${escape('names')}.${escape('userId')} = ${escape('user')}.${escape('id')}`,
+      )
+      .whereTyped<Joins>((j) => j.names.userId, '>', { minId: users[0].id })
+      .groupByTyped<Joins>((j) => j.names.userId)
+      .orderByTyped<Joins>((j) => j.names.userId, 'DESC');
+
+    expect(sqlOf(query)).toMatch(
+      /^SELECT "names"\."userId" AS "userId", COUNT\(\*\) AS "count" FROM .+ WHERE "names"\."userId" > :\w+ GROUP BY "names"\."userId" ORDER BY "names"\."userId" DESC$/,
+    );
+
+    const rows = await query.getRawMany<{ userId: number }>();
+    expect(rows.map((row) => Number(row.userId))).toEqual([users[2].id, users[1].id]);
+
+    const unquoted = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .selectTyped<Joins>((j) => j.names.userId, 'userId', false)
+      .innerJoin('(SELECT 1)', '__names__', '1 = 1');
+
+    expect(sqlOf(unquoted)).toMatch(/^SELECT names\.userId AS "userId" FROM /);
   });
 
   // TypeORM reads a select of `alias.property` as a column of the joined entity and fills it
