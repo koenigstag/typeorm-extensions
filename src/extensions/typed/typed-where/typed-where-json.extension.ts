@@ -25,7 +25,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -33,7 +33,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column @> :value` condition (PostgreSQL): the JSON document contains `value`.
    */
-  andWhereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -41,7 +41,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column @> :value` condition (PostgreSQL): the JSON document contains `value`.
    */
-  orWhereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereJsonContainsTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -51,7 +51,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     key: string
   ): this;
@@ -59,7 +59,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column ? :key` condition (PostgreSQL): the JSON object has the top-level key.
    */
-  andWhereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     key: string
   ): this;
@@ -67,7 +67,7 @@ export interface TypedWhereJsonMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column ? :key` condition (PostgreSQL): the JSON object has the top-level key.
    */
-  orWhereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereJsonHasKeyTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     key: string
   ): this;

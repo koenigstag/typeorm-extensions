@@ -24,7 +24,7 @@ export interface TypedPeriodFilterMethods<Entity extends ObjectLiteral> {
    * Both ends are inclusive unless `options.includeFrom` / `options.includeTo` is `false`.
    * A date-only string (`'2024-01-31'`) stands for the whole day: `periodTo: '2024-01-31'` → `column < '2024-02-01'`.
    */
-  applyPeriodFilterTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  applyPeriodFilterTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     periodFilter: PeriodFilter | null | undefined,
     options?: ApplyPeriodOptions

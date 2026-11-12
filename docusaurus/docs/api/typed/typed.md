@@ -30,7 +30,7 @@ query
 ```
 
 - **Type-only.** It returns the builder itself; the SQL is the same as with the explicit roots.
-- **The root carries through the chain**, TypeORM's own methods included (`.andWhere(…)`, `.leftJoin(…)`), and `getMany()` still returns the builder's entities.
+- **The root carries through the chain**, TypeORM's own methods and this library's included (`.andWhere(…)`, `.leftJoin(…)`, `.selectTyped(…)`), and `getMany()` still returns the builder's entities.
 - **With `strictParams`**, the parameters of these calls are checked against the columns. An explicit type argument (`whereTyped<Joins>(…)`) turns that check off, since TypeScript can't infer the other type arguments when one is given; `typed<Joins>()` leaves no type argument on the calls.
 - An explicit root on a call still wins over the one set with `typed()`.
 - **Call it after `from()`**: `from(Entity, 'alias')` types the builder by its entity again and drops the root, so `dataSource.createQueryBuilder().from(CheckIn, 'checkin').typed<Joins>()`, not `.typed<Joins>().from(…)`. Typed calls made before `from()` keep the root they were given.
@@ -41,7 +41,13 @@ The root keys are the aliases of the query (the main one included) and their ent
 ## Signature
 
 ```typescript
-typed<Root extends ObjectLiteral>(): SelectQueryBuilder<WithTypedRoot<Entity, Root>>
+typed<Root extends ObjectLiteral>(): WithTypedRoot<SelectQueryBuilder<Entity>, Root>
 ```
 
-`WithTypedRoot<Entity, Root>` is the entity with an optional `__typedRoot` method that only types carry. The entity and the marked one are assignable to each other, so the builder goes wherever the builder of its entity does, a `SelectQueryBuilder<CheckIn>` or a `SelectQueryBuilder<ObjectLiteral>` parameter included, and `{ ...entity }` copies drop the method, so declaration files (`declaration: true`) never have to name it; `TypedRoot<Entity>` reads the root back. Both are exported for helpers that take such a builder, with a concrete entity: `(qb: SelectQueryBuilder<WithTypedRoot<CheckIn, Joins>>) => …`. A helper generic over the entity, `WithTypedRoot<E, Joins>`, can't use the root: TypeScript can't work it out while `E` is open, and `qb.typed<Joins>()` on a `SelectQueryBuilder<E>` isn't assignable back to `SelectQueryBuilder<E>`. Pass the root to each call there (`andWhereTyped<Joins>(…)`). On a builder without an entity type (`SelectQueryBuilder<any>`, from `dataSource.createQueryBuilder()`), `typed()` sets the root too.
+`WithTypedRoot<SelectQueryBuilder<Entity>, Root>` is the builder with an optional `__typedRoot` method that only types carry; its entity type stays `Entity`, so it goes wherever the unmarked builder does:
+
+- a `SelectQueryBuilder<CheckIn>` or a `SelectQueryBuilder<ObjectLiteral>` parameter;
+- a helper generic over the entity, `<T extends ObjectLiteral>(qb: SelectQueryBuilder<T>) => …`, which infers `T` as `CheckIn`. It returns a `SelectQueryBuilder<T>`, without the root; a helper that keeps it takes and returns the builder's own type, `<Q extends SelectQueryBuilder<ObjectLiteral>>(qb: Q): Q`;
+- a cast that compiles on the unmarked builder, such as `dataSource.createQueryBuilder().typed<Joins>()… as SelectQueryBuilder<Row>` for a query of raw rows. A builder of an entity doesn't cast to an unrelated `SelectQueryBuilder<Row>`, marked or not.
+
+A helper generic over the entity can set a root itself: `qb.typed<Joins>()` on a `SelectQueryBuilder<T>` is a `SelectQueryBuilder<T>`, and its typed calls take `Joins`. `WithTypedRoot` is exported for helpers that take a marked builder, `(qb: WithTypedRoot<SelectQueryBuilder<CheckIn>, Joins>) => …`, and `TypedRoot<Entity, Builder>` reads the root back. A builder of a marked entity, `SelectQueryBuilder<WithTypedRoot<CheckIn, Joins>>`, takes the root too. On a builder without an entity type (`SelectQueryBuilder<any>`, from `dataSource.createQueryBuilder()`), `typed()` sets the root too, and declaration files (`declaration: true`) name a marked builder by `WithTypedRoot`.

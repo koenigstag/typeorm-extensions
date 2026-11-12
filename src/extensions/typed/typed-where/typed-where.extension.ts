@@ -34,7 +34,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -48,7 +48,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -62,7 +62,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;

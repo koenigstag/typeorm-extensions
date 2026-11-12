@@ -4,17 +4,14 @@ import { patchPrototype } from '../../utils/prototype.utils';
 
 // declarations
 
-// SelectQueryBuilder<any> (dataSource.createQueryBuilder()): `any & { … }` is `any`, which would drop the root
-type KnownEntity<Entity> = 0 extends 1 & Entity ? ObjectLiteral : Entity;
-
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
      * Sets the root of the typed callbacks of the calls that follow, instead of passing it to each of them:
      * the aliases of the query and their entities.
      *
-     * Type-only: returns the builder itself. Call it after `from()`, which types the builder by its entity again and
-     * drops the root; a second call replaces the root.
+     * Type-only: returns the builder itself, marked with the root; its entity type stays. Call it after `from()`, which
+     * types the builder by its entity again and drops the root; a second call replaces the root.
      *
      * @example
      * type Joins = { checkin: CheckIn; event: Event };
@@ -26,7 +23,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      *   .selectTyped((q) => q.checkin.customerId, 'customerId')
      *   .whereTyped((q) => q.event.eventType, '=', type) // instead of whereTyped<Joins>(…)
      */
-    typed<Root extends ObjectLiteral>(): SelectQueryBuilder<WithTypedRoot<KnownEntity<Entity>, Root>>;
+    typed<Root extends ObjectLiteral>(): WithTypedRoot<SelectQueryBuilder<Entity>, Root>;
   }
 }
 
@@ -36,8 +33,8 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     typed<Entity extends ObjectLiteral, Root extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>
-    ): SelectQueryBuilder<WithTypedRoot<KnownEntity<Entity>, Root>> {
-      return this as unknown as SelectQueryBuilder<WithTypedRoot<KnownEntity<Entity>, Root>>;
+    ): WithTypedRoot<SelectQueryBuilder<Entity>, Root> {
+      return this as WithTypedRoot<SelectQueryBuilder<Entity>, Root>;
     },
   },
 };

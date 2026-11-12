@@ -53,30 +53,31 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
 }
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
      * Sets WHERE IN condition in the query builder.
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
-    whereIsIn(field: string, array?: ArgsType): SelectQueryBuilder<Entity>;
+    whereIsIn(field: string, array?: ArgsType): this;
 
     /**
      * Adds new AND WHERE IN condition in the query builder.
      */
-    andWhereIsIn(field: string, array?: ArgsType): SelectQueryBuilder<Entity>;
+    andWhereIsIn(field: string, array?: ArgsType): this;
 
     /**
      * Adds new OR WHERE IN condition in the query builder.
      */
-    orWhereIsIn(field: string, array?: ArgsType): SelectQueryBuilder<Entity>;
+    orWhereIsIn(field: string, array?: ArgsType): this;
 
     /**
      * Sets WHERE NOT IN condition in the query builder.
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
-    whereIsNotIn(field: string, array?: ArgsType): SelectQueryBuilder<Entity>;
+    whereIsNotIn(field: string, array?: ArgsType): this;
 
     /**
      * Adds new AND WHERE NOT IN condition in the query builder.
@@ -84,7 +85,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     andWhereIsNotIn(
       field: string,
       array?: ArgsType
-    ): SelectQueryBuilder<Entity>;
+    ): this;
 
     /**
      * Adds new OR WHERE NOT IN condition in the query builder.
@@ -93,7 +94,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     orWhereIsNotIn(
       field: string,
       array?: ArgsType
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 

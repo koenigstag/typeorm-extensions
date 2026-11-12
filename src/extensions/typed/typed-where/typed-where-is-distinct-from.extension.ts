@@ -25,7 +25,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -33,7 +33,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column IS DISTINCT FROM :value` condition: the column differs from the value, `NULL` included.
    */
-  andWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -41,7 +41,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column IS DISTINCT FROM :value` condition: the column differs from the value, `NULL` included.
    */
-  orWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -51,7 +51,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -59,7 +59,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column IS NOT DISTINCT FROM :value` condition: the column equals the value, `NULL` included.
    */
-  andWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -67,7 +67,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column IS NOT DISTINCT FROM :value` condition: the column equals the value, `NULL` included.
    */
-  orWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;

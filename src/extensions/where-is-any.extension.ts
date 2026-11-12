@@ -59,6 +59,7 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
 }
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
      * Sets WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
@@ -67,17 +68,17 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
-    whereIsAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
+    whereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
 
     /**
      * Adds new AND WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
      */
-    andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
+    andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
 
     /**
      * Adds new OR WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
      */
-    orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
+    orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
 
     /**
      * Sets WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL):
@@ -85,17 +86,17 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * If you had previously WHERE expression defined,
      * calling this function will override previously set WHERE conditions.
      */
-    whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
+    whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
 
     /**
      * Adds new AND WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
      */
-    andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
+    andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
 
     /**
      * Adds new OR WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
      */
-    orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
+    orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
   }
 }
 

@@ -26,7 +26,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedLowerOptions
@@ -36,7 +36,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `LOWER(column) = LOWER(:value)` condition in the query builder.
    * `null` / `undefined` matches nothing (`FALSE`).
    */
-  andWhereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedLowerOptions
@@ -46,7 +46,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `LOWER(column) = LOWER(:value)` condition in the query builder.
    * `null` / `undefined` matches nothing (`FALSE`).
    */
-  orWhereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereLowerEqualsTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedLowerOptions
@@ -58,7 +58,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ReadonlyArray<string> | null | undefined,
     options?: TypedLowerOptions
@@ -68,7 +68,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `LOWER(column) IN (LOWER(:v1), LOWER(:v2), …)` condition in the query builder.
    * An empty or missing array matches nothing (`FALSE`).
    */
-  andWhereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ReadonlyArray<string> | null | undefined,
     options?: TypedLowerOptions
@@ -78,7 +78,7 @@ export interface TypedWhereLowerMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `LOWER(column) IN (LOWER(:v1), LOWER(:v2), …)` condition in the query builder.
    * An empty or missing array matches nothing (`FALSE`).
    */
-  orWhereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereIsInLowerTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ReadonlyArray<string> | null | undefined,
     options?: TypedLowerOptions

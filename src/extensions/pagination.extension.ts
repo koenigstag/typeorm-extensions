@@ -10,11 +10,12 @@ import { patchPrototype } from '../utils/prototype.utils';
 // declarations
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     applyPaginationFilter(
       paginationFilter: PaginationFilter,
       options?: ApplyPaginationOptions
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 

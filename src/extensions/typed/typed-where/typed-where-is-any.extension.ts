@@ -26,7 +26,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * calling this function will override previously set WHERE conditions.
    */
   whereIsAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -35,7 +35,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
    */
   andWhereIsAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -44,7 +44,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column = ANY(:array)` condition in the query builder (PostgreSQL).
    */
   orWhereIsAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -56,7 +56,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * calling this function will override previously set WHERE conditions.
    */
   whereIsNotAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -65,7 +65,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
    */
   andWhereIsNotAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;
@@ -74,7 +74,7 @@ export interface TypedWhereIsAnyMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column <> ALL(:array)` condition in the query builder (PostgreSQL).
    */
   orWhereIsNotAnyTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>,
     arrayType?: string
   ): this;

@@ -17,12 +17,12 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Creates SELECT query.
      * Replaces all previous selections if they exist.
      */
-    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       selectionAliasName?: string,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Creates SELECT query and selects given data.
      * Replaces all previous selections if they exist.
@@ -32,26 +32,26 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       selection: string | KeyHolder,
       selectionAliasName?: string,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Creates SELECT query and selects given data.
      * Replaces all previous selections if they exist.
      */
-    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
 
     /**
      * Adds new selection to the SELECT query.
      */
-    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
       selectionAliasName?: string,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Adds new selection to the SELECT query.
      */
@@ -60,15 +60,15 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       selection: string | KeyHolder,
       selectionAliasName?: string,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Adds new selection to the SELECT query.
      */
-    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 

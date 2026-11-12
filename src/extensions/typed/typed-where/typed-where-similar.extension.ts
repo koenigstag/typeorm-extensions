@@ -33,7 +33,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -43,7 +43,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column % :term` condition in the query builder (PostgreSQL, pg_trgm).
    * A blank term adds no condition.
    */
-  andWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -53,7 +53,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column % :term` condition in the query builder (PostgreSQL, pg_trgm).
    * A blank term adds no condition.
    */
-  orWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -69,7 +69,7 @@ export interface TypedSimilarityScoreMethods<Entity extends ObjectLiteral> {
    * (`word_similarity(:term, column)`, the score of `column %> :term`).
    * Use a lower-case alias: PostgreSQL folds an unquoted alias in ORDER BY.
    */
-  addSimilarityScoreTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  addSimilarityScoreTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     alias: string,

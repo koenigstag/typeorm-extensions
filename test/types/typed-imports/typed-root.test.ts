@@ -47,3 +47,16 @@ const markedIndexRoot: Equal<TypedRoot<WithTypedRoot<WithIndex, Joins>>, Joins> 
 void literalRoot;
 void indexRoot;
 void markedIndexRoot;
+
+// typed() marks the builder; a helper that takes and returns the builder's own type keeps the mark
+const builderRoot: Equal<TypedRoot<CheckIn, typeof typed>, Joins> = true;
+const unmarkedBuilderRoot: Equal<TypedRoot<CheckIn, SelectQueryBuilder<CheckIn>>, CheckIn> = true;
+void builderRoot;
+void unmarkedBuilderRoot;
+
+function keepRoot<Q extends SelectQueryBuilder<ObjectLiteral>>(query: Q): Q {
+  return query;
+}
+keepRoot(typed).andWhereTyped((q) => q.event.eventType, '=', 'class');
+// @ts-expect-error not a key of the root
+keepRoot(typed).andWhereTyped((q) => q.customerId, '=', 'c');

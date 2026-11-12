@@ -7,35 +7,35 @@ import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
-    leftJoinTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    leftJoinTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
-    ): SelectQueryBuilder<Entity>;
-    innerJoinTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    ): this;
+    innerJoinTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
-    ): SelectQueryBuilder<Entity>;
+    ): this;
 
-    leftJoinAndSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    leftJoinAndSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
-    ): SelectQueryBuilder<Entity>;
-    innerJoinAndSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    ): this;
+    innerJoinAndSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: RelationalKeyProxyCallback<Type>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 

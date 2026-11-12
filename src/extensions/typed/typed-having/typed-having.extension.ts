@@ -9,7 +9,7 @@ import { patchPrototype } from '../../../utils/prototype.utils';
 import { attachWhere, isParamsObject } from '../../../utils/where.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
-type Selection<Entity extends ObjectLiteral, Type, Value> = (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value;
+type Selection<Root extends ObjectLiteral, Type, Value> = (proxy: DeepUnwrapArray<TypeOrDefault<Type, Root>>) => Value;
 
 /**
  * A value a column holds. A relation (`u => u.images`), the end of a key path or a JSON object is no column:
@@ -42,7 +42,7 @@ export interface TypedHavingMethods<Entity extends ObjectLiteral> {
     Operator extends string = string,
   >(
     aggregate: Aggregate,
-    selection: Selection<Entity, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
+    selection: Selection<TypedRoot<Entity, this>, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, AggregateValue<Aggregate, Value>>
   ): this;
@@ -55,7 +55,7 @@ export interface TypedHavingMethods<Entity extends ObjectLiteral> {
     Operator extends string = string,
   >(
     aggregate: Aggregate,
-    selection: Selection<Entity, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
+    selection: Selection<TypedRoot<Entity, this>, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, AggregateValue<Aggregate, Value>>
   ): this;
@@ -68,7 +68,7 @@ export interface TypedHavingMethods<Entity extends ObjectLiteral> {
     Operator extends string = string,
   >(
     aggregate: Aggregate,
-    selection: Selection<Entity, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
+    selection: Selection<TypedRoot<Entity, this>, Type, Value & AggregatedColumn> | CountAll<Aggregate>,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, AggregateValue<Aggregate, Value>>
   ): this;

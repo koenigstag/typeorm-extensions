@@ -1,4 +1,4 @@
-import { Brackets, SelectQueryBuilder } from 'typeorm';
+import { Brackets, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import 'typeorm-extensions';
 
 class Event {
@@ -75,3 +75,45 @@ void ofEntity;
 anyQuery.from(CheckIn, 'checkin').typed<Joins>().whereTyped((q) => q.checkin.customerId, '=', 'c');
 // @ts-expect-error the root set before from() is gone
 anyQuery.typed<Joins>().from(CheckIn, 'checkin').whereTyped((q) => q.checkin.customerId, '=', 'c');
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+// a builder without an entity type casts to the builder of the rows it selects, marked or not
+type CustomerRow = { customerId: string; visits: number };
+
+const customerRows = anyQuery.typed<Joins>().select('checkin.customerId', 'customerId') as SelectQueryBuilder<CustomerRow>;
+const subQueryRows = checkIns.subQuery().typed<Joins>().select('checkin.customerId') as SelectQueryBuilder<CustomerRow>;
+void customerRows;
+void subQueryRows;
+// @ts-expect-error a builder of an entity doesn't cast to unrelated rows, marked or not
+void (typed as SelectQueryBuilder<CustomerRow>);
+
+// a helper generic over the entity takes a marked builder, its type argument the entity
+declare function entityOf<T extends ObjectLiteral>(query: SelectQueryBuilder<T>): T;
+
+function sortedById<T extends ObjectLiteral>(query: SelectQueryBuilder<T>): SelectQueryBuilder<T> {
+  return query.orderBy(`${query.alias}.id`);
+}
+
+const markedEntity = entityOf(typed);
+const helperEntity: Equal<typeof markedEntity, CheckIn> = true;
+const sorted: SelectQueryBuilder<CheckIn> = sortedById(typed);
+void helperEntity;
+void sorted;
+
+// and sets a root itself, which its calls use
+function ofEventType<T extends ObjectLiteral>(query: SelectQueryBuilder<T>, type: string): SelectQueryBuilder<T> {
+  return query.typed<Joins>().andWhereTyped((q) => q.event.eventType, '=', type);
+}
+void ofEventType;
+
+// the root carries through the methods of this library too (q.checkin is a key of the root only)
+typed.selectTyped((q) => q.event.id, 'eventId').andWhereTyped((q) => q.checkin.customerId, '=', 'c');
+typed.addSelectTyped((q) => q.event.id, 'eventId').andWhereTyped((q) => q.checkin.customerId, '=', 'c');
+typed.leftJoinTyped((q) => q.checkin.event, 'event').andWhereTyped((q) => q.checkin.customerId, '=', 'c');
+typed.innerJoinAndSelectTyped((q) => q.checkin.event, 'event').andWhereTyped((q) => q.checkin.customerId, '=', 'c');
+typed.orderByTyped((q) => q.event.id).addOrderByTyped((q) => q.checkin.id).andWhereTyped((q) => q.checkin.id, '=', 'c');
+typed.distinctOnTyped((q) => q.event.id).andWhereTyped((q) => q.checkin.customerId, '=', 'c');
+typed.whereIsIn('checkin.id', ['a']).andWhereIsNotIn('event.id', []).andWhereTyped((q) => q.checkin.id, '=', 'c');
+typed.whereIsAny('checkin.id', ['a']).andWhereIsNotAny('event.id', []).andWhereTyped((q) => q.checkin.id, '=', 'c');
+typed.applyOrder({ field: 'checkin.id' }).applyPaginationFilter({ page: 1 }).andWhereTyped((q) => q.checkin.id, '=', 'c');

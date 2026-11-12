@@ -18,7 +18,7 @@ export interface TypedGroupByMethods<Entity extends ObjectLiteral> {
    * Sets GROUP BY to the columns the callback selects: `user => user.id`, or several at once,
    * `user => [user.id, user.email]`. Replaces previously set GROUP BY.
    */
-  groupByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  groupByTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: GroupBySelection<Type>,
     options?: TypedGroupByOptions
   ): this;
@@ -26,7 +26,7 @@ export interface TypedGroupByMethods<Entity extends ObjectLiteral> {
   /**
    * Adds the columns the callback selects to GROUP BY.
    */
-  addGroupByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  addGroupByTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: GroupBySelection<Type>,
     options?: TypedGroupByOptions
   ): this;

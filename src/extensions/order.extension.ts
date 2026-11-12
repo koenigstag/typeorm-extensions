@@ -19,15 +19,16 @@ import { isCalculatedColumn, selectCalculatedForOrder } from '../utils/calculate
 // declarations
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SelectQueryBuilder<Entity> {
     applyOrder<OrderEntity extends ObjectLiteral>(
       orderBy: OrderParam<OrderEntity>,
       options?: ApplyOrderOptions
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     applyOrderFilter<OrderEntity extends ObjectLiteral>(
       orderFilter: OrderFilter<OrderEntity>,
       options?: ApplyOrderOptions
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 

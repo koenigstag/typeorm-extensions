@@ -10,17 +10,17 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     /**
      * Sets the distinct on clause for Postgres.
      */
-    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       ...distinctOn: Array<KeyProxyCallback<Type>>
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Sets the distinct on clause for Postgres.
      */
-    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       distinctOn: KeyProxyCallback<Type>
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 

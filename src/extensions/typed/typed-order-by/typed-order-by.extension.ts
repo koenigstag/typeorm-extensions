@@ -15,23 +15,23 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 		 * If you had previously ORDER BY expression defined,
 		 * calling this function will override previously set ORDER BY conditions.
 		 */
-		orderByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+		orderByTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
 			this: SelectQueryBuilder<Entity>,
 			selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
 			nulls?: 'NULLS FIRST' | 'NULLS LAST',
 			options?: TypedOrderByOptions
-		): SelectQueryBuilder<Entity>;
+		): this;
 		/**
 		 * Adds ORDER BY condition in the query builder.
 		 */
-		addOrderByTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+		addOrderByTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
 			this: SelectQueryBuilder<Entity>,
 			selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType | KeyHolder,
 			order?: 'ASC' | 'DESC',
 			nulls?: 'NULLS FIRST' | 'NULLS LAST',
 			options?: TypedOrderByOptions
-		): SelectQueryBuilder<Entity>;
+		): this;
 	}
 }
 
