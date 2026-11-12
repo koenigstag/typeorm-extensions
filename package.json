@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p .",
     "lint": "eslint . --ext .ts",
-    "test:types": "tsc -p test/types && tsc -p test/types/tsconfig.loose.json"
+    "test:types": "tsc -p test/types && tsc -p test/types/tsconfig.loose.json && tsc -p test/types/typed-imports && tsc -p test/types/typed-imports/tsconfig.loose.json"
   },
   "keywords": [
     "typeorm",

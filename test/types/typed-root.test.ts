@@ -66,3 +66,12 @@ declare const anyQuery: SelectQueryBuilder<any>;
 anyQuery.typed<Joins>().whereTyped((q) => q.event.eventType, '=', 'class');
 // @ts-expect-error not a property of the root
 anyQuery.typed<Joins>().whereTyped((q) => q.event.notAColumn, '=', 'class');
+
+// a marked builder goes where the builder of its entity does (SelectQueryBuilder<ObjectLiteral>: typed-imports/)
+const ofEntity: SelectQueryBuilder<CheckIn> = typed;
+void ofEntity;
+
+// from() types the builder by its entity again, so typed() goes after it
+anyQuery.from(CheckIn, 'checkin').typed<Joins>().whereTyped((q) => q.checkin.customerId, '=', 'c');
+// @ts-expect-error the root set before from() is gone
+anyQuery.typed<Joins>().from(CheckIn, 'checkin').whereTyped((q) => q.checkin.customerId, '=', 'c');

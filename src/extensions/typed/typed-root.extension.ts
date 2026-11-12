@@ -13,7 +13,8 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * Sets the root of the typed callbacks of the calls that follow, instead of passing it to each of them:
      * the aliases of the query and their entities.
      *
-     * Type-only: returns the builder itself. Call it once; a second call merges the roots.
+     * Type-only: returns the builder itself. Call it after `from()`, which types the builder by its entity again and
+     * drops the root; a second call replaces the root.
      *
      * @example
      * type Joins = { checkin: CheckIn; event: Event };

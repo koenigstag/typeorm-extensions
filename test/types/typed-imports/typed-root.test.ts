@@ -1,0 +1,49 @@
+import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
+// getManyWithCursor, which the root import loads, keeps every builder from SelectQueryBuilder<ObjectLiteral>
+import '../../../src/extensions/typed';
+import type { TypedRoot, WithTypedRoot } from '../../../src/types/modules/typed-root.types';
+
+class Event {
+  id: string;
+  eventType: string;
+}
+
+class CheckIn {
+  id: string;
+  customerId: string;
+  event: Event;
+}
+
+class WithIndex {
+  id: number;
+  [key: string]: unknown;
+}
+
+type Joins = { checkin: CheckIn; event: Event };
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+declare const checkIns: Repository<CheckIn>;
+declare const anyQuery: SelectQueryBuilder<any>;
+declare function countRows(query: SelectQueryBuilder<ObjectLiteral>): Promise<number>;
+
+const typed = checkIns.createQueryBuilder('checkin').typed<Joins>();
+
+// a marked builder goes wherever the builder of its entity does
+void countRows(checkIns.createQueryBuilder('checkin'));
+void countRows(typed);
+void countRows(anyQuery.typed<Joins>());
+const ofEntity: SelectQueryBuilder<CheckIn> = typed;
+void ofEntity;
+
+function pageQuery(): SelectQueryBuilder<ObjectLiteral> {
+  return anyQuery.from(CheckIn, 'checkin').typed<Joins>().whereTyped((q) => q.event.eventType, '=', 'class');
+}
+void pageQuery;
+
+// a string index signature has the mark's key too, as `any`: it isn't read as a mark
+const literalRoot: Equal<TypedRoot<ObjectLiteral>, ObjectLiteral> = true;
+const indexRoot: Equal<TypedRoot<WithIndex>, WithIndex> = true;
+const markedIndexRoot: Equal<TypedRoot<WithTypedRoot<WithIndex, Joins>>, Joins> = true;
+void literalRoot;
+void indexRoot;
+void markedIndexRoot;
