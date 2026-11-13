@@ -1,7 +1,7 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import type { UnionCteOptions, UnionOptions, UnionQuery } from '../types/extensions/union.types';
 import { patchPrototype } from '../utils/prototype.utils';
-import { withUniqueParameterNames } from '../utils/parameter.utils';
+import { toSubQuerySql } from '../utils/parameter.utils';
 import { getDriverType, isSqliteLikeDriver } from '../utils/sql.utils';
 
 // declarations
@@ -109,7 +109,7 @@ function bindParameters<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   query: Exclude<UnionQuery, string>
 ): string {
-  const [sql, parameters] = withUniqueParameterNames(query.getQuery(), query.getParameters());
+  const [sql, parameters] = toSubQuerySql(query);
 
   builder.setParameters(parameters);
 

@@ -32,3 +32,14 @@ export function withUniqueParameterNames(
 
   return [renamedSql, renamedParameters];
 }
+
+/**
+ * The SQL of a query, without the parentheses a `subQuery()` builder writes around itself, and its parameters, both
+ * renamed unique (see `withUniqueParameterNames`).
+ */
+export function toSubQuerySql(query: { getQuery(): string; getParameters(): ObjectLiteral }): [string, ObjectLiteral] {
+  const sql = query.getQuery();
+  const wrapped = 'expressionMap' in query && (query as { expressionMap: { subQuery?: boolean } }).expressionMap.subQuery;
+
+  return withUniqueParameterNames(wrapped ? sql.slice(1, -1) : sql, query.getParameters());
+}
