@@ -81,14 +81,14 @@ setupTest('field-identifiers', undefined, (context) => {
   it('SHOULD write the column names of the entity a tableHelper is given', async () => {
     await seed();
 
-    const l = tableHelper(LegacyColumnsEntity, 'l');
+    const l = tableHelper(LegacyColumnsEntity, 'l', { driver: context.typeormOptions.type });
     const query = legacy()
       .createQueryBuilder('l')
       .where(`${l.firstName} <> :name`, { name: 'Bob' })
       .andWhere(l.isNotNull('lastName'))
       .orderBy(l.firstName, 'DESC');
 
-    expect(sqlOf(query)).toMatch(/WHERE "l"\."first-name" <> .+ AND "l"\."last name" IS NOT NULL/);
+    expect(sqlOf(query)).toMatch(/WHERE ["`]l["`]\.["`]first-name["`] <> .+ AND ["`]l["`]\.["`]last name["`] IS NOT NULL/);
     expect(names(await query.getMany())).toEqual(['Cid', 'Ann']);
   });
 
