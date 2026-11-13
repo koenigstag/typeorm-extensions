@@ -1,6 +1,7 @@
 import { DatabaseType, getMetadataArgsStorage, ObjectLiteral } from "typeorm";
 import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
+import { parseUtcOffset } from './time-zone.utils';
 
 export type TableHelperOptions = {
 	useQuotes?: boolean;
@@ -173,7 +174,7 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 			throw new TypeError(`tableHelper.${method}(): the time zone is empty`);
 		}
 
-		return sqlString(toPostgresZone(timeZone));
+		return sqlString(toPostgresZone(method, timeZone));
 	}
 
 	if ('sql' in timeZone) {
@@ -184,23 +185,21 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 
 	return timeZone.fallback === undefined
 		? column
-		: `COALESCE(${column}, ${sqlString(toPostgresZone(timeZone.fallback))})`;
+		: `COALESCE(${column}, ${sqlString(toPostgresZone(method, timeZone.fallback))})`;
 }
-
-const ISO_OFFSET = /^([+-])(\d{2}):?(\d{2})?$/;
 
 /**
  * PostgreSQL reads `'+02:00'` as a POSIX zone, whose offsets count west: UTC−2. An ISO 8601 offset is
  * written as the POSIX zone of the same offset, `'<+0200>-02:00'`, so `'+02:00'` is UTC+2 as everywhere else.
  */
-function toPostgresZone(timeZone: string): string {
-	const offset = ISO_OFFSET.exec(timeZone.trim());
+function toPostgresZone(method: string, timeZone: string): string {
+	const offset = parseUtcOffset(timeZone.trim(), `tableHelper.${method}(): "${timeZone}" is not a UTC offset`);
 
 	if (offset === null) {
 		return timeZone;
 	}
 
-	const [, sign, hours, minutes = '00'] = offset;
+	const { sign, hours, minutes } = offset;
 
 	return `<${sign}${hours}${minutes}>${sign === '+' ? '-' : '+'}${hours}:${minutes}`;
 }
