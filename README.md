@@ -56,7 +56,7 @@ npm install typeorm-extensions
 - typed joins and map joins (`leftJoinTyped`, `innerJoinAndMapOneTyped`, …), `typed<Root>()` for the aliases a query joins, `whereRelationExists` built from the relation metadata
 
 **Pagination** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/pagination/))
-- `getManyWithTotals` and `getRawManyWithTotals`: the page, the total, `hasMore` and the order it was read in
+- `getManyWithTotals` and `getRawManyWithTotals`: the rows of a page, the total, `page` / `pageSize`, `hasMore` and the order it was read in
 - `getManyWithCursor`: keyset pagination with an opaque cursor
 - `applyPaginationFilter` for a page of any query
 

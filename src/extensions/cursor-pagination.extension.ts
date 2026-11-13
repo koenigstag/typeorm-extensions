@@ -11,6 +11,7 @@ import { patchPrototype } from '../utils/prototype.utils';
 import { toSqlOrderDirection } from '../utils/order.utils';
 import { andWhereNarrowing } from '../utils/where.utils';
 import { createUniqueParameterName } from '../utils/sql.utils';
+import { getAppliedOrderBy } from '../utils/query-builder.utils';
 import {
   buildKeysetCondition,
   decodeCursor,
@@ -147,6 +148,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
 
   query.orderBy();
   keys.forEach((key) => query.addOrderBy(`${alias}.${key.column.propertyPath}`, key.direction));
+  const appliedOrderBy = getAppliedOrderBy(query);
 
   // the key values of the last row are read from the raw result: dates and times as text, so the
   // cursor keeps the database's precision (PostgreSQL timestamps have microseconds, a JS Date has not)
@@ -176,7 +178,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
   const list = entities.slice(0, pageSize);
 
   if (entities.length <= pageSize) {
-    return { list, nextCursor: null, hasMore: false };
+    return { list, nextCursor: null, hasMore: false, pageSize, orderBy: appliedOrderBy };
   }
 
   // with joined collections there are several raw rows per entity: find one of the last entity's
@@ -203,5 +205,5 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     return value;
   });
 
-  return { list, nextCursor: encodeCursor(fields, values), hasMore: true };
+  return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, orderBy: appliedOrderBy };
 }

@@ -13,5 +13,5 @@ export const getLimitAndOffset = ({ page, pageSize}: PaginationFilter) => {
   const offset = (page >= 1 ? page - 1 : 0) * pageSize;
   const limit = pageSize;
 
-  return { limit, offset };
+  return { limit, offset, page, pageSize };
 }

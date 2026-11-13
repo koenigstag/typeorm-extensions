@@ -12,9 +12,8 @@ import type {
   GetRawManyWithTotalsOptions,
   ListWithTotals,
 } from '../types/extensions';
-import type { OrderType } from '../types/interfaces/ordering.interface';
 import { patchPrototype } from '../utils/prototype.utils';
-import { resolveDeferredKeys } from '../utils/query-builder.utils';
+import { getAppliedOrderBy } from '../utils/query-builder.utils';
 
 // declarations
 
@@ -144,8 +143,8 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
     ...paginationOptions
   } = options || {};
 
-  const { limit, offset } = loadAll
-    ? { limit: null, offset: null }
+  const { limit, offset, page, pageSize } = loadAll
+    ? { limit: null, offset: null, page: null, pageSize: null }
     : getLimitAndOffset(paginationFilter);
 
   // without a total, one row past the page is what tells whether more rows follow
@@ -205,25 +204,15 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
       total !== null && offset !== null ? offset + rows.length < total : null;
   }
 
-  // allOrderBys, not orderBys: it is what the SQL is built from, so without an explicit order it
-  // falls back to the `orderBy` of @Entity, and respects the `disable-global-order` option
-  const orderBy: OrderType[] = Object.entries(
-    builder.expressionMap.allOrderBys ?? {}
-  ).map(([key, value]) => {
-    const selector = resolveDeferredKeys(builder, key);
-
-    return typeof value === 'string'
-      ? { selector, order: value }
-      : { selector, order: value.order, nulls: value.nulls };
-  });
-
   return {
     list,
     total,
+    page,
+    pageSize,
     limit,
     offset,
     hasMore,
-    orderBy,
+    orderBy: getAppliedOrderBy(builder),
   };
 }
 

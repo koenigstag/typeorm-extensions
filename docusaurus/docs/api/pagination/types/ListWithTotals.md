@@ -14,6 +14,8 @@ sidebar_position: 6
 interface ListWithTotals<Entity> {
   list: Entity[];
   total: number | null;
+  page: number | null;
+  pageSize: number | null;
   limit: number | null;
   offset: number | null;
   hasMore: boolean | null;
@@ -23,6 +25,8 @@ interface ListWithTotals<Entity> {
 
 - `list`: entities of the requested page (or all of them with `loadAll`).
 - `total`: number of all rows matching the query, or `null` with `disableTotalsCalculation`.
+- `page`: the page read, 1-based: the `page` given, or `1` when it was missing or below 1. `null` with `loadAll`.
+- `pageSize`: the page size used: the `pageSize` given, or `10` when it was missing or below 1. `null` with `loadAll`. Together with `page` it is what a response can pass on without repeating these defaults.
 - `limit`: page size that was applied, or `null` with `loadAll`.
 - `offset`: number of skipped rows, or `null` with `loadAll`.
 - `hasMore`: whether rows follow the page. With a total it is `offset + list.length < total`; with `disableTotalsCalculation` the page is read one row longer and the extra row is dropped, so it is known without counting. `null` only with `loadAll`, where the page is every row. [getManyWithCursor](../getManyWithCursor.md) works the same way and always knows it.
@@ -34,7 +38,8 @@ interface ListWithTotals<Entity> {
 ```typescript
 const result: ListWithTotals<UserEntity> = await query.getManyWithTotals({ page: 3, pageSize: 10 });
 
-const pagesCount = result.total === null ? undefined : Math.ceil(result.total / 10);
+const pagesCount =
+  result.total !== null && result.pageSize !== null ? Math.ceil(result.total / result.pageSize) : undefined;
 
 // `hasMore` saves comparing the total yourself
 if (result.hasMore) {

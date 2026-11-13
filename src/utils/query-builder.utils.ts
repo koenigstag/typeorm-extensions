@@ -4,6 +4,7 @@ import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import type { Alias } from 'typeorm/query-builder/Alias';
 import { QueryExpressionMap } from 'typeorm/query-builder/QueryExpressionMap';
 import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
+import type { OrderType } from '../types/interfaces/ordering.interface';
 import { createKeyTooDeepError, getKeyHolder, KeyHolder, MAX_KEY_DEPTH } from './proxy-key.utils';
 import { isJsonColumn, JsonPathSqlOptions, toJsonPathSql } from './json-path.utils';
 import { getDriverType, stringToSQLIdentifier } from './sql.utils';
@@ -622,4 +623,19 @@ export function getTypedSelectionKey<Type extends ObjectLiteral>(
   const keyHolder = getKeyHolder<Type>(selection);
 
   return Array.isArray(keyHolder) ? keyHolder.map(toKey) : toKey(keyHolder);
+}
+
+/**
+ * The ORDER BY a query is built with, in the order it was applied. `allOrderBys`, not `orderBys`: it is what the SQL
+ * is built from, so without an explicit order it falls back to the `orderBy` of @Entity, and respects the
+ * `disable-global-order` option.
+ */
+export function getAppliedOrderBy<Entity extends ObjectLiteral>(builder: QueryBuilder<Entity>): OrderType[] {
+  return Object.entries(builder.expressionMap.allOrderBys ?? {}).map(([key, value]) => {
+    const selector = resolveDeferredKeys(builder as unknown as WhereExpressionBuilder, key);
+
+    return typeof value === 'string'
+      ? { selector, order: value }
+      : { selector, order: value.order, nulls: value.nulls };
+  });
 }

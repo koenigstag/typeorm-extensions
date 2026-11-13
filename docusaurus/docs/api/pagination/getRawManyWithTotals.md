@@ -6,7 +6,7 @@ sidebar_position: 5
 
 ## Description
 
-[getManyWithTotals](./getManyWithTotals.md) for raw rows: one page from `getRawMany()`, with the total number of rows, `limit`, `offset`, `hasMore` and `orderBy`. Use it for queries whose rows are not entities: aggregates, `GROUP BY`, selected expressions.
+[getManyWithTotals](./getManyWithTotals.md) for raw rows: one page from `getRawMany()`, with the total number of rows, `page`, `pageSize`, `limit`, `offset`, `hasMore` and `orderBy`. Use it for queries whose rows are not entities: aggregates, `GROUP BY`, selected expressions.
 
 The page is paged with `LIMIT` / `OFFSET`: `take` / `skip` page entities, not raw rows, so there is no `useTakeAndSkip` option.
 

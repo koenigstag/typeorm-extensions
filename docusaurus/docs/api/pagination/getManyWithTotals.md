@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Description
 
-`getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
+`getManyWithTotals` loads one page of entities together with the total number of matching rows, the `page` and `pageSize` it read with (defaults applied), the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
 
 It runs two queries:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
@@ -55,23 +55,25 @@ Reach for `total` when the interface shows a count or numbered pages. Note that 
 
 ## Returns
 
-[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, limit, offset, hasMore, orderBy }`.
+[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, page, pageSize, limit, offset, hasMore, orderBy }`.
 
 ## Usage
 
 ```typescript
-const { list, total, limit, offset, hasMore, orderBy } = await usersRepository
+const { list, total, page, pageSize, limit, offset, hasMore, orderBy } = await usersRepository
   .createQueryBuilder('user')
   .whereTyped(user => user.lastName, 'LIKE', '%Doe%')
   .orderBy('user.lastName', 'ASC')
   .getManyWithTotals({ page: 2, pageSize: 20 });
 
-// list    - users 21..40
-// total   - number of all users matching the condition
-// limit   - 20
-// offset  - 20
-// hasMore - true while rows follow the page, null only with loadAll
-// orderBy - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
+// list     - users 21..40
+// total    - number of all users matching the condition
+// page     - 2 (1 when the page is missing or below 1)
+// pageSize - 20 (10 when the size is missing or below 1)
+// limit    - 20
+// offset   - 20
+// hasMore  - true while rows follow the page, null only with loadAll
+// orderBy  - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
 ```
 
 ```typescript
@@ -81,6 +83,6 @@ await query.getManyWithTotals({ page: 1, pageSize: 10 }, { disableTotalsCalculat
 ```
 
 ```typescript
-// All matching rows: pagination is not applied, limit, offset and hasMore are null
+// All matching rows: pagination is not applied, page, pageSize, limit, offset and hasMore are null
 await query.getManyWithTotals({}, { loadAll: true });
 ```

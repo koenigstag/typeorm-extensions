@@ -67,10 +67,21 @@ setupTest('getManyWithTotals.hasMore', undefined, (context) => {
     const first = await users.createQueryBuilder('user').getManyWithTotals({ page: 1, pageSize: 2 });
     const last = await users.createQueryBuilder('user').getManyWithTotals({ page: 2, pageSize: 2 });
 
-    expect(first).toMatchObject({ total: 3, offset: 0, hasMore: true });
+    expect(first).toMatchObject({ total: 3, page: 1, pageSize: 2, offset: 0, hasMore: true });
     expect(first.list).toHaveLength(2);
-    expect(last).toMatchObject({ total: 3, offset: 2, hasMore: false });
+    expect(last).toMatchObject({ total: 3, page: 2, pageSize: 2, offset: 2, hasMore: false });
     expect(last.list).toHaveLength(1);
+  });
+
+  it('SHOULD return the page and page size it read, defaults included', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 0 });
+
+    expect(page).toMatchObject({ page: 1, pageSize: 10, limit: 10, offset: 0 });
   });
 
   it('SHOULD report hasMore as null only with loadAll', async () => {
@@ -81,7 +92,7 @@ setupTest('getManyWithTotals.hasMore', undefined, (context) => {
       .createQueryBuilder('user')
       .getManyWithTotals({}, { loadAll: true });
 
-    expect(all).toMatchObject({ total: 3, limit: null, offset: null, hasMore: null });
+    expect(all).toMatchObject({ total: 3, page: null, pageSize: null, limit: null, offset: null, hasMore: null });
     expect(all.list).toHaveLength(3);
   });
 

@@ -51,8 +51,12 @@ interface ListWithCursor<Entity> {
   list: Entity[];
   nextCursor: string | null; // null on the last page
   hasMore: boolean;          // whether a next page follows; same as nextCursor !== null
+  pageSize: number;          // the pageSize given, rounded down; 10 when missing or below 1
+  orderBy: OrderType[];      // options.orderBy, then the primary key: [{ selector: 'post.createdAt', order: 'DESC' }, …]
 }
 ```
+
+`orderBy` is the order the cursors of these pages encode, as `alias.property` selectors. Like the `orderBy` of [ListWithTotals](./types/ListWithTotals.md), it is for logs and debugging, not for the client to send back.
 
 ## Arguments
 
@@ -80,7 +84,13 @@ const page = await repository
     { orderBy: [{ field: 'createdAt', direction: 'DESC' }] },
   );
 
-// { list: Post[], nextCursor: 'eyJrIjpb…' | null, hasMore: true | false }
+// {
+//   list: Post[],
+//   nextCursor: 'eyJrIjpb…' | null,
+//   hasMore: true | false,
+//   pageSize: 20,
+//   orderBy: [{ selector: 'post.createdAt', order: 'DESC' }, { selector: 'post.id', order: 'DESC' }],
+// }
 ```
 
 ```typescript

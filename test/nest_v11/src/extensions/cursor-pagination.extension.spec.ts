@@ -100,7 +100,29 @@ setupTest('cursor-pagination', undefined, (context) => {
       .createQueryBuilder('user')
       .where('1 = 0')
       .getManyWithCursor(null, { orderBy: [] });
-    expect(empty).toEqual({ list: [], nextCursor: null, hasMore: false });
+    expect(empty).toEqual({
+      list: [],
+      nextCursor: null,
+      hasMore: false,
+      pageSize: 10,
+      orderBy: [{ selector: 'user.id', order: 'ASC' }],
+    });
+  });
+
+  it('SHOULD return the page size and the order the page was read in', async () => {
+    await seedUsers(3);
+
+    const page = await users()
+      .createQueryBuilder('user')
+      .orderBy('user.firstName')
+      .getManyWithCursor({ pageSize: 2.5 }, { orderBy: [{ field: 'createdAt', direction: 'DESC' }] });
+
+    expect(page.list).toHaveLength(2);
+    expect(page.pageSize).toBe(2);
+    expect(page.orderBy).toEqual([
+      { selector: 'user.createdAt', order: 'DESC' },
+      { selector: 'user.id', order: 'DESC' },
+    ]);
   });
 
   it('SHOULD report hasMore on every page, in step with nextCursor', async () => {

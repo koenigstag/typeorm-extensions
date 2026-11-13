@@ -1,4 +1,5 @@
 import type { CursorOrderParam } from '../interfaces/cursor-pagination.interface';
+import type { OrderType } from '../interfaces/ordering.interface';
 
 export type GetManyWithCursorOptions<Entity> = {
   /**
@@ -20,4 +21,8 @@ export interface ListWithCursor<Entity> {
    * keyset query loads `pageSize + 1` rows, so it needs no total. Equivalent to `nextCursor !== null`.
    */
   hasMore: boolean;
+  /** The page size used: the `pageSize` given, rounded down, or `10` when it was missing or below 1. */
+  pageSize: number;
+  /** The ORDER BY the page was read in: the `orderBy` columns, then the primary key columns not among them. */
+  orderBy: OrderType[];
 }
