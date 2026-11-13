@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/cursor-pagination.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { InvalidCursorError } from 'typeorm-extensions/extensions/cursor-pagination.extension';
-import type { GetManyWithCursorOptions } from 'typeorm-extensions/types/extensions/cursor-pagination.types';
+import type { GetManyWithCursorOptions, ListWithCursor } from 'typeorm-extensions/types/extensions/cursor-pagination.types';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { setupTest, createFakeUsers, createFakeImages, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
@@ -17,7 +17,7 @@ async function walk<Entity extends ObjectLiteral>(
   let cursor: string | null = null;
 
   do {
-    const page = await query().getManyWithCursor({ cursor, pageSize }, options);
+    const page: ListWithCursor<Entity> = await query().getManyWithCursor({ cursor, pageSize }, options);
     pages.push(page.list);
     cursor = page.nextCursor;
 
@@ -112,7 +112,7 @@ setupTest('cursor-pagination', undefined, (context) => {
     let cursor: string | null = null;
 
     do {
-      const page = await query().getManyWithCursor({ cursor, pageSize: 2 }, options);
+      const page: ListWithCursor<UserEntity> = await query().getManyWithCursor({ cursor, pageSize: 2 }, options);
       seen.push({ hasMore: page.hasMore, hasCursor: page.nextCursor !== null });
       cursor = page.nextCursor;
     } while (cursor);
