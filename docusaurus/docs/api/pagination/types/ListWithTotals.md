@@ -25,8 +25,8 @@ interface ListWithTotals<Entity> {
 
 - `list`: entities of the requested page (or all of them with `loadAll`).
 - `total`: number of all rows matching the query, or `null` with `disableTotalsCalculation`.
-- `page`: the page read, 1-based: the `page` given, or `1` when it was missing or below 1. `null` with `loadAll`.
-- `pageSize`: the page size used: the `pageSize` given, or `10` when it was missing or below 1. `null` with `loadAll`. Together with `page` it is what a response can pass on without repeating these defaults.
+- `page`: the page read, 1-based: the `page` given, rounded down, or `1` when it was missing or below 1. `null` with `loadAll`.
+- `pageSize`: the page size used: the `pageSize` given, rounded down, or `10` when it was missing or below 1. `null` with `loadAll`. Together with `page` it is what a response can pass on without repeating these defaults. Both are numbers even when the filter held numeric strings, as an unparsed query parameter does (`'20'`).
 - `limit`: page size that was applied, or `null` with `loadAll`.
 - `offset`: number of skipped rows, or `null` with `loadAll`.
 - `hasMore`: whether rows follow the page. With a total it is `offset + list.length < total`; with `disableTotalsCalculation` the page is read one row longer and the extra row is dropped, so it is known without counting. `null` only with `loadAll`, where the page is every row. [getManyWithCursor](../getManyWithCursor.md) works the same way and always knows it.

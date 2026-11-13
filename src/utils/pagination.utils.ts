@@ -1,17 +1,24 @@
 import { defaultPageSize } from "../constants";
 import { PaginationFilter } from "../types/interfaces/pagination.interface";
 
-export const getLimitAndOffset = ({ page, pageSize}: PaginationFilter) => {
-  if (!page || page < 1) {
-    page = 1;
-  }
+// an unparsed query parameter is a string: "20" + 1 would be "201"
+const toPositiveInteger = (value: unknown, fallback: number): number => {
+  const number = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
 
-  if (!pageSize || pageSize < 1) {
-    pageSize = defaultPageSize;
-  }
+  return typeof number === 'number' && Number.isFinite(number) && number >= 1 ? Math.floor(number) : fallback;
+};
 
-  const offset = (page >= 1 ? page - 1 : 0) * pageSize;
-  const limit = pageSize;
+/** The page size to read: a number or a numeric string of at least 1, rounded down; `defaultPageSize` otherwise. */
+export const normalizePageSize = (pageSize: unknown): number => toPositiveInteger(pageSize, defaultPageSize);
 
-  return { limit, offset, page, pageSize };
-}
+export const getLimitAndOffset = ({ page, pageSize }: PaginationFilter) => {
+  const normalizedPage = toPositiveInteger(page, 1);
+  const normalizedPageSize = normalizePageSize(pageSize);
+
+  return {
+    limit: normalizedPageSize,
+    offset: (normalizedPage - 1) * normalizedPageSize,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+  };
+};

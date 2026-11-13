@@ -29,7 +29,7 @@ getManyWithTotals(
 
 ## Arguments
 
-- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Invalid or missing values fall back to page `1` and page size `10`.
+- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Numeric strings, as an unparsed query parameter holds them, are read as numbers, and fractions are rounded down. Invalid or missing values fall back to page `1` and page size `10`.
 - options?: [GetManyWithTotalsOptions](./types/GetManyWithTotalsOptions.md): Skip the count query, or load all rows without pagination.
 
 ## What the count counts

@@ -123,6 +123,14 @@ setupTest('cursor-pagination', undefined, (context) => {
       { selector: 'user.createdAt', order: 'DESC' },
       { selector: 'user.id', order: 'DESC' },
     ]);
+
+    // an unparsed query parameter
+    const fromQuery = await users()
+      .createQueryBuilder('user')
+      .getManyWithCursor({ pageSize: '2' as unknown as number }, { orderBy: [{ field: 'id' }] });
+
+    expect(fromQuery).toMatchObject({ pageSize: 2, hasMore: true });
+    expect(fromQuery.list).toHaveLength(2);
   });
 
   it('SHOULD report hasMore on every page, in step with nextCursor', async () => {

@@ -6,7 +6,7 @@ import type {
   GetManyWithCursorOptions,
   ListWithCursor,
 } from '../types/extensions/cursor-pagination.types';
-import { defaultPageSize } from '../constants';
+import { normalizePageSize } from '../utils/pagination.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 import { toSqlOrderDirection } from '../utils/order.utils';
 import { andWhereNarrowing } from '../utils/where.utils';
@@ -109,11 +109,6 @@ function getCursorKeys<Entity extends ObjectLiteral>(
   return keys;
 }
 
-const getPageSize = (pageSize: number | undefined): number =>
-  typeof pageSize === 'number' && Number.isFinite(pageSize) && pageSize >= 1
-    ? Math.floor(pageSize)
-    : defaultPageSize;
-
 async function getManyWithCursor<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   cursorFilter: CursorPaginationFilter | null | undefined,
@@ -123,7 +118,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
 
   const keys = getCursorKeys(builder, orderBy);
   const fields = keys.map((key) => key.column.propertyPath);
-  const pageSize = getPageSize(cursorFilter?.pageSize);
+  const pageSize = normalizePageSize(cursorFilter?.pageSize);
 
   const query = builder.clone();
   const alias = query.alias;

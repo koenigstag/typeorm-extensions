@@ -51,7 +51,7 @@ interface ListWithCursor<Entity> {
   list: Entity[];
   nextCursor: string | null; // null on the last page
   hasMore: boolean;          // whether a next page follows; same as nextCursor !== null
-  pageSize: number;          // the pageSize given, rounded down; 10 when missing or below 1
+  pageSize: number;          // the pageSize given (a numeric string too), rounded down; 10 when missing or below 1
   orderBy: OrderType[];      // options.orderBy, then the primary key: [{ selector: 'post.createdAt', order: 'DESC' }, …]
 }
 ```
