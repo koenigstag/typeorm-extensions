@@ -158,9 +158,9 @@ const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
 	'millennium',
 ];
 
-function assertPostgres(method: string, driver: DatabaseType | undefined) {
+function assertPostgres(method: string, driver: DatabaseType | undefined, hint?: string) {
 	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
-		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"`);
+		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"${hint ? `: ${hint}` : ''}`);
 	}
 }
 
@@ -356,9 +356,7 @@ const createTableHelper = <T extends ObjectLiteral>(
 	arrayAgg(columnName: ColumnName<T>, aggOptions: TableHelperArrayAggOptions<T> = {}) {
 		const { distinct = false, orderBy, filter } = aggOptions;
 
-		if (options.driver !== undefined && !isPostgresLikeDriver(options.driver)) {
-			throw new TypeError(`tableHelper.arrayAgg(): arrays are PostgreSQL's, the driver is "${options.driver}": use jsonAgg`);
-		}
+		assertPostgres('arrayAgg', options.driver, 'use jsonAgg');
 
 		const order = orderBy ? aggregateOrder('arrayAgg', orderBy, (column) => this.column(column)) : undefined;
 
