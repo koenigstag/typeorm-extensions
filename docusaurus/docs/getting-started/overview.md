@@ -22,6 +22,7 @@ This package provides a set of extensions for [TypeORM](https://www.npmjs.com/pa
   - `distinctOnTyped` - apply distinct on conditions (only PostgreSQL).
   - `returningTyped` - return columns from INSERT / UPDATE / DELETE.
 - **tableHelper**: typesafe helper for building SQL fragments: column references, conditions, joins, counts and JSONB paths.
+- **Reserved qualifier guard**: an opt-in check of the SQL each query runs for a reserved word used as a qualifier without quotes (`order."userId"`, `user.id`), which PostgreSQL rejects; it throws or warns before the query runs (only PostgreSQL and CockroachDB).
 
 ## Getting Started
 
