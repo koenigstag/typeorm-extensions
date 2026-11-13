@@ -12,7 +12,7 @@ sidebar_position: 1
 import { tableHelper } from 'typeorm-extensions/helpers';
 ```
 
-The names are the entity's property names, written into the SQL as they are: the helper has no entity metadata, so a column renamed with `@Column({ name: 'amount_cents' })` has to be named that way, `t.column('amount_cents' as never)`, or selected with a typed method, which maps it.
+The names are the entity's property names. Given the type only (`tableHelper<Payment>('p')`), the helper writes them into the SQL as they are, so a column renamed with `@Column({ name: 'amount_cents' }) amount` comes out as `"p"."amount"`, which doesn't exist. Given the entity class (`tableHelper(Payment, 'p')`), it writes the column each property is mapped to: `tableHelper(Payment, 'p').amount` is `"p"."amount_cents"`. The class form reads the `name` of `@Column` and the other column decorators on the class and its parents, the nearest declaration winning, once per class and without a `DataSource`. Every other column keeps its property name, as under TypeORM's default naming strategy; a custom naming strategy and the columns of embedded entities are not applied.
 
 `typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
@@ -23,10 +23,17 @@ tableHelper<Entity>(
   alias?: string,
   options?: { useQuotes?: boolean; driver?: DatabaseType }
 ): TableHelper<Entity>
+
+tableHelper(
+  entity: EntityClass<Entity>,
+  alias?: string,
+  options?: { useQuotes?: boolean; driver?: DatabaseType }
+): TableHelper<Entity>
 ```
 
 ## Arguments
 
+- entity: EntityClass<Entity>: The entity class, abstract ones included. The helper takes the entity type from it and writes the database names of renamed columns.
 - alias?: string: Alias of the table in the query, e.g. `'user'` for `createQueryBuilder('user')`.
 - options.useQuotes?: boolean: Quote identifiers (`"user"."email"`). Default `true`; with `false` they are left as is (`user.email`).
 - options.driver?: DatabaseType: The database the SQL is for. MySQL and MariaDB quote identifiers with backticks (`` `user`.`email` ``); without it they get double quotes. Pass `dataSource.options.type`.

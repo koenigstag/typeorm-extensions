@@ -2,7 +2,7 @@ import 'typeorm-extensions/extensions/where-is-in.extension';
 import 'typeorm-extensions/extensions/where-is-any.extension';
 import 'typeorm-extensions/extensions/where-is-distinct-from.extension';
 import 'typeorm-extensions/extensions/order-by-array-position.extension';
-import { DataSource } from 'typeorm';
+import { Column, DataSource } from 'typeorm';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 import { nativeSql, setupTest, sqlOf } from '../test-utils';
 import { LegacyColumnsEntity, TicketEntity } from '../models';
@@ -78,6 +78,20 @@ setupTest('field-identifiers', undefined, (context) => {
     expect((await query.getMany()).map((t) => t.status)).toEqual(['open', 'done']);
   });
 
+  it('SHOULD write the column names of the entity a tableHelper is given', async () => {
+    await seed();
+
+    const l = tableHelper(LegacyColumnsEntity, 'l');
+    const query = legacy()
+      .createQueryBuilder('l')
+      .where(`${l.firstName} <> :name`, { name: 'Bob' })
+      .andWhere(l.isNotNull('lastName'))
+      .orderBy(l.firstName, 'DESC');
+
+    expect(sqlOf(query)).toMatch(/WHERE "l"\."first-name" <> .+ AND "l"\."last name" IS NOT NULL/);
+    expect(names(await query.getMany())).toEqual(['Cid', 'Ann']);
+  });
+
   it('SHOULD give the bare column on UPDATE / DELETE', async () => {
     await seed();
 
@@ -140,5 +154,30 @@ describe('tableHelper column names', () => {
 
     expect(t.column('id')).toBe('"user-1"."id"');
     expect(tableHelper<Legacy>('public.users').column('id')).toBe('"public"."users"."id"');
+  });
+
+  it('SHOULD take the nearest @Column({ name }) of an entity and its parents', () => {
+    abstract class Stamped {
+      @Column({ type: 'varchar', name: 'created_on' })
+      public createdAt: string;
+
+      @Column({ type: 'varchar', name: 'base_code' })
+      public code: string;
+    }
+
+    class Child extends Stamped {
+      @Column({ type: 'varchar', name: 'child_code' })
+      public code = '';
+
+      @Column({ type: 'varchar' })
+      public title: string;
+    }
+
+    const c = tableHelper(Child, 'c');
+
+    expect([c.createdAt, c.code, c.title]).toEqual(['"c"."created_on"', '"c"."child_code"', '"c"."title"']);
+    expect(tableHelper(Stamped, 's').code).toBe('"s"."base_code"');
+    expect(tableHelper(Child, 'c', { useQuotes: false }).createdAt).toBe('c.created_on');
+    expect(tableHelper(Child).column('code', 'x')).toBe('"x"."child_code"');
   });
 });

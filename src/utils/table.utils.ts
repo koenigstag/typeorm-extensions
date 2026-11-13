@@ -1,4 +1,4 @@
-import { DatabaseType, ObjectLiteral } from "typeorm";
+import { DatabaseType, getMetadataArgsStorage, ObjectLiteral } from "typeorm";
 import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
 
@@ -240,7 +240,11 @@ export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
-const createTableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}) => ({
+const createTableHelper = <T extends ObjectLiteral>(
+	alias?: string,
+	options: TableHelperOptions = {},
+	databaseNames?: ReadonlyMap<string, string>,
+) => ({
 	alias,
 	/**
 	 * Returns a quoted SQL column identifier, e.g. `"alias"."column"`. The column is always quoted as one
@@ -250,7 +254,7 @@ const createTableHelper = <T extends ObjectLiteral>(alias?: string, options: Tab
 		const { useQuotes = true, driver } = options;
 
 		const tableAlias = alias ?? this.alias;
-		const column = String(columnName);
+		const column = databaseNames?.get(String(columnName)) ?? String(columnName);
 
 		if (!useQuotes) {
 			return [tableAlias, column].filter(Boolean).join('.');
@@ -514,9 +518,49 @@ const columnAccess: ProxyHandler<{ column(columnName: string): string }> = {
 	},
 };
 
+/** An entity class, abstract ones included. */
+export type EntityClass<T> = abstract new (...args: never[]) => T;
+
+const databaseNamesByEntity = new WeakMap<object, ReadonlyMap<string, string>>();
+
+// The names set with `@Column({ name })` on the class or a parent, the nearest declaration winning. Every other
+// column keeps its property name, as under TypeORM's default naming strategy. Columns of embedded entities are not read
+const databaseColumnNames = (entity: EntityClass<ObjectLiteral>): ReadonlyMap<string, string> => {
+	const cached = databaseNamesByEntity.get(entity);
+
+	if (cached) {
+		return cached;
+	}
+
+	const lineage: unknown[] = [];
+
+	for (let target: unknown = entity; typeof target === 'function' && target !== Function.prototype; target = Object.getPrototypeOf(target)) {
+		lineage.push(target);
+	}
+
+	const names = new Map<string, string>();
+	const depths = new Map<string, number>();
+
+	for (const { target, propertyName, options } of getMetadataArgsStorage().columns) {
+		const depth = lineage.indexOf(target);
+
+		if (depth !== -1 && options.name && depth < (depths.get(propertyName) ?? Infinity)) {
+			names.set(propertyName, options.name);
+			depths.set(propertyName, depth);
+		}
+	}
+
+	databaseNamesByEntity.set(entity, names);
+
+	return names;
+};
+
 /**
  * Creates a type-safe SQL helper for building column references, WHERE expressions,
  * JOIN clauses, and JSONB accessors for a given entity type.
+ *
+ * Given the entity class, it takes property names and writes the column names the entity maps them to:
+ * `tableHelper(UserEntity, 'user').adminEmail` is `"user"."email"` for `@Column({ name: 'email' }) adminEmail`.
  *
  * @example
  * const t = tableHelper<UserEntity>('user');
@@ -525,5 +569,16 @@ const columnAccess: ProxyHandler<{ column(columnName: string): string }> = {
  * t.where('id', '= :id')        // → "user"."id" = :id
  * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
  */
-export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}): TableHelper<T> =>
-	new Proxy(createTableHelper<T>(alias, options), columnAccess) as TableHelper<T>;
+export function tableHelper<T extends ObjectLiteral>(entity: EntityClass<T>, alias?: string, options?: TableHelperOptions): TableHelper<T>;
+export function tableHelper<T extends ObjectLiteral>(alias?: string, options?: TableHelperOptions): TableHelper<T>;
+export function tableHelper<T extends ObjectLiteral>(
+	entityOrAlias?: EntityClass<T> | string,
+	aliasOrOptions?: string | TableHelperOptions,
+	entityOptions?: TableHelperOptions,
+): TableHelper<T> {
+	const helper = typeof entityOrAlias === 'function'
+		? createTableHelper<T>(aliasOrOptions as string | undefined, entityOptions, databaseColumnNames(entityOrAlias))
+		: createTableHelper<T>(entityOrAlias, aliasOrOptions as TableHelperOptions | undefined);
+
+	return new Proxy(helper, columnAccess) as TableHelper<T>;
+}

@@ -47,3 +47,23 @@ function idColumn<T extends ObjectLiteral & { id: number }>(alias: string): stri
   return `${table.column('id')} ${table.where('id', '= :id')} ${table.count()}`;
 }
 void idColumn;
+
+// given the entity class, the helper takes the entity's type from it
+abstract class Base {
+  createdAt: Date;
+}
+class Invoice extends Base {
+  constructor(public number: string) {
+    super();
+  }
+}
+
+const invoice = tableHelper(Invoice, 'i');
+const invoiceColumns: string[] = [invoice.number, invoice.createdAt, invoice.where('number', '= :n'), tableHelper(Base).createdAt];
+void invoiceColumns;
+const invoiceHelper: TableHelper<Invoice> = tableHelper(Invoice, 'i', { useQuotes: false });
+void invoiceHelper;
+// @ts-expect-error not a column of the entity
+void invoice.total;
+// @ts-expect-error the options come after the alias
+tableHelper(Invoice, { useQuotes: false });
