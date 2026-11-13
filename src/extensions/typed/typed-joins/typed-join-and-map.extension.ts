@@ -2,6 +2,7 @@ import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 import type { JoinAndMapTarget } from '../../../types/extensions/typed-join-and-map.types';
 import { getSqlKeyFromProxyCallback } from '../../../utils/proxy-key.utils';
+import { patchPrototype } from '../../../utils/prototype.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
@@ -53,61 +54,28 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
 // patching
 
-SelectQueryBuilder.prototype.leftJoinAndMapOneTyped = function <
-  Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = TypedRoot<Entity>
->(
-  this: SelectQueryBuilder<Entity>,
-  mapToProperty: KeyProxyCallback<Type>,
-  entity: JoinAndMapTarget,
-  alias: string,
-  condition?: string,
-  parameters?: ObjectLiteral
-) {
-  return addJoinAndMap(this, 'leftJoinAndMapOne', mapToProperty, entity, alias, condition, parameters);
+const createJoinAndMapTypedMethod = (method: JoinAndMapMethod) =>
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
+    this: SelectQueryBuilder<Entity>,
+    mapToProperty: KeyProxyCallback<Type>,
+    entity: JoinAndMapTarget,
+    alias: string,
+    condition?: string,
+    parameters?: ObjectLiteral
+  ): SelectQueryBuilder<Entity> {
+    return addJoinAndMap(this, method, mapToProperty, entity, alias, condition, parameters);
+  };
+
+const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
+  prototype: {
+    leftJoinAndMapOneTyped: createJoinAndMapTypedMethod('leftJoinAndMapOne'),
+    innerJoinAndMapOneTyped: createJoinAndMapTypedMethod('innerJoinAndMapOne'),
+    leftJoinAndMapManyTyped: createJoinAndMapTypedMethod('leftJoinAndMapMany'),
+    innerJoinAndMapManyTyped: createJoinAndMapTypedMethod('innerJoinAndMapMany'),
+  },
 };
 
-SelectQueryBuilder.prototype.innerJoinAndMapOneTyped = function <
-  Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = TypedRoot<Entity>
->(
-  this: SelectQueryBuilder<Entity>,
-  mapToProperty: KeyProxyCallback<Type>,
-  entity: JoinAndMapTarget,
-  alias: string,
-  condition?: string,
-  parameters?: ObjectLiteral
-) {
-  return addJoinAndMap(this, 'innerJoinAndMapOne', mapToProperty, entity, alias, condition, parameters);
-};
-
-SelectQueryBuilder.prototype.leftJoinAndMapManyTyped = function <
-  Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = TypedRoot<Entity>
->(
-  this: SelectQueryBuilder<Entity>,
-  mapToProperty: KeyProxyCallback<Type>,
-  entity: JoinAndMapTarget,
-  alias: string,
-  condition?: string,
-  parameters?: ObjectLiteral
-) {
-  return addJoinAndMap(this, 'leftJoinAndMapMany', mapToProperty, entity, alias, condition, parameters);
-};
-
-SelectQueryBuilder.prototype.innerJoinAndMapManyTyped = function <
-  Entity extends ObjectLiteral,
-  Type extends ObjectLiteral = TypedRoot<Entity>
->(
-  this: SelectQueryBuilder<Entity>,
-  mapToProperty: KeyProxyCallback<Type>,
-  entity: JoinAndMapTarget,
-  alias: string,
-  condition?: string,
-  parameters?: ObjectLiteral
-) {
-  return addJoinAndMap(this, 'innerJoinAndMapMany', mapToProperty, entity, alias, condition, parameters);
-};
+patchPrototype(SelectQueryBuilder, extension);
 
 // implementation
 

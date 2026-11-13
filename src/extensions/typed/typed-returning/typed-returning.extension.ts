@@ -7,7 +7,7 @@ import {
 import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import type { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 import { getKeyHolder } from '../../../utils/proxy-key.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototypes } from '../../../utils/prototype.utils';
 
 // declarations
 
@@ -72,13 +72,4 @@ const extension: { prototype: Partial<UpdateQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  InsertQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-  SoftDeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes([InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder, SoftDeleteQueryBuilder], extension);
