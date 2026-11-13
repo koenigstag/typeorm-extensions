@@ -39,6 +39,7 @@ One change can make working code throw: a params object that goes after the cond
 ### Improvements
 
 - **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.2.0 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
+- **`whereIsIn` / `whereIsAny` and their variants return `this` on every builder**: on update, delete and soft delete builders they were declared to return `UpdateQueryBuilder<Entity>` and the like, which dropped the mark of `typed<Root>()`; they are declared once now, as the other where methods are (`WhereIsInMethods`, `WhereIsAnyMethods`).
 - **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
 - **`tableHelper` takes a `driver` option**: `tableHelper('user', { driver: 'mysql' })` quotes with backticks.
 

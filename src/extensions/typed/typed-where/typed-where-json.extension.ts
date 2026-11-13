@@ -2,11 +2,10 @@ import '../../where-json.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  WhereExpressionBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
+import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
 import type { WhereJsonMethods } from '../../where-json.extension';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -100,7 +99,8 @@ const createWhereJsonTypedMethod = (method: keyof WhereJsonMethods) =>
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): SelectQueryBuilder<Entity> {
-    return attachWhereJsonTyped<Type, SelectQueryBuilder<Entity>>(this, method, where, value);
+    // one signature for both: `value` is the JSON value or the key, each method checks its own
+    return attachTypedColumnWhere<Type, SelectQueryBuilder<Entity>>(this, method, where, { accessor: 'json' }, value);
   };
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
@@ -116,24 +116,3 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
 
 patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
-// implementation
-
-function attachWhereJsonTyped<
-  Type extends ObjectLiteral,
-  QB extends WhereExpressionBuilder
->(
-  builder: QB,
-  method: keyof WhereJsonMethods,
-  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  value: unknown
-): QB {
-  if (typeof where !== 'function') {
-    return builder;
-  }
-
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { accessor: 'json' });
-
-  // .andWhereJsonContains(`"table"."column"`, { role: 'admin' }) / .andWhereJsonHasKey(`"table"."column"`, 'role')
-  // (one signature for both: `value` is the JSON value or the key, each method checks its own)
-  return (builder[method] as (field: string, value: unknown) => QB)(key, value);
-}

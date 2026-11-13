@@ -2,12 +2,11 @@ import '../../where-is-any.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  WhereExpressionBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { TypedArrayArg, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
+import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
 import { WhereAnyMethods } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
@@ -108,10 +107,11 @@ const createWhereIsAnyTypedMethod = (method: WhereAnyMethods) =>
     array?: ArgsType,
     arrayType?: string
   ): SelectQueryBuilder<Entity> {
-    return attachWhereIsAnyTyped<Type, SelectQueryBuilder<Entity>>(
+    return attachTypedColumnWhere<Type, SelectQueryBuilder<Entity>>(
       this,
       method,
       where,
+      { value: array },
       array,
       arrayType
     );
@@ -130,24 +130,3 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
 
 patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
-// implementation
-
-function attachWhereIsAnyTyped<
-  Type extends ObjectLiteral,
-  QB extends WhereExpressionBuilder
->(
-  builder: QB,
-  method: WhereAnyMethods,
-  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  array?: ArgsType,
-  arrayType?: string
-): QB {
-  if (typeof where !== 'function') {
-    return builder;
-  }
-
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value: array });
-
-  // .andWhere(`"table"."column" = ANY(:param)`, { param: ['value'] })
-  return builder[method](key, array, arrayType);
-}

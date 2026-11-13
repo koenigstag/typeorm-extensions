@@ -1,6 +1,7 @@
-import { ObjectLiteral, QueryRunner, SelectQueryBuilder } from 'typeorm';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import type { LateralSubQuery } from '../types/extensions/join-lateral.types';
 import { toSubQuerySql } from '../utils/parameter.utils';
+import { getQueryRunner } from '../utils/query-builder.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 
 // declarations
@@ -112,7 +113,7 @@ function toLateralSql<Entity extends ObjectLiteral, SubEntity extends ObjectLite
 function detachedSubQuery<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>
 ): SelectQueryBuilder<ObjectLiteral> {
-  const queryRunner = (builder as unknown as { queryRunner?: QueryRunner }).queryRunner;
+  const queryRunner = getQueryRunner(builder);
   const subQuery = builder.connection.createQueryBuilder(queryRunner);
 
   subQuery.expressionMap.subQuery = true;

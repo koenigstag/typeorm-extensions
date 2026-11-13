@@ -2,11 +2,10 @@ import '../../where-is-distinct-from.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  WhereExpressionBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
+import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
 import type { WhereDistinctMethods } from '../../where-is-distinct-from.extension';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -100,7 +99,7 @@ const createWhereDistinctTypedMethod = (method: keyof WhereDistinctMethods) =>
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): SelectQueryBuilder<Entity> {
-    return attachWhereDistinctTyped<Type, SelectQueryBuilder<Entity>>(this, method, where, value);
+    return attachTypedColumnWhere<Type, SelectQueryBuilder<Entity>>(this, method, where, { value }, value);
   };
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
@@ -116,23 +115,3 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
 
 patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
-// implementation
-
-function attachWhereDistinctTyped<
-  Type extends ObjectLiteral,
-  QB extends WhereExpressionBuilder
->(
-  builder: QB,
-  method: keyof WhereDistinctMethods,
-  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  value: unknown
-): QB {
-  if (typeof where !== 'function') {
-    return builder;
-  }
-
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
-
-  // .andWhereIsDistinctFrom(`"table"."column"`, value)
-  return builder[method](key, value);
-}

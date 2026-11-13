@@ -4,6 +4,7 @@ import type { ApplyPeriodOptions } from '../types/extensions/period.types';
 import { createUniqueParameterName } from './sql.utils';
 import { andWhereNarrowing } from './where.utils';
 import { assertTimeZone, readInTimeZone } from './time-zone.utils';
+import { isDate } from './common.utils';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -24,8 +25,8 @@ function normalizeBoundary(value: unknown, name: string): Date | string | undefi
     return undefined;
   }
 
-  if (Object.prototype.toString.call(value) === '[object Date]') {
-    if (isNaN((value as Date).getTime())) {
+  if (isDate(value)) {
+    if (isNaN(value.getTime())) {
       throw new TypeError(`Invalid ${name}: invalid Date`);
     }
 

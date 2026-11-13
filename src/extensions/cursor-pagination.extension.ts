@@ -6,7 +6,7 @@ import type {
   GetManyWithCursorOptions,
   ListWithCursor,
 } from '../types/extensions/cursor-pagination.types';
-import { normalizePageSize } from '../utils/pagination.utils';
+import { normalizePageSize, setPageLimit } from '../utils/pagination.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 import { toSqlOrderDirection } from '../utils/order.utils';
 import { andWhereNarrowing } from '../utils/where.utils';
@@ -162,11 +162,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     .filter(({ key }) => key.column.isPrimary)
     .map(({ key, i }) => ({ column: key.column, keyAlias: keyAliases[i] }));
 
-  if (useTakeAndSkip) {
-    query.take(pageSize + 1);
-  } else {
-    query.limit(pageSize + 1);
-  }
+  setPageLimit(query, pageSize + 1, useTakeAndSkip);
 
   const { entities, raw } = await query.getRawAndEntities();
 

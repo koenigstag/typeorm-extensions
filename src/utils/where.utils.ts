@@ -2,6 +2,8 @@ import type { ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeor
 import type { HavingMethods, WhereMethods } from '../types/extensions/where.types';
 import { createUniqueParameterName } from './sql.utils';
 import { toFieldSql } from './query-builder.utils';
+import { getPlaceholderNames } from './parameter.utils';
+import { isDate } from './common.utils';
 
 export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   if (value === undefined || value === null || paramName === undefined) {
@@ -21,8 +23,6 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
  */
 const OPERATOR_AT_END = /(?:[=<>!~@&|?]|(?<![\w$:.])(?:LIKE|ILIKE|IN|SIMILAR TO|DISTINCT FROM|BETWEEN|ANY|ALL))\s*$/i;
 
-const isDate = (value: unknown): value is Date =>
-  Object.prototype.toString.call(value) === '[object Date]';
 
 /**
  * Objects that are parameter values themselves, not `{ name: value }` params objects:
@@ -35,6 +35,11 @@ const isValueObject = (value: object): boolean =>
  * Whether `params` is a `{ name: value }` params object (a plain object or a class instance such
  * as a DTO), rather than the value itself (a primitive, an array, a `Date`, a `Buffer`).
  */
+/** The value a condition compares with: the value of a one-key params object, or the params themselves (a Date or a Buffer is a value too). */
+export function getComparedValue(params: unknown): unknown {
+  return isParamsObject(params) ? Object.values(params)[0] : params;
+}
+
 export function isParamsObject(params: unknown): params is Record<string, unknown> {
   return (
     params !== null &&
@@ -54,16 +59,7 @@ export function hasParamPlaceholder(conditions: string, params?: unknown): boole
     return false;
   }
 
-  const placeholderRegex = /:(?:\.\.\.)?([A-Za-z0-9_.]+)/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = placeholderRegex.exec(conditions)) !== null) {
-    if (Object.prototype.hasOwnProperty.call(params, match[1])) {
-      return true;
-    }
-  }
-
-  return false;
+  return getPlaceholderNames(conditions).some((name) => Object.prototype.hasOwnProperty.call(params, name));
 }
 
 /**
@@ -120,8 +116,7 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
     if (addValue && hasParams) {
       assertSingleValueParams(fieldName, params);
 
-      // pick first value from params object or pass as is (a Date or a Buffer is a value too)
-      const firstValue = isParamsObject(params) ? Object.values(params)[0] : params;
+      const firstValue = getComparedValue(params);
 
       // 0, false, '' are valid values like any other
       // null, undefined, NaN and invalid dates are equal to NULL

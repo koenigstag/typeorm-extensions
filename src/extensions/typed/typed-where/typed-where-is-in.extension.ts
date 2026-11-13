@@ -2,12 +2,11 @@ import '../../where-is-in.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  WhereExpressionBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { TypedArrayArg, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
+import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
 import { WhereInMethods } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
@@ -98,7 +97,7 @@ const createWhereIsInTypedMethod = (method: WhereInMethods) =>
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     array?: ArgsType
   ): SelectQueryBuilder<Entity> {
-    return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(this, method, where, array);
+    return attachTypedColumnWhere<Type, SelectQueryBuilder<Entity>>(this, method, where, { value: array }, array);
   };
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
@@ -114,24 +113,3 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
 
 patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
-// implementation
-
-function attachWhereIsIn<
-  Type extends ObjectLiteral,
-  QB extends WhereExpressionBuilder
->(
-  builder: QB,
-  method: WhereInMethods,
-  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  array?: ArgsType
-): QB {
-  if (typeof where === 'function') {
-    // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
-    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value: array });
-
-    // .andWhere(`"table"."column"   IN (:...values)`, { values: ['value'] })
-    return builder[method](key, array);
-  }
-
-  return builder;
-}

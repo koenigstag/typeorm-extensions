@@ -1,5 +1,6 @@
 import type { DatabaseType } from 'typeorm';
-import { isMysqlLikeDriver, isSqliteLikeDriver } from './sql.utils';
+import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver } from './sql.utils';
+import { isDate } from './common.utils';
 
 /** A cursor that can't be decoded or doesn't belong to the query's order (e.g. tampered with). */
 export class InvalidCursorError extends TypeError {
@@ -20,8 +21,6 @@ type CursorPayload = {
   v: EncodedCursorValue[];
 };
 
-const isDate = (value: unknown): value is Date =>
-  Object.prototype.toString.call(value) === '[object Date]';
 
 const toCursorValue = (value: unknown): EncodedCursorValue => {
   if (isDate(value)) {
@@ -110,9 +109,7 @@ export function decodeCursor(cursor: string, fields: string[]): Array<CursorValu
 
 /** Databases that compare row values: `(a, b) < (1, 2)`. */
 export const supportsRowValueComparison = (driver?: DatabaseType): boolean =>
-  driver === 'postgres' ||
-  driver === 'aurora-postgres' ||
-  driver === 'cockroachdb' ||
+  isPostgresLikeDriver(driver) ||
   isMysqlLikeDriver(driver) ||
   isSqliteLikeDriver(driver);
 
@@ -121,7 +118,7 @@ export const supportsRowValueComparison = (driver?: DatabaseType): boolean =>
  * (PostgreSQL timestamps have microseconds, a JS Date only milliseconds). `undefined` when unknown.
  */
 export const getTextCastType = (driver?: DatabaseType): string | undefined => {
-  if (driver === 'postgres' || driver === 'aurora-postgres' || driver === 'cockroachdb' || isSqliteLikeDriver(driver)) {
+  if (isPostgresLikeDriver(driver) || isSqliteLikeDriver(driver)) {
     return 'text';
   }
 

@@ -1,5 +1,4 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import type { Alias } from 'typeorm/query-builder/Alias';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
 import type { EntityMetadata } from 'typeorm/metadata/EntityMetadata';
@@ -8,7 +7,7 @@ import type { DeepUnwrapArray, KeyPathEnd, KeyProxyCallback } from '../types/mod
 import type { TypedRoot } from '../types/modules/typed-root.types';
 import { attachExists } from './where-exists.extension';
 import { patchPrototype } from '../utils/prototype.utils';
-import { getTypedSelectionKey } from '../utils/query-builder.utils';
+import { listQueryAliases, resolveTypedProperty } from '../utils/query-builder.utils';
 import { andWhereNarrowing } from '../utils/where.utils';
 
 /**
@@ -115,21 +114,17 @@ function attachRelationExists<Entity extends ObjectLiteral>(
   where?: AnyRelatedCondition
 ): SelectQueryBuilder<Entity> {
   const methodName = `${method}Relation${negate ? 'Not' : ''}Exists`;
-  const key = getTypedSelectionKey(builder, relationSelection as unknown as KeyProxyCallback<ObjectLiteral>);
-
-  if (Array.isArray(key)) {
-    throw new TypeError(`${methodName} expects the callback to select one relation, got ${key.length}: ${key.join(', ')}`);
-  }
-
-  const dot = key.indexOf('.');
-  const ownerAlias = key.slice(0, dot);
-  const propertyPath = key.slice(dot + 1);
-  const aliases = queryAliases(builder);
+  const { aliasName: ownerAlias, propertyPath } = resolveTypedProperty(
+    builder,
+    relationSelection as unknown as KeyProxyCallback<ObjectLiteral>,
+    methodName
+  );
+  const aliases = listQueryAliases(builder);
   const owner = aliases.find((candidate) => candidate.name === ownerAlias);
   const relation = owner?.hasMetadata ? owner.metadata.findRelationWithPropertyPath(propertyPath) : undefined;
 
-  if (!relation) {
-    throw new TypeError(`${methodName}: ${key} is not a relation of an entity of the query`);
+  if (!owner || !relation) {
+    throw new TypeError(`${methodName}: ${ownerAlias}.${propertyPath} is not a relation of an entity of the query`);
   }
 
   // in the subquery the alias would hide the outer one the join condition refers to; SQLite matches
@@ -144,32 +139,13 @@ function attachRelationExists<Entity extends ObjectLiteral>(
     .select('1')
     .from(relation.inverseEntityMetadata.target, alias);
 
-  const correlation = joinCondition(relation, ownerAlias, alias, column, subQuery);
+  const correlation = joinCondition(relation, owner.name, alias, column, subQuery);
 
   where?.(subQuery);
   // after the caller's conditions, so a `where` or an `orWhere` of theirs can't drop or bypass it
   andWhereNarrowing(subQuery, correlation);
 
   return attachExists(builder, method, subQuery, negate);
-}
-
-type NestedQuery = { expressionMap: { aliases: Alias[]; mainAlias?: Alias }; parentQueryBuilder?: NestedQuery };
-
-/**
- * The aliases of the query and of the queries it is part of. Inside `Brackets` the builder has the outer
- * query's main alias but none of its joins: those are on its parent.
- */
-function queryAliases<Entity extends ObjectLiteral>(builder: SelectQueryBuilder<Entity>): Alias[] {
-  const aliases: Alias[] = [];
-  // parentQueryBuilder is protected in TypeORM's types
-  let query = builder as unknown as NestedQuery | undefined;
-
-  for (; query; query = query.parentQueryBuilder) {
-    const { aliases: own, mainAlias } = query.expressionMap;
-    aliases.push(...own, ...(mainAlias ? [mainAlias] : []));
-  }
-
-  return aliases;
 }
 
 type ColumnSql = (aliasName: string, columnName: string) => string;

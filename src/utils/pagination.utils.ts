@@ -1,3 +1,4 @@
+import type { ObjectLiteral, SelectQueryBuilder } from "typeorm";
 import { defaultPageSize } from "../constants";
 import { PaginationFilter } from "../types/interfaces/pagination.interface";
 
@@ -11,7 +12,14 @@ const toPositiveInteger = (value: unknown, fallback: number): number => {
 /** The page size to read: a number or a numeric string of at least 1, rounded down; `defaultPageSize` otherwise. */
 export const normalizePageSize = (pageSize: unknown): number => toPositiveInteger(pageSize, defaultPageSize);
 
-export const getLimitAndOffset = ({ page, pageSize }: PaginationFilter) => {
+/** Limits the rows with `take`, which counts entities rather than rows when the query joins a collection, or with `limit`. */
+export const setPageLimit = <Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  limit: number,
+  useTakeAndSkip: boolean
+): SelectQueryBuilder<Entity> => (useTakeAndSkip ? builder.take(limit) : builder.limit(limit));
+
+export const getLimitAndOffset =({ page, pageSize }: PaginationFilter) => {
   const normalizedPage = toPositiveInteger(page, 1);
   const normalizedPageSize = normalizePageSize(pageSize);
 

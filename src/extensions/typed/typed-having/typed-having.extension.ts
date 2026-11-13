@@ -6,7 +6,7 @@ import type { TypedAggregate } from '../../../types/extensions/typed-having.type
 import type { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
-import { attachWhere, isParamsObject } from '../../../utils/where.utils';
+import { attachWhere, getComparedValue } from '../../../utils/where.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 type Selection<Root extends ObjectLiteral, Type, Value> = (proxy: DeepUnwrapArray<TypeOrDefault<Type, Root>>) => Value;
@@ -137,7 +137,7 @@ function attachTypedHaving<Entity extends ObjectLiteral>(
   } else {
     // a path into a JSON column is cast: to a number to add it up, and for MIN / MAX to the type of the
     // value it is compared with, as in whereTyped; a count needs no cast
-    const compared = isParamsObject(parameters) ? Object.values(parameters)[0] : parameters;
+    const compared = getComparedValue(parameters);
     const value = aggregate === 'SUM' || aggregate === 'AVG' ? 0 : aggregate === 'MIN' || aggregate === 'MAX' ? compared : undefined;
 
     argument = getTypedSingleColumnKey(builder, selection, methodName, { value });

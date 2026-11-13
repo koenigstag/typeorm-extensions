@@ -9,6 +9,7 @@ import { getTypedSingleColumnKey, isTypedJsonPath } from '../../../utils/query-b
 import { createUniqueParameterName } from '../../../utils/sql.utils';
 import type { WhereMethods } from '../../../types/extensions';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
+import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
 import { ArgsType } from '../../../types/util-types';
 import type { WhereArrayMethods } from '../../where-array.extension';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
@@ -176,18 +177,11 @@ function attachWhereArrayTyped<
   values: ArgsType,
   arrayType?: string
 ): QB {
-  if (typeof where !== 'function') {
-    return builder;
-  }
-
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`);
-
-  if (isTypedJsonPath<Type>(builder, where)) {
+  if (typeof where === 'function' && isTypedJsonPath<Type>(builder, where)) {
     return attachWhereJsonArray(builder, method, where, values, arrayType);
   }
 
-  // .andWhereArrayContains(`"table"."column"`, ['value'])
-  return builder[method](key, values, arrayType);
+  return attachTypedColumnWhere<Type, QB>(builder, method, where, undefined, values, arrayType);
 }
 
 const JSON_ARRAY_METHOD = /^(where|andWhere|orWhere)Array(Contains|ContainedBy|Overlaps)$/;

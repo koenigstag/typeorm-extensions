@@ -38,7 +38,7 @@ function findCalculatedColumn<Entity extends ObjectLiteral>(
 }
 
 // @CalculatedColumn: a virtual property without the query of TypeORM's @VirtualColumn
-const isCalculated = (column: ColumnMetadata | undefined): column is ColumnMetadata =>
+export const isCalculated = (column: ColumnMetadata | undefined): column is ColumnMetadata =>
   !!column?.isVirtualProperty && !column.query;
 
 /** Whether `property` of the entity of `aliasName` (the main alias by default) is a `@CalculatedColumn`. */

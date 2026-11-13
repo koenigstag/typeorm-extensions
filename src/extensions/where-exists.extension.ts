@@ -6,6 +6,7 @@ import {
 import type { WhereMethods } from '../types/extensions';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import { withUniqueParameterNames } from '../utils/parameter.utils';
+import { withoutPaging } from '../utils/query-builder.utils';
 
 // declarations
 
@@ -119,15 +120,7 @@ export function attachExists<QB extends WhereExpressionBuilder>(
  * drops GROUP BY, which leaves a HAVING to aggregate the whole subquery: the GROUP BY stays with one.
  */
 function getExistsCondition(subQuery: SubQuery): [string, ObjectLiteral] {
-  const query = subQuery
-    .clone()
-    .orderBy()
-    .offset(undefined)
-    .limit(undefined)
-    .skip(undefined)
-    .take(undefined)
-    .select('1')
-    .setOption('disable-global-order');
+  const query = withoutPaging(subQuery.clone()).select('1');
 
   if (query.expressionMap.havings.length === 0) {
     query.groupBy();
