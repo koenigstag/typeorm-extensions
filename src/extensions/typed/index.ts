@@ -18,4 +18,5 @@ export * from './typed-where/typed-where-lower.extension';
 export * from './typed-where/typed-where-similar.extension';
 export * from './typed-returning/typed-returning.extension';
 export * from './typed-order-by/typed-order-by-array-position.extension';
+export * from './typed-calculated/typed-calculated-column.extension';
 export * from './typed-root.extension';

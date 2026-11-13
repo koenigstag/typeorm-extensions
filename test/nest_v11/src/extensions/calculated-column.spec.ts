@@ -3,6 +3,8 @@ import 'typeorm-extensions/extensions/order.extension';
 import 'typeorm-extensions/extensions/cursor-pagination.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
+import 'typeorm-extensions/extensions/typed/typed-calculated/typed-calculated-column.extension';
+import 'typeorm-extensions/extensions/typed/typed-root.extension';
 import { setupTest, createFakeUsers, createFakeImages, nativeSql } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 
@@ -173,6 +175,70 @@ setupTest('CalculatedColumn', undefined, (context) => {
       );
       expect(() => users().addOrderByCalculated('firstName')).toThrow(/UserEntity\.firstName is not a @CalculatedColumn/);
       expect(() => users().applyOrder<UserEntity>({ field: 'imagesCount' })).toThrow(/applyOrder: .* isn't selected/);
+    });
+
+    describe('with typed callbacks', () => {
+      it('SHOULD select into and order by the property of the main alias the callback picks', async () => {
+        await seedCounts();
+
+        const ordered = await users()
+          .addSelectCalculatedTyped(imagesCount(), (user) => user.imagesCount)
+          .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+          .getMany();
+
+        expect(ordered.map(({ id, imagesCount }) => [id, imagesCount])).toEqual([
+          [2, 3],
+          [1, 1],
+          [3, 0],
+        ]);
+
+        const appended = users()
+          .addSelectCalculatedTyped(imagesCount(), (user) => user.imagesCount)
+          .addOrderByCalculatedTyped((user) => user.imagesCount, 'DESC');
+
+        expect(Object.entries(appended.expressionMap.orderBys)).toEqual([
+          ['user.id', 'ASC'],
+          [expect.stringMatching(/^calculated_/), 'DESC'],
+        ]);
+      });
+
+      it('SHOULD pick the property of a joined alias through the typed root', async () => {
+        await seedCounts();
+
+        const images = await context.dataSource
+          .getRepository(ImageEntity)
+          .createQueryBuilder('image')
+          .leftJoinAndSelect('image.user', 'owner')
+          .typed<{ image: ImageEntity; owner: UserEntity }>()
+          .addSelectCalculatedTyped(
+            nativeSql('(SELECT COUNT(*) FROM "images" "counted" WHERE "counted"."userId" = "owner"."id")'),
+            (q) => q.owner.imagesCount,
+          )
+          .orderByCalculatedTyped((q) => q.owner.imagesCount, 'ASC')
+          .addOrderBy('image.id', 'DESC')
+          .getMany();
+
+        expect(images.map(({ id, user }) => [id, user?.imagesCount])).toEqual([
+          [2, 1],
+          [4, 3],
+          [3, 3],
+          [1, 3],
+        ]);
+      });
+
+      it('SHOULD throw for a property that is no @CalculatedColumn, not selected, or of an alias without an entity', () => {
+        expect(() => users().addSelectCalculatedTyped('1', (user) => user.firstName)).toThrow(
+          /addSelectCalculatedTyped: UserEntity\.firstName is not a @CalculatedColumn/,
+        );
+        expect(() => users().orderByCalculatedTyped((user) => user.imagesCount)).toThrow(
+          /orderByCalculatedTyped: UserEntity\.imagesCount isn't selected/,
+        );
+        expect(() =>
+          users()
+            .typed<{ user: UserEntity; other: UserEntity }>()
+            .addSelectCalculatedTyped('1', (q) => q.other.imagesCount),
+        ).toThrow(/addSelectCalculatedTyped: the alias "other" has no entity with "imagesCount"/);
+      });
     });
   });
 

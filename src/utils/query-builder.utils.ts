@@ -534,6 +534,29 @@ export function getTypedSingleColumnKey<Type extends ObjectLiteral>(
 }
 
 /**
+ * The alias and the entity property a typed callback picks, for methods that take a property rather than a column
+ * (a `@CalculatedColumn`): `u => u.imagesCount` is on the main alias, `q => q.owner.imagesCount` on `owner`.
+ */
+export function resolveTypedProperty<Type extends ObjectLiteral>(
+  builder: WhereExpressionBuilder,
+  callback: KeyProxyCallback<Type>,
+  methodName: string
+): { aliasName: string | undefined; propertyPath: string } {
+  const keyHolder = getKeyHolder<Type>(callback);
+
+  if (Array.isArray(keyHolder)) {
+    throw new TypeError(`${methodName} expects the callback to pick a single property, got ${keyHolder.length}`);
+  }
+
+  const { aliasName, propertyPath } = resolveTypedKeyPath(
+    builder as unknown as QueryBuilder<ObjectLiteral>,
+    keyHolder.getKeys()
+  );
+
+  return { aliasName, propertyPath };
+}
+
+/**
  * Throws for a key that names no column of its table: a relation whose join column is on the other side
  * (one-to-many, many-to-many, the inverse side of a one-to-one) or an embedded entity. TypeORM leaves such a key
  * as written, and the database rejects it.

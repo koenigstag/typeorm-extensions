@@ -59,6 +59,22 @@ The value is selected a second time under a generated alias (`calculated_…`) a
 
 A property that isn't selected yet, or isn't a `@CalculatedColumn`, throws a `TypeError`.
 
+### Typed callbacks
+
+`addSelectCalculatedTyped`, `orderByCalculatedTyped` and `addOrderByCalculatedTyped` take the property as a typed callback instead of its name: `(user) => user.imagesCount`, or `(q) => q.owner.imagesCount` for the entity of the joined alias `owner`, which the callback names, so no alias argument is needed. The callback starts at the root set with [typed&lt;Root&gt;()](../typed/typedRoot.md), else at the entity, so the property of a joined entity is checked at compile time too, where the string form takes any name. That it is a `@CalculatedColumn` is still checked when the query is built: TypeScript doesn't see decorators.
+
+```typescript
+imageRepository
+  .createQueryBuilder('image')
+  .leftJoinAndSelect('image.user', 'owner')
+  .typed<{ image: ImageEntity; owner: UserEntity }>()
+  .addSelectCalculatedTyped(
+    '(SELECT COUNT(*) FROM "images" "i" WHERE "i"."userId" = "owner"."id")',
+    (q) => q.owner.imagesCount
+  )
+  .orderByCalculatedTyped((q) => q.owner.imagesCount, 'DESC');
+```
+
 ### Compared with `@VirtualColumn`
 
 TypeORM's `@VirtualColumn({ query })` has one SQL query, which runs every time the entity is loaded. A `@CalculatedColumn` costs nothing until a query asks for it, and each query chooses the expression. For a column the database computes and stores, see [GeneratedColumn](./generatedColumn.md), which compares the three.
@@ -77,7 +93,7 @@ The selected value is converted by the column's type, as for `@Column`:
 
 - The value is read when the entity is **selected as a whole**: the alias, as `createQueryBuilder('user')`, `leftJoinAndSelect` and `getMany()` do. With `select(['user.id', 'user.name'])` it isn't put into the entity.
 - `find()` options can't select it.
-- Typed methods (`whereTyped`, `orderByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it.
+- Typed methods (`whereTyped`, `orderByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it. Only the `…CalculatedTyped` methods above take it.
 
 ### TypeORM versions
 
@@ -101,6 +117,10 @@ addSelectCalculated(selection: string | ((qb) => SelectQueryBuilder), property: 
 orderByCalculated(property: keyof Entity, order?: 'ASC' | 'DESC', nulls?: 'NULLS FIRST' | 'NULLS LAST'): this
 orderByCalculated(property: string, order: 'ASC' | 'DESC' | undefined, nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined, alias: string): this
 addOrderByCalculated(…): this // the same arguments
+
+addSelectCalculatedTyped(selection: string | ((qb) => SelectQueryBuilder), property: (root) => value): this
+orderByCalculatedTyped(property: (root) => value, order?: 'ASC' | 'DESC', nulls?: 'NULLS FIRST' | 'NULLS LAST'): this
+addOrderByCalculatedTyped(…): this // the same arguments
 ```
 
 ## Usage

@@ -3,6 +3,11 @@ import { DriverUtils } from 'typeorm/driver/DriverUtils';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { createUniqueParameterName } from './sql.utils';
 
+/** `addSelect`'s selection: an SQL expression, or a factory that builds a subquery on the builder it is given. */
+export type CalculatedSelection<SubEntity extends ObjectLiteral = ObjectLiteral> =
+  | string
+  | ((qb: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<SubEntity>);
+
 type ResolvedCalculatedColumn = {
   /** The key TypeORM reads the column's value from when it builds the entity. */
   key: string;
@@ -99,4 +104,37 @@ export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
   builder.addSelect(select.selection, orderAlias);
 
   return orderAlias;
+}
+
+/** Selects `selection` into the `@CalculatedColumn` `property` of the entity of `aliasName` (the main alias by default). */
+export function addSelectCalculatedColumn<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  selection: CalculatedSelection<SubEntity>,
+  property: string,
+  aliasName: string | undefined,
+  methodName: string
+): SelectQueryBuilder<Entity> {
+  const { key } = resolveCalculatedColumn(builder, property, aliasName, methodName);
+
+  // two calls: addSelect's overloads take a string or a factory, not their union
+  if (typeof selection === 'function') {
+    return builder.addSelect(selection, key);
+  }
+
+  return builder.addSelect(selection, key);
+}
+
+/** ORDER BY the value of a `@CalculatedColumn` selected with `addSelectCalculated`, through `orderBy` or `addOrderBy`. */
+export function orderByCalculatedColumn<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  method: 'orderBy' | 'addOrderBy',
+  property: string,
+  order: 'ASC' | 'DESC' | undefined,
+  nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined,
+  aliasName: string | undefined,
+  methodName: string
+): SelectQueryBuilder<Entity> {
+  const orderAlias = selectCalculatedForOrder(builder, property, aliasName, methodName);
+
+  return builder[method](orderAlias, order, nulls);
 }
