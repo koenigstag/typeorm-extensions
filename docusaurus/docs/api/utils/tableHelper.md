@@ -33,7 +33,7 @@ tableHelper(
 
 ## Arguments
 
-- entity: EntityClass<Entity>: The entity class, abstract ones included. The helper takes the entity type from it and writes the database names of renamed columns.
+- entity: `EntityClass<Entity>`: The entity class, abstract ones included. The helper takes the entity type from it and writes the database names of renamed columns.
 - alias?: string: Alias of the table in the query, e.g. `'user'` for `createQueryBuilder('user')`.
 - options.useQuotes?: boolean: Quote identifiers (`"user"."email"`). Default `true`; with `false` they are left as is (`user.email`).
 - options.driver?: DatabaseType: The database the SQL is for. MySQL and MariaDB quote identifiers with backticks (`` `user`.`email` ``); without it they get double quotes. Pass `dataSource.options.type`.

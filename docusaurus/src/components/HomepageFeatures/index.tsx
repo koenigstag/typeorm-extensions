@@ -1,52 +1,54 @@
 import clsx from 'clsx';
+import Link from '@docusaurus/Link';
 import Heading from '@theme/Heading';
 import styles from './styles.module.css';
 
 type FeatureItem = {
   title: string;
-  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
+  to: string;
   description: JSX.Element;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Typed queries',
+    to: '/docs/api/typed/',
     description: (
       <>
-        Typeorm Extensions are designed from the ground up to be easily installed and
-        used on any of your TypeORM projects.
+        Select, join, filter, group and order with property callbacks checked against your entities:
+        a renamed column is a compile error, not a failed query.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Pagination',
+    to: '/docs/api/pagination/',
     description: (
       <>
-        Typeorm Extensions let you focus on your task, and we&apos;ll do the chores.
+        A page with its total and <code>hasMore</code> in one call, or keyset pages with an opaque
+        cursor, on entities and on raw rows.
       </>
     ),
   },
   {
-    title: 'Powered by TypeORM',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    title: 'SQL helpers and columns',
+    to: '/docs/api/utils/tableHelper/',
     description: (
       <>
-        Extend or customize your database operations with these extensions of TypeORM.
+        <code>tableHelper</code> quotes the raw SQL you still write, a guard catches reserved words, and{' '}
+        <code>@CalculatedColumn</code> / <code>@GeneratedColumn</code> describe values TypeORM never writes.
       </>
     ),
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({title, to, description}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
-      <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
-      </div>
-      <div className="text--center padding-horiz--md">
-        <Heading as="h3">{title}</Heading>
+      <div className="padding-horiz--md">
+        <Heading as="h3">
+          <Link to={to}>{title}</Link>
+        </Heading>
         <p>{description}</p>
       </div>
     </div>

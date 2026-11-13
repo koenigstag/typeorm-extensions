@@ -11,7 +11,7 @@ This category provides a set of extensions for typed features. Instead of column
 Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see [Paths into JSON columns](./whereTyped#paths-into-json-columns)), and with the opt-in [`strictParams`](./whereTyped#checking-parameters-strictparams) their parameters are checked against the column type.
 
 ### Methods:
-- [typed](./typed): set the root of the typed callbacks once for the query, e.g. its aliases. `from()` and `addFrom()` keep it.
+- [typed](./typedRoot): set the root of the typed callbacks once for the query, e.g. its aliases. `from()` and `addFrom()` keep it.
 - [selectTyped](./selectTyped): add typesafe select to a query.
 - [joinTyped](./joinTyped): add typesafe join to a query, and map joined data to a typed property (`leftJoinAndMapOneTyped`, `leftJoinAndMapManyTyped`, …).
 - [whereTyped](./whereTyped): add typesafe condition to a query.

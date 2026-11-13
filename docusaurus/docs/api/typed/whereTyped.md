@@ -91,7 +91,7 @@ query.whereTyped(e => e.id, 'IN', 'a');                     // error: IN takes a
 query.whereTyped(e => e.settings, '=', { settings: value }); // ok; the bare `value` doesn't compile
 ```
 
-Calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked: TypeScript can't infer the column type when one type argument is given. Set the root with [`typed<Joins>()`](./typed.md) instead, and the calls are checked.
+Calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked: TypeScript can't infer the column type when one type argument is given. Set the root with [`typed<Joins>()`](./typedRoot.md) instead, and the calls are checked.
 
 ## Usage
 

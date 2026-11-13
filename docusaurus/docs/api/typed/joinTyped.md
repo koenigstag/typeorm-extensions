@@ -61,7 +61,7 @@ innerJoinAndMapManyTyped(mapToProperty, entity, alias, condition?, parameters?):
 ```
 
 ### Arguments
-- mapToProperty: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The property that receives the joined data. Any property of the root, not only a relation: a property declared on the entity for the mapped data works too. `user => user.profile` is `'user.profile'`, on the query's main alias. With an alias-keyed root, from [`typed<Root>()`](./typed.md) or a type argument, `q => q.photo.owner` is `'photo.owner'`, a property of an alias joined before.
+- mapToProperty: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The property that receives the joined data. Any property of the root, not only a relation: a property declared on the entity for the mapped data works too. `user => user.profile` is `'user.profile'`, on the query's main alias. With an alias-keyed root, from [`typed<Root>()`](./typedRoot.md) or a type argument, `q => q.photo.owner` is `'photo.owner'`, a property of an alias joined before.
 - entity: The joined data, as TypeORM's methods take it: an entity class or name, a relation (`'user.photos'`), a table name, or a factory that builds a subquery on the query builder it is given.
 - alias: string: Alias of the joined data.
 - condition?: string: Join condition.
