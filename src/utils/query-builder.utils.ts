@@ -599,7 +599,7 @@ function isAliasWithoutMetadata(queryBuilder: QueryBuilder<ObjectLiteral>, alias
  */
 export function getTypedSelectionKey<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
-  selection: KeyProxyCallback<Type> | string,
+  selection: KeyProxyCallback<Type> | KeyHolder | string,
   useQuotes?: boolean,
   columnsFor?: string
 ): string | string[] {

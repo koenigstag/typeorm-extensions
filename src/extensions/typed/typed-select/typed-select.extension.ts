@@ -1,11 +1,7 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
-import {
-  getSqlKeyFromProxyCallback,
-  KeyHolder,
-} from '../../../utils/proxy-key.utils';
+import { KeyHolder } from '../../../utils/proxy-key.utils';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
-import { getDriverType } from '../../../utils/sql.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -149,22 +145,13 @@ const attachSelectMethod = <
   selectionAliasName?: string,
   useQuotes?: boolean
 ): SelectQueryBuilder<Entity> => {
-  if (selection instanceof KeyHolder) {
-    return query[method](
-      selection.toSql(undefined, useQuotes, getDriverType(query)),
-      selectionAliasName
-    );
-  }
-
   if (Array.isArray(selection)) {
     const arrayOfKeys = selection.flatMap((select) =>
-      select instanceof KeyHolder
-        ? (getSqlKeyFromProxyCallback<Type>(select, () => query.alias, useQuotes, getDriverType(query)) as string)
-        : getTypedSelectionKey<Type>(query, select, useQuotes, `${method}Typed`)
+      getTypedSelectionKey<Type>(query, select, useQuotes, `${method}Typed`)
     );
 
     return query[method](arrayOfKeys);
-  } else if (typeof selection === 'function') {
+  } else if (selection instanceof KeyHolder || typeof selection === 'function') {
     const keyArrayOrSingleKey = getTypedSelectionKey<Type>(
       query,
       selection,

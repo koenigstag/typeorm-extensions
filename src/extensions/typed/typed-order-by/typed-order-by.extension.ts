@@ -2,7 +2,6 @@ import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { KeyHolder } from '../../../utils/proxy-key.utils';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
-import { getDriverType } from '../../../utils/sql.utils';
 import type { TypedOrderByOptions } from '../../../types/extensions/typed-order-by.types';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -47,11 +46,7 @@ SelectQueryBuilder.prototype.orderByTyped = function <
 	nulls?: 'NULLS FIRST' | 'NULLS LAST',
 	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
-	if (selection instanceof KeyHolder) {
-		return this.orderBy(selection.toSql(undefined, options?.useQuotes, getDriverType(this)), order, nulls);
-	}
-
-	if (typeof selection === 'function') {
+	if (selection instanceof KeyHolder || typeof selection === 'function') {
 		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes, 'orderByTyped') as string;
 
 		return this.orderBy(key, order, nulls);
@@ -70,11 +65,7 @@ SelectQueryBuilder.prototype.addOrderByTyped = function <
 	nulls?: 'NULLS FIRST' | 'NULLS LAST',
 	options?: TypedOrderByOptions
 ): SelectQueryBuilder<Entity> {
-	if (selection instanceof KeyHolder) {
-		return this.addOrderBy(selection.toSql(undefined, options?.useQuotes, getDriverType(this)), order, nulls);
-	}
-
-	if (typeof selection === 'function') {
+	if (selection instanceof KeyHolder || typeof selection === 'function') {
 		const key = getTypedSelectionKey<Type>(this, selection, options?.useQuotes, 'addOrderByTyped') as string;
 
 		return this.addOrderBy(key, order, nulls);
