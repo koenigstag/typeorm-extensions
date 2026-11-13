@@ -13,7 +13,7 @@ Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see 
 ### Methods:
 - [typed](./typed): set the root of the typed callbacks once for the query, e.g. its aliases. `from()` and `addFrom()` keep it.
 - [selectTyped](./selectTyped): add typesafe select to a query.
-- [joinTyped](./joinTyped): add typesafe join to a query.
+- [joinTyped](./joinTyped): add typesafe join to a query, and map joined data to a typed property (`leftJoinAndMapOneTyped`, `leftJoinAndMapManyTyped`, …).
 - [whereTyped](./whereTyped): add typesafe condition to a query.
 - [whereIsInTyped](./whereIsInTyped): add typesafe IN / NOT IN condition to a query.
 - [whereIsAnyTyped](./whereIsAnyTyped): add typesafe `= ANY(array)` condition to a query (only PostgreSQL).

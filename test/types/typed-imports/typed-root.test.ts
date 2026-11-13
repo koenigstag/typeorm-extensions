@@ -60,3 +60,8 @@ function keepRoot<Q extends SelectQueryBuilder<ObjectLiteral>>(query: Q): Q {
 keepRoot(typed).andWhereTyped((q) => q.event.eventType, '=', 'class');
 // @ts-expect-error not a key of the root
 keepRoot(typed).andWhereTyped((q) => q.customerId, '=', 'c');
+
+// the typed map joins come with the typed extensions too
+keepRoot(typed).leftJoinAndMapOneTyped((q) => q.checkin.event, Event, 'e').andWhereTyped((q) => q.event.eventType, '=', 'class');
+// @ts-expect-error not a key of the root
+typed.leftJoinAndMapManyTyped((q) => q.customerId, CheckIn, 'other');
