@@ -61,7 +61,7 @@ A property that isn't selected yet, or isn't a `@CalculatedColumn`, throws a `Ty
 
 ### Compared with `@VirtualColumn`
 
-TypeORM's `@VirtualColumn({ query })` has one SQL query, which runs every time the entity is loaded. A `@CalculatedColumn` costs nothing until a query asks for it, and each query chooses the expression.
+TypeORM's `@VirtualColumn({ query })` has one SQL query, which runs every time the entity is loaded. A `@CalculatedColumn` costs nothing until a query asks for it, and each query chooses the expression. For a column the database computes and stores, see [GeneratedColumn](./generatedColumn.md), which compares the three.
 
 ### Types
 

@@ -1,7 +1,8 @@
 // Side-effect-free entry point: `typeorm-extensions/helpers`.
-// Exports helpers (tableHelper, escapeLikePattern, the reserved qualifier guard) only and patches nothing on import;
+// Exports helpers (tableHelper, escapeLikePattern, the reserved qualifier guard, @GeneratedColumn) only and patches nothing on import;
 // importing the package root (`typeorm-extensions`) installs every QueryBuilder extension.
 export * from './utils/table.utils';
+export * from './decorators/generated-column.decorator';
 export { escapeLikePattern } from './utils/search.utils';
 export {
   COCKROACHDB_RESERVED_KEY_WORDS,
