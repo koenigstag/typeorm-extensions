@@ -93,14 +93,6 @@ TypeORM 0.3.12 and later, and 1.x. CI runs the test suite on SQLite with TypeORM
 
 The [documentation](https://koenigstag.github.io/typeorm-extensions/) has a page for every method, with its signature, options and examples, and the [playground](https://koenigstag.github.io/typeorm-extensions/playground/) runs them.
 
-## ToDo list
-
-- [x] Add tests for pagination and order extensions
-- [x] Calculated columns: the `@CalculatedColumn` decorator and `addSelectCalculated`. `getMany`, `getOne` and `getManyWithTotals` fill them as they are, so they need no variants of their own
-- [x] Order by a calculated column: `orderByCalculated`, and `applyOrder` orders a `@CalculatedColumn` field by its value
-- [x] Generated columns: the `@GeneratedColumn` decorator, a `@Column` that TypeORM reads and never writes
-- [x] `tableHelper(Entity, alias)` writes the database names of renamed columns
-
 ## License
 
 [MIT](./LICENSE)
