@@ -180,4 +180,10 @@ describe('tableHelper column names', () => {
     expect(tableHelper(Child, 'c', { useQuotes: false }).createdAt).toBe('c.created_on');
     expect(tableHelper(Child).column('code', 'x')).toBe('"x"."child_code"');
   });
+
+  it('SHOULD throw for an entity class that is undefined, not take the alias for options', () => {
+    const notYetLoaded = undefined as unknown as typeof LegacyColumnsEntity;
+
+    expect(() => tableHelper(notYetLoaded, 'l')).toThrow(/entity class is undefined/);
+  });
 });

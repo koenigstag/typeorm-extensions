@@ -576,6 +576,12 @@ export function tableHelper<T extends ObjectLiteral>(
 	aliasOrOptions?: string | TableHelperOptions,
 	entityOptions?: TableHelperOptions,
 ): TableHelper<T> {
+	if (entityOrAlias === undefined && typeof aliasOrOptions === 'string') {
+		throw new TypeError(
+			`tableHelper(entity, '${aliasOrOptions}'): the entity class is undefined, as a circular import leaves it at module load. Create the helper where it is used`
+		);
+	}
+
 	const helper = typeof entityOrAlias === 'function'
 		? createTableHelper<T>(aliasOrOptions as string | undefined, entityOptions, databaseColumnNames(entityOrAlias))
 		: createTableHelper<T>(entityOrAlias, aliasOrOptions as TableHelperOptions | undefined);
