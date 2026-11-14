@@ -386,6 +386,16 @@ function resolveTypedKey(
   return resolved;
 }
 
+/** The alias and property of the `@CalculatedColumn` a typed key picks; undefined for any other key. */
+export function findTypedCalculatedProperty(
+  builder: WhereExpressionBuilder,
+  keyHolder: KeyHolder
+): { aliasName: string | undefined; propertyPath: string } | undefined {
+  const resolved = resolveTypedKeyPath(builder as unknown as QueryBuilder<ObjectLiteral>, keyHolder.getKeys());
+
+  return isCalculated(resolved.column) ? { aliasName: resolved.aliasName, propertyPath: resolved.propertyPath } : undefined;
+}
+
 function resolveTypedKeyPath(
   queryBuilder: QueryBuilder<ObjectLiteral>,
   keys: string[]

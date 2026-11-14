@@ -55,7 +55,18 @@ userRepository
 The value is selected a second time under a generated alias (`calculated_…`) and ordered by it, as [orderByArrayPosition](../order/orderByArrayPosition.md) does. The key the entity is read from can't be ordered by: unquoted, PostgreSQL folds it (`user_imagesCount` → `user_imagescount`), and quoted, it breaks the DISTINCT query TypeORM pages through with `take` / `skip` and joins. So:
 
 - the database computes the expression twice per row: mind it for an expensive subquery;
-- the generated alias shows up in `getRawMany()` results and in the `orderBy` of [ListWithTotals](../pagination/types/ListWithTotals.md).
+- the generated alias shows up in `getRawMany()` results and in the `orderBy` of [ListWithTotals](../pagination/types/ListWithTotals.md);
+- ordering by the same value again, and [distinctOnTyped](../typed/distinctOnTyped.md) on the property, reuse the alias. PostgreSQL requires DISTINCT ON to match the leading ORDER BY, so both have to name that one column, in either call order:
+
+```typescript
+userRepository
+  .createQueryBuilder('user')
+  .addSelectCalculatedTyped(imagesCount, (user) => user.imagesCount)
+  .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+  .addOrderBy('user.id')
+  .distinctOnTyped((user) => user.imagesCount) // one user per count, the lowest id
+  .getMany();
+```
 
 A property that isn't selected yet, or isn't a `@CalculatedColumn`, throws a `TypeError`.
 
@@ -93,7 +104,7 @@ The selected value is converted by the column's type, as for `@Column`:
 
 - The value is read when the entity is **selected as a whole**: the alias, as `createQueryBuilder('user')`, `leftJoinAndSelect` and `getMany()` do. With `select(['user.id', 'user.name'])` it isn't put into the entity.
 - `find()` options can't select it.
-- Typed methods (`whereTyped`, `orderByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it. Only the `…CalculatedTyped` methods above take it.
+- Typed methods (`whereTyped`, `orderByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it. Only the `…CalculatedTyped` methods above and `distinctOnTyped` take it.
 
 ### TypeORM versions
 

@@ -5,8 +5,10 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
 import 'typeorm-extensions/extensions/typed/typed-calculated/typed-calculated-column.extension';
 import 'typeorm-extensions/extensions/typed/typed-root.extension';
+import 'typeorm-extensions/extensions/typed/typed-distinct/typed-distinct.extension';
 import { setupTest, createFakeUsers, createFakeImages, nativeSql } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
+import { postgresLikeDrivers } from '../constants/database';
 
 setupTest('CalculatedColumn', undefined, (context) => {
   // users 1 and 2 have two images each, user 3 none
@@ -199,6 +201,43 @@ setupTest('CalculatedColumn', undefined, (context) => {
       );
       expect(() => users().addOrderByCalculated('firstName')).toThrow(/UserEntity\.firstName is not a @CalculatedColumn/);
       expect(() => users().applyOrder<UserEntity>({ field: 'imagesCount' })).toThrow(/applyOrder: .* isn't selected/);
+    });
+
+    (postgresLikeDrivers.includes(context.typeormOptions.type as never) ? it : it.skip)(
+      'SHOULD put the value into DISTINCT ON under the alias it is ordered by, in either call order (PostgreSQL)',
+      async () => {
+        // users 1 and 2 have two images each, user 3 none
+        await seed();
+        const distinctCounts = () =>
+          context.dataSource
+            .getRepository(UserEntity)
+            .createQueryBuilder('user')
+            .addSelectCalculatedTyped(imagesCount(), (user) => user.imagesCount);
+
+        const orderedFirst = distinctCounts()
+          .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+          .addOrderBy('user.id')
+          .distinctOnTyped((user) => user.imagesCount);
+        const distinctFirst = distinctCounts()
+          .distinctOnTyped((user) => user.imagesCount)
+          .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+          .addOrderBy('user.id');
+
+        for (const query of [orderedFirst, distinctFirst]) {
+          // PostgreSQL rejects a DISTINCT ON that doesn't match the leading ORDER BY, so both name one column
+          expect(query.expressionMap.selects.filter(({ aliasName }) => aliasName?.startsWith('calculated_'))).toHaveLength(1);
+          expect((await query.getMany()).map(({ id, imagesCount }) => [id, imagesCount])).toEqual([
+            [1, 2],
+            [3, 0],
+          ]);
+        }
+      },
+    );
+
+    it('SHOULD throw for a value in DISTINCT ON that is not selected', () => {
+      expect(() => users().distinctOnTyped((user) => user.imagesCount)).toThrow(
+        /distinctOnTyped: UserEntity\.imagesCount isn't selected: select it with addSelectCalculated first/,
+      );
     });
 
     describe('with typed callbacks', () => {

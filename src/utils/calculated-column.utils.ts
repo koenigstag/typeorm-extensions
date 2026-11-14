@@ -8,6 +8,9 @@ export type CalculatedSelection<SubEntity extends ObjectLiteral = ObjectLiteral>
   | string
   | ((qb: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<SubEntity>);
 
+const ORDER_ALIAS_PREFIX = 'calculated';
+const ORDER_ALIAS_PATTERN = new RegExp(`^${ORDER_ALIAS_PREFIX}_\\w+$`);
+
 type ResolvedCalculatedColumn = {
   /** The key TypeORM reads the column's value from when it builds the entity. */
   key: string;
@@ -84,6 +87,9 @@ export function resolveCalculatedColumn<Entity extends ObjectLiteral>(
  * The alias the entity is built from can't be ordered by: PostgreSQL folds it unquoted
  * (`user_imagesCount` → `user_imagescount`), and quoted it breaks the DISTINCT query TypeORM pages
  * through with `take` / `skip` and joins, which takes only select aliases it knows unquoted.
+ *
+ * A value already selected for order keeps its alias, so ORDER BY and DISTINCT ON name the same
+ * column: PostgreSQL requires DISTINCT ON to match the leading ORDER BY.
  */
 export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
@@ -98,7 +104,19 @@ export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
     throw new TypeError(`${methodName}: ${label} isn't selected: select it with addSelectCalculated first`);
   }
 
-  const orderAlias = createUniqueParameterName('calculated').toLowerCase();
+  // found by its SQL rather than kept aside, so a clone of the builder finds it too
+  const selectedForOrder = builder.expressionMap.selects.find(
+    (candidate) =>
+      candidate.aliasName !== undefined &&
+      ORDER_ALIAS_PATTERN.test(candidate.aliasName) &&
+      candidate.selection === select.selection
+  );
+
+  if (selectedForOrder?.aliasName) {
+    return selectedForOrder.aliasName;
+  }
+
+  const orderAlias = createUniqueParameterName(ORDER_ALIAS_PREFIX).toLowerCase();
 
   // TypeORM keeps a subquery selection as its SQL, with its parameters already on the builder
   builder.addSelect(select.selection, orderAlias);
