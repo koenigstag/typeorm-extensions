@@ -45,6 +45,7 @@ interface CursorPaginationFilter {
 type GetManyWithCursorOptions<Entity> = {
   orderBy: Array<{ field: keyof Entity; direction?: OrderDirection }>;
   useTakeAndSkip?: boolean; // take instead of limit, for joined collections
+  includeOrderBy?: boolean; // add orderBy to the result
 };
 
 interface ListWithCursor<Entity> {
@@ -52,17 +53,18 @@ interface ListWithCursor<Entity> {
   nextCursor: string | null; // null on the last page
   hasMore: boolean;          // whether a next page follows; same as nextCursor !== null
   pageSize: number;          // the pageSize given (a numeric string too), rounded down; 10 when missing or below 1
-  orderBy: OrderType[];      // options.orderBy, then the primary key: [{ selector: 'post.createdAt', order: 'DESC' }, …]
+  orderBy?: OrderType[];     // with includeOrderBy: options.orderBy, then the primary key
 }
 ```
 
-`orderBy` is the order the cursors of these pages encode, as `alias.property` selectors. Like the `orderBy` of [ListWithTotals](./types/ListWithTotals.md), it is for logs and debugging, not for the client to send back.
+With `includeOrderBy: true`, `orderBy` is the order the cursors of these pages encode, as `alias.property` selectors. Like the `orderBy` of [ListWithTotals](./types/ListWithTotals.md), it is for logs and debugging, not for the client to send back.
 
 ## Arguments
 
 - cursorFilter: The cursor and the page size, e.g. from query parameters.
 - options.orderBy: Properties of the main entity to order by, with `'ASC'` (default) or `'DESC'` (any `OrderDirection`: `'desc'`, `-1`, `false`, …). An unknown property throws a `TypeError`.
 - options.useTakeAndSkip: Use `take` instead of `limit`. Needed when the query joins a collection (`leftJoinAndSelect(user.images)`), as with [applyPagination](./applyPagination.md).
+- options.includeOrderBy: Add `orderBy` to the result. Off by default.
 
 ## Errors
 
@@ -89,7 +91,6 @@ const page = await repository
 //   nextCursor: 'eyJrIjpb…' | null,
 //   hasMore: true | false,
 //   pageSize: 20,
-//   orderBy: [{ selector: 'post.createdAt', order: 'DESC' }, { selector: 'post.id', order: 'DESC' }],
 // }
 ```
 

@@ -37,15 +37,17 @@ getRawManyWithCursor<Row = ObjectLiteral>(
 
 type GetRawManyWithCursorOptions = {
   orderBy: Array<{ selector: string; direction?: OrderDirection }>;
+  includeOrderBy?: boolean; // add orderBy to the result
 };
 ```
 
-`ListWithCursor` is the result of [getManyWithCursor](./getManyWithCursor.md), with the raw rows in `list` and the SQL keys in `orderBy`.
+`ListWithCursor` is the result of [getManyWithCursor](./getManyWithCursor.md), with the raw rows in `list`, and with `includeOrderBy` the SQL keys in `orderBy`.
 
 ## Arguments
 
 - cursorFilter: The cursor and the page size, e.g. from query parameters.
 - options.orderBy: SQL expressions to order by, with `'ASC'` (default) or `'DESC'` (any `OrderDirection`). An empty selector throws a `TypeError`, and so does an empty `orderBy` on a query with no primary key to append.
+- options.includeOrderBy: Add `orderBy` to the result. Off by default, as its selectors are SQL.
 
 ## Errors
 
@@ -73,7 +75,6 @@ const page = await repository
 //   nextCursor: 'eyJrIjpb…' | null,
 //   hasMore: true | false,
 //   pageSize: 20,
-//   orderBy: [{ selector: "CASE member.role …", order: 'ASC' }, { selector: 'member.createdAt', order: 'ASC' }, { selector: '"member"."id"', order: 'ASC' }],
 // }
 ```
 

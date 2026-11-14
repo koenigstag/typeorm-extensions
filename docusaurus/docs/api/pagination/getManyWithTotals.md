@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Description
 
-`getManyWithTotals` loads one page of entities together with the total number of matching rows, the `page` and `pageSize` it read with (defaults applied), the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
+`getManyWithTotals` loads one page of entities together with the total number of matching rows, the `page` and `pageSize` it read with (defaults applied), the page `limit` and `offset`, whether more rows follow (`hasMore`), and with `includeOrderBy` the SQL order the page was read in (`orderBy`).
 
 It runs two queries:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
@@ -55,12 +55,12 @@ Reach for `total` when the interface shows a count or numbered pages. Note that 
 
 ## Returns
 
-[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, page, pageSize, limit, offset, hasMore, orderBy }`.
+[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, page, pageSize, limit, offset, hasMore }`, and `orderBy` with `includeOrderBy: true`.
 
 ## Usage
 
 ```typescript
-const { list, total, page, pageSize, limit, offset, hasMore, orderBy } = await usersRepository
+const { list, total, page, pageSize, limit, offset, hasMore } = await usersRepository
   .createQueryBuilder('user')
   .whereTyped(user => user.lastName, 'LIKE', '%Doe%')
   .orderBy('user.lastName', 'ASC')
@@ -73,7 +73,6 @@ const { list, total, page, pageSize, limit, offset, hasMore, orderBy } = await u
 // limit    - 20
 // offset   - 20
 // hasMore  - true while rows follow the page, null only with loadAll
-// orderBy  - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
 ```
 
 ```typescript

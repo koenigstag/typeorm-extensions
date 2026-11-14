@@ -1,7 +1,8 @@
 import type { CursorOrderParam, RawCursorOrderParam } from '../interfaces/cursor-pagination.interface';
 import type { OrderType } from '../interfaces/ordering.interface';
+import type { IncludeOrderByOption } from './pagination.types';
 
-export type GetManyWithCursorOptions<Entity> = {
+export type GetManyWithCursorOptions<Entity> = IncludeOrderByOption & {
   /**
    * Columns that order the rows, e.g. `[{ field: 'createdAt', direction: 'DESC' }]`.
    * The primary key is appended when it isn't listed, so the order is total and no row is skipped
@@ -12,7 +13,7 @@ export type GetManyWithCursorOptions<Entity> = {
   useTakeAndSkip?: boolean;
 };
 
-export type GetRawManyWithCursorOptions = {
+export type GetRawManyWithCursorOptions = IncludeOrderByOption & {
   /**
    * SQL expressions that order the rows. On a query of an entity without GROUP BY or DISTINCT the
    * primary key of the main alias is appended when it isn't listed; otherwise the last key has to be
@@ -34,6 +35,9 @@ export interface ListWithCursor<Entity> {
   hasMore: boolean;
   /** The page size used: the `pageSize` given, rounded down, or `10` when it was missing or below 1. */
   pageSize: number;
-  /** The ORDER BY the page was read in: the `orderBy` keys, then the primary key columns not among them. */
-  orderBy: OrderType[];
+  /**
+   * With `includeOrderBy` only: the ORDER BY the page was read in, the `orderBy` keys, then the primary
+   * key columns not among them.
+   */
+  orderBy?: OrderType[];
 }

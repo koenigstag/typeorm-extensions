@@ -134,6 +134,7 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
   const {
     disableTotalsCalculation = false,
     loadAll = false,
+    includeOrderBy = false,
     ...paginationOptions
   } = options || {};
 
@@ -198,7 +199,7 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
     limit,
     offset,
     hasMore,
-    orderBy: getAppliedOrderBy(builder),
+    ...(includeOrderBy && { orderBy: getAppliedOrderBy(builder) }),
   };
 }
 

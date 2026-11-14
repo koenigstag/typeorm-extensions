@@ -109,7 +109,6 @@ setupTest('cursor-pagination', undefined, (context) => {
       nextCursor: null,
       hasMore: false,
       pageSize: 10,
-      orderBy: [{ selector: 'user.id', order: 'ASC' }],
     });
   });
 
@@ -119,7 +118,7 @@ setupTest('cursor-pagination', undefined, (context) => {
     const page = await users()
       .createQueryBuilder('user')
       .orderBy('user.firstName')
-      .getManyWithCursor({ pageSize: 2.5 }, { orderBy: [{ field: 'createdAt', direction: 'DESC' }] });
+      .getManyWithCursor({ pageSize: 2.5 }, { orderBy: [{ field: 'createdAt', direction: 'DESC' }], includeOrderBy: true });
 
     expect(page.list).toHaveLength(2);
     expect(page.pageSize).toBe(2);

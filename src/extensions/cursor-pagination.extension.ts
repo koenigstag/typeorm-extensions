@@ -140,7 +140,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
   cursorFilter: CursorPaginationFilter | null | undefined,
   options: GetManyWithCursorOptions<Entity>
 ): Promise<ListWithCursor<Entity>> {
-  const { orderBy, useTakeAndSkip = false } = options ?? {};
+  const { orderBy, useTakeAndSkip = false, includeOrderBy = false } = options ?? {};
 
   const keys = getCursorKeys(builder, orderBy);
   const fields = keys.map((key) => key.column.propertyPath);
@@ -169,7 +169,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
 
   query.orderBy();
   keys.forEach((key) => query.addOrderBy(`${alias}.${key.column.propertyPath}`, key.direction));
-  const appliedOrderBy = getAppliedOrderBy(query);
+  const appliedOrderBy = includeOrderBy ? { orderBy: getAppliedOrderBy(query) } : {};
 
   // the key values of the last row are read from the raw result: dates and times as text, so the
   // cursor keeps the database's precision (PostgreSQL timestamps have microseconds, a JS Date has not)
@@ -195,7 +195,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
   const list = entities.slice(0, pageSize);
 
   if (entities.length <= pageSize) {
-    return { list, nextCursor: null, hasMore: false, pageSize, orderBy: appliedOrderBy };
+    return { list, nextCursor: null, hasMore: false, pageSize, ...appliedOrderBy };
   }
 
   // with joined collections there are several raw rows per entity: find one of the last entity's
@@ -222,7 +222,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     return value;
   });
 
-  return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, orderBy: appliedOrderBy };
+  return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, ...appliedOrderBy };
 }
 
 type ExpressionKey = {
@@ -277,6 +277,7 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
   options: GetRawManyWithCursorOptions
 ): Promise<ListWithCursor<Row>> {
   const keys = getExpressionKeys(builder, options?.orderBy);
+  const includeOrderBy = options?.includeOrderBy ?? false;
   const fields = keys.map((key) => getExpressionKeyName(key.selector));
   const pageSize = normalizePageSize(cursorFilter?.pageSize);
 
@@ -300,7 +301,7 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
 
   query.orderBy();
   keys.forEach((key) => query.addOrderBy(key.selector, key.direction));
-  const appliedOrderBy = getAppliedOrderBy(query);
+  const appliedOrderBy = includeOrderBy ? { orderBy: getAppliedOrderBy(query) } : {};
 
   // the type of an expression is unknown here: each key is also read as text, which the cursor
   // takes instead when the driver returned a Date, so timestamps keep the database's precision
@@ -330,7 +331,7 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
   );
 
   if (rows.length <= pageSize) {
-    return { list, nextCursor: null, hasMore: false, pageSize, orderBy: appliedOrderBy };
+    return { list, nextCursor: null, hasMore: false, pageSize, ...appliedOrderBy };
   }
 
   const last = page[page.length - 1];
@@ -347,5 +348,5 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
     return isDate(value) && textAlias ? last[textAlias] : value;
   });
 
-  return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, orderBy: appliedOrderBy };
+  return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, ...appliedOrderBy };
 }

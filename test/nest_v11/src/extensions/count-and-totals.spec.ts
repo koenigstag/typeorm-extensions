@@ -156,6 +156,19 @@ setupTest('getManyWithTotals.hasMore', undefined, (context) => {
 });
 
 setupTest('getManyWithTotals.orderBy', undefined, (context) => {
+  it('SHOULD leave orderBy out unless includeOrderBy is set', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderBy('user.firstName', 'DESC')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    expect(page).not.toHaveProperty('orderBy');
+    expect(page.list).toHaveLength(2);
+  });
+
   it('SHOULD return the ORDER BY clauses the query was built with', async () => {
     await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
 
@@ -164,7 +177,7 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
       .createQueryBuilder('user')
       .orderBy('user.firstName', 'DESC')
       .addOrderBy('user.id', 'ASC')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([
       { selector: 'user.firstName', order: 'DESC' },
@@ -179,7 +192,7 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
     const page = await context.dataSource
       .getRepository(UserEntity)
       .createQueryBuilder('user')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([{ selector: 'user.id', order: 'ASC' }]);
   });
@@ -191,7 +204,7 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
       .getRepository(UserEntity)
       .createQueryBuilder('user')
       .setOption('disable-global-order')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([]);
   });
@@ -275,7 +288,7 @@ setupTest('getManyWithTotals.orderBy.postgres', undefined, (context) => {
       .getRepository(UserEntity)
       .createQueryBuilder('user')
       .orderBy('user.firstName', 'DESC', 'NULLS LAST')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([
       { selector: 'user.firstName', order: 'DESC', nulls: 'NULLS LAST' },

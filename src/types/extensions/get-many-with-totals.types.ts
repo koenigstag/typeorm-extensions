@@ -1,8 +1,8 @@
 import type { OrderType } from '../interfaces/ordering.interface';
-import type { ApplyPaginationOptions } from './pagination.types';
+import type { ApplyPaginationOptions, IncludeOrderByOption } from './pagination.types';
 
 /** Also takes the pagination options, e.g. `useTakeAndSkip` for queries with joined collections. */
-export type GetManyWithTotalsOptions = ApplyPaginationOptions & {
+export type GetManyWithTotalsOptions = ApplyPaginationOptions & IncludeOrderByOption & {
   disableTotalsCalculation?: boolean;
   loadAll?: boolean;
 };
@@ -33,6 +33,6 @@ export interface ListWithTotals<Entity> {
    * instead of counting.
    */
   hasMore: boolean | null;
-  /** The ORDER BY clauses the query was built with, in the order they were applied. */
-  orderBy: OrderType[];
+  /** With `includeOrderBy` only: the ORDER BY clauses the query was built with, in the order they were applied. */
+  orderBy?: OrderType[];
 }
