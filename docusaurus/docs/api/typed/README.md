@@ -30,7 +30,7 @@ Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see 
 - [groupByTyped](./groupByTyped): add typesafe GROUP BY to a query.
 - [havingTyped](./havingTyped): add a typesafe HAVING condition on an aggregate (`COUNT`, `SUM`, `MAX`, …) of a property.
 - [orderByArrayPositionTyped](./orderByArrayPositionTyped): order by the position of a property's value in an array (only PostgreSQL).
-- [addSelectCalculatedTyped / orderByCalculatedTyped](../columns/calculatedColumn#typed-callbacks): select into and order by a `@CalculatedColumn` picked by a typed callback.
+- [addSelectCalculatedTyped](../columns/calculatedColumn#typed-callbacks): select into a `@CalculatedColumn` picked by a typed callback; `orderByTyped` / `addOrderByTyped` then order by it.
 - [returningTyped](./returningTyped): return typesafe columns from INSERT / UPDATE / DELETE (PostgreSQL, MariaDB, SQL Server).
 
 ### Types:

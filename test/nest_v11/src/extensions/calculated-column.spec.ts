@@ -215,12 +215,12 @@ setupTest('CalculatedColumn', undefined, (context) => {
             .addSelectCalculatedTyped(imagesCount(), (user) => user.imagesCount);
 
         const orderedFirst = distinctCounts()
-          .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+          .orderByTyped((user) => user.imagesCount, 'DESC')
           .addOrderBy('user.id')
           .distinctOnTyped((user) => user.imagesCount);
         const distinctFirst = distinctCounts()
           .distinctOnTyped((user) => user.imagesCount)
-          .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+          .orderByTyped((user) => user.imagesCount, 'DESC')
           .addOrderBy('user.id');
 
         for (const query of [orderedFirst, distinctFirst]) {
@@ -246,7 +246,7 @@ setupTest('CalculatedColumn', undefined, (context) => {
 
         const ordered = await users()
           .addSelectCalculatedTyped(imagesCount(), (user) => user.imagesCount)
-          .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+          .orderByTyped((user) => user.imagesCount, 'DESC')
           .getMany();
 
         expect(ordered.map(({ id, imagesCount }) => [id, imagesCount])).toEqual([
@@ -257,7 +257,7 @@ setupTest('CalculatedColumn', undefined, (context) => {
 
         const appended = users()
           .addSelectCalculatedTyped(imagesCount(), (user) => user.imagesCount)
-          .addOrderByCalculatedTyped((user) => user.imagesCount, 'DESC');
+          .addOrderByTyped((user) => user.imagesCount, 'DESC');
 
         expect(Object.entries(appended.expressionMap.orderBys)).toEqual([
           ['user.id', 'ASC'],
@@ -277,7 +277,7 @@ setupTest('CalculatedColumn', undefined, (context) => {
             nativeSql('(SELECT COUNT(*) FROM "images" "counted" WHERE "counted"."userId" = "owner"."id")'),
             (q) => q.owner.imagesCount,
           )
-          .orderByCalculatedTyped((q) => q.owner.imagesCount, 'ASC')
+          .orderByTyped((q) => q.owner.imagesCount, 'ASC')
           .addOrderBy('image.id', 'DESC')
           .getMany();
 
@@ -293,8 +293,8 @@ setupTest('CalculatedColumn', undefined, (context) => {
         expect(() => users().addSelectCalculatedTyped('1', (user) => user.firstName)).toThrow(
           /addSelectCalculatedTyped: UserEntity\.firstName is not a @CalculatedColumn/,
         );
-        expect(() => users().orderByCalculatedTyped((user) => user.imagesCount)).toThrow(
-          /orderByCalculatedTyped: UserEntity\.imagesCount isn't selected/,
+        expect(() => users().orderByTyped((user) => user.imagesCount)).toThrow(
+          /orderByTyped: UserEntity\.imagesCount isn't selected/,
         );
         expect(() =>
           users()
@@ -307,7 +307,6 @@ setupTest('CalculatedColumn', undefined, (context) => {
 
   it('SHOULD throw for a calculated property where the table needs a column', async () => {
     expect(() => users().whereTyped((u) => u.imagesCount, '>', 1)).toThrow(/imagesCount is a @CalculatedColumn/);
-    expect(() => users().orderByTyped((u) => u.imagesCount)).toThrow(/imagesCount is a @CalculatedColumn/);
     await expect(
       context.dataSource
         .getRepository(UserEntity)

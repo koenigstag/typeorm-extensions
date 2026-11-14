@@ -40,7 +40,7 @@ const users = await userRepository
 
 ### Ordering
 
-`orderByCalculated(property, order?, nulls?, alias?)` orders by the value of a property selected with `addSelectCalculated` before; `addOrderByCalculated` adds to the order, like `addOrderBy`. [applyOrder](../order/applyOrder.md) does the same when its `field` is a `@CalculatedColumn`, so a client sorts by `imagesCount` like by any column.
+`orderByCalculated(property, order?, nulls?, alias?)` orders by the value of a property selected with `addSelectCalculated` before; `addOrderByCalculated` adds to the order, like `addOrderBy`. [orderByTyped / addOrderByTyped](../typed/orderByTyped.md) do the same for a typed callback that picks a `@CalculatedColumn` (see [Typed callbacks](#typed-callbacks)), and [applyOrder](../order/applyOrder.md) when its `field` is one, so a client sorts by `imagesCount` like by any column.
 
 ```typescript
 userRepository
@@ -62,7 +62,7 @@ The value is selected a second time under a generated alias (`calculated_…`) a
 userRepository
   .createQueryBuilder('user')
   .addSelectCalculatedTyped(imagesCount, (user) => user.imagesCount)
-  .orderByCalculatedTyped((user) => user.imagesCount, 'DESC')
+  .orderByTyped((user) => user.imagesCount, 'DESC')
   .addOrderBy('user.id')
   .distinctOnTyped((user) => user.imagesCount) // one user per count, the lowest id
   .getMany();
@@ -72,7 +72,7 @@ A property that isn't selected yet, or isn't a `@CalculatedColumn`, throws a `Ty
 
 ### Typed callbacks
 
-`addSelectCalculatedTyped`, `orderByCalculatedTyped` and `addOrderByCalculatedTyped` take the property as a typed callback instead of its name: `(user) => user.imagesCount`, or `(q) => q.owner.imagesCount` for the entity of the joined alias `owner`, which the callback names, so no alias argument is needed. The callback starts at the root set with [typed&lt;Root&gt;()](../typed/typedRoot.md), else at the entity, so the property of a joined entity is checked at compile time too, where the string form takes any name. That it is a `@CalculatedColumn` is still checked when the query is built: TypeScript doesn't see decorators.
+`addSelectCalculatedTyped` takes the property as a typed callback instead of its name, and `orderByTyped` / `addOrderByTyped` / `distinctOnTyped` order by its value when their callback picks a `@CalculatedColumn`: `(user) => user.imagesCount`, or `(q) => q.owner.imagesCount` for the entity of the joined alias `owner`, which the callback names, so no alias argument is needed. The callback starts at the root set with [typed&lt;Root&gt;()](../typed/typedRoot.md), else at the entity, so the property of a joined entity is checked at compile time too, where the string form takes any name. That it is a `@CalculatedColumn` is still checked when the query is built: TypeScript doesn't see decorators.
 
 ```typescript
 imageRepository
@@ -83,7 +83,7 @@ imageRepository
     '(SELECT COUNT(*) FROM "images" "i" WHERE "i"."userId" = "owner"."id")',
     (q) => q.owner.imagesCount
   )
-  .orderByCalculatedTyped((q) => q.owner.imagesCount, 'DESC');
+  .orderByTyped((q) => q.owner.imagesCount, 'DESC');
 ```
 
 ### Compared with `@VirtualColumn`
@@ -104,7 +104,7 @@ The selected value is converted by the column's type, as for `@Column`:
 
 - The value is read when the entity is **selected as a whole**: the alias, as `createQueryBuilder('user')`, `leftJoinAndSelect` and `getMany()` do. With `select(['user.id', 'user.name'])` it isn't put into the entity.
 - `find()` options can't select it.
-- Typed methods (`whereTyped`, `orderByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it. Only the `…CalculatedTyped` methods above and `distinctOnTyped` take it.
+- Other typed methods (`whereTyped`, `selectTyped`, `groupByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it. `orderByTyped`, `addOrderByTyped` and `distinctOnTyped` take it, as above.
 
 ### TypeORM versions
 
@@ -130,8 +130,6 @@ orderByCalculated(property: string, order: 'ASC' | 'DESC' | undefined, nulls: 'N
 addOrderByCalculated(…): this // the same arguments
 
 addSelectCalculatedTyped(selection: string | ((qb) => SelectQueryBuilder), property: (root) => value): this
-orderByCalculatedTyped(property: (root) => value, order?: 'ASC' | 'DESC', nulls?: 'NULLS FIRST' | 'NULLS LAST'): this
-addOrderByCalculatedTyped(…): this // the same arguments
 ```
 
 ## Usage
