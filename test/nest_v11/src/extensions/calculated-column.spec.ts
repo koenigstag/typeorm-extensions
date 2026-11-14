@@ -85,6 +85,30 @@ setupTest('CalculatedColumn', undefined, (context) => {
     ]);
   });
 
+  it('SHOULD convert a numeric SQL type like a number, unless a transformer takes the value', async () => {
+    await seed();
+
+    const count = nativeSql('(SELECT COUNT(*) FROM "images" "counted" WHERE "counted"."userId" = "user"."id")');
+    const found = await users()
+      .addSelectCalculated(count, 'imagesCountInteger')
+      .addSelectCalculated(
+        nativeSql('(SELECT AVG("averaged"."id") FROM "images" "averaged" WHERE "averaged"."userId" = "user"."id")'),
+        'averageImageIdNumeric',
+      )
+      .addSelectCalculated(count, 'imagesCountTransformed')
+      .getMany();
+
+    expect(found.map(({ id, imagesCountInteger, averageImageIdNumeric }) => [id, imagesCountInteger, averageImageIdNumeric])).toEqual([
+      [1, 2, 1.5],
+      [2, 2, 3.5],
+      [3, 0, null],
+    ]);
+    // the transformer gets the value as the driver hands it over: a bigint string on PostgreSQL and MySQL
+    const raw = await users().select('user.id', 'id').addSelect(count, 'count').getRawMany<{ count: unknown }>();
+    expect(found.map(({ imagesCountTransformed }) => imagesCountTransformed?.value)).toEqual(raw.map(({ count }) => count));
+    expect(raw.map(({ count }) => Number(count))).toEqual([2, 2, 0]);
+  });
+
   it('SHOULD fill the property of a joined entity, by its alias', async () => {
     await seed();
 

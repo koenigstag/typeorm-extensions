@@ -84,10 +84,10 @@ TypeORM's `@VirtualColumn({ query })` has one SQL query, which runs every time t
 The selected value is converted by the column's type, as for `@Column`:
 
 - by default the property's TypeScript type, with `emitDecoratorMetadata`: `number`, `string`, `boolean`, `Date`;
-- a `number` turns the numeric strings of the database into numbers, decimals kept: a PostgreSQL `COUNT(*)` comes back as `2`, an `AVG` as `1.5`. Past `Number.MAX_SAFE_INTEGER` a number loses precision: declare such a value as `string`;
+- a `number`, and a numeric SQL type (`'integer'`, `'bigint'`, `'numeric'`, `'decimal'`, `'float'`, …), turns the numeric strings of the database into numbers, decimals kept: a PostgreSQL `COUNT(*)` comes back as `2`, an `AVG` as `1.5`, where the driver gives `'2'` and `'1.5000000000000000'`. Past `Number.MAX_SAFE_INTEGER` a number loses precision: declare such a value as `@CalculatedColumn(String)`;
 - a `boolean` is `false` for `false`, `0`, `'0'`, `'f'`, `'false'`, so `EXISTS (…)` works on MySQL too, where it is a number;
-- `@CalculatedColumn('jsonb')`, `@CalculatedColumn({ type: 'timestamptz' })` for other types. A union type (`string | null`) is reflected as `Object`: give it a type;
-- `@CalculatedColumn({ type: 'varchar', transformer: { from: (value) => …, to: (value) => value } })` converts further, e.g. JSON text from SQLite.
+- `@CalculatedColumn('jsonb')`, `@CalculatedColumn({ type: 'timestamptz' })` for other types. A union type (`number | null`) is reflected as `Object`: give it a type, `@CalculatedColumn(Number)`;
+- `@CalculatedColumn({ type: 'varchar', transformer: { from: (value) => …, to: (value) => value } })` converts it yourself, e.g. JSON text from SQLite. A transformer replaces the conversions above: it gets the value as the database returned it, a PostgreSQL `COUNT(*)` as `'2'`.
 
 ### Limits
 
