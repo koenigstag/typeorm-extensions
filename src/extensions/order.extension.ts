@@ -11,7 +11,7 @@ import { isNil } from '../utils/common.utils';
 import type { ApplyOrderOptions } from '../types/extensions/order.types';
 import { patchPrototype } from '../utils/prototype.utils';
 import { tableHelper } from '../utils/table.utils';
-import { toSqlOrderDirection } from '../utils/order.utils';
+import { toSqlNullsOrder, toSqlOrderDirection } from '../utils/order.utils';
 import { getColumnDatabaseName } from '../utils/query-builder.utils';
 import { getDriverType } from '../utils/sql.utils';
 import { isCalculatedColumn, selectCalculatedForOrder } from '../utils/calculated-column.utils';
@@ -103,10 +103,7 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
       ? (isReversed ? 'DESC' : 'ASC')
       : toSqlOrderDirection(direction);
 
-  const nulls =
-    typeof nullsOrder === 'string' && /first|last/i.test(nullsOrder)
-      ? (`NULLS ${nullsOrder.toUpperCase()}` as 'NULLS LAST' | 'NULLS FIRST')
-      : defaultNullsOrder;
+  const nulls = toSqlNullsOrder(nullsOrder) ?? defaultNullsOrder;
 
   // a @CalculatedColumn has no column: order by its value, selected with addSelectCalculated
   const calculatedAlias = alias ?? defaultAlias;

@@ -18,7 +18,7 @@ Defaults:
 type OrderParam<Entity> = {
   field: NonFunctionPropertyNames<Required<Entity>>;
   direction?: 'asc' | 'desc' | 'ASC' | 'DESC' | 1 | -1 | true | false;
-  nulls?: 'first' | 'last' | 'FIRST' | 'LAST';
+  nulls?: 'first' | 'last' | 'FIRST' | 'LAST' | 'NULLS FIRST' | 'NULLS LAST' | 'nulls first' | 'nulls last';
   isReversed?: boolean;
   tableAlias?: string;
 };
@@ -26,7 +26,7 @@ type OrderParam<Entity> = {
 
 - `field`: entity property to order by.
 - `direction`: `'asc'` / `'desc'` in any case; `1` is `ASC`, `-1` is `DESC`; `true` is `ASC`, `false` is `DESC`.
-- `nulls`: `NULLS FIRST` / `NULLS LAST`.
+- `nulls`: `NULLS FIRST` / `NULLS LAST`, given as `first` / `last` or in the SQL form, in any case and with spaces around. Any other value adds no `NULLS`.
 - `isReversed`: used only when `direction` is not set: `true` is `DESC`, `false` is `ASC`.
 - `tableAlias`: alias to prefix the field with, e.g. a joined relation's alias. Takes precedence over `ApplyOrderOptions.alias`.
 

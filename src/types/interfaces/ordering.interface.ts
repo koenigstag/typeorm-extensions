@@ -2,7 +2,8 @@ import { NonFunctionPropertyNames } from "../util-types";
 
 export type OrderDirection = 'asc' | 'desc' | 'ASC' | 'DESC' | 1 | -1 | true | false;
 
-export type NullsOrder = 'first' | 'last' | 'FIRST' | 'LAST';
+/** `first` / `last`, or the SQL form `NULLS FIRST` / `NULLS LAST`, in any case. */
+export type NullsOrder = 'first' | 'last' | 'FIRST' | 'LAST' | 'NULLS FIRST' | 'NULLS LAST' | 'nulls first' | 'nulls last';
 
 export type OrderParam<Entity> = {
   field: NonFunctionPropertyNames<Required<Entity>>;

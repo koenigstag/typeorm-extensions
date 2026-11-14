@@ -1,5 +1,5 @@
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import type { OrderDirection } from '../types/interfaces/ordering.interface';
+import type { NullsOrder, OrderDirection } from '../types/interfaces/ordering.interface';
 import type { ArgsType } from '../types/util-types';
 import { defaultOrderDirection } from '../constants';
 import { assertArrayType, createUniqueParameterName } from './sql.utils';
@@ -22,6 +22,21 @@ export function toSqlOrderDirection(direction: OrderDirection | undefined | null
   }
 
   return defaultOrderDirection;
+}
+
+/**
+ * `'NULLS FIRST'` / `'NULLS LAST'` for `first` / `last` or the SQL form itself, in any case and with
+ * spaces around: TypeORM takes only the exact SQL form. `undefined` for anything else.
+ */
+export function toSqlNullsOrder(nulls: NullsOrder | undefined | null): 'NULLS FIRST' | 'NULLS LAST' | undefined {
+  if (typeof nulls !== 'string') {
+    return undefined;
+  }
+
+  const value = nulls.trim().toLowerCase();
+  const order = value.startsWith('nulls') ? value.slice('nulls'.length).trim() : value;
+
+  return order === 'first' || order === 'last' ? (`NULLS ${order.toUpperCase()}` as 'NULLS FIRST' | 'NULLS LAST') : undefined;
 }
 
 /**

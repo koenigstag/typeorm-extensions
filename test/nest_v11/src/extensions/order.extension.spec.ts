@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/order.extension';
-import { setupTest, createFakeUsers, sqlOf } from '../test-utils';
+import { setupTest, createFakeUsers, mysqlRun, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 
 setupTest(
@@ -86,3 +86,28 @@ setupTest(
     // TODO Add negative test cases
   },
 );
+
+setupTest('order.applyOrder.nulls', undefined, (context) => {
+  const query = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+
+  // MySQL has no NULLS FIRST / LAST
+  (mysqlRun ? it.skip : it)('SHOULD take the SQL form of NULLS as well as first / last, in any case', async () => {
+    for (const nulls of ['last', 'LAST', 'NULLS LAST', 'nulls last', '  Nulls  Last '] as const) {
+      const sql = sqlOf(query().applyOrder({ field: 'firstName', direction: 'DESC', nulls: nulls as 'last' }));
+
+      expect(sql).toMatch(/DESC NULLS LAST$/);
+      expect(sql).not.toMatch(/NULLS NULLS/);
+    }
+
+    const ordered = query().applyOrder({ field: 'firstName', nulls: 'NULLS FIRST' });
+
+    expect(sqlOf(ordered)).toMatch(/ASC NULLS FIRST$/);
+    await expect(ordered.getMany()).resolves.toEqual([]);
+  });
+
+  it('SHOULD leave out a NULLS order it does not recognise', () => {
+    for (const nulls of ['firstly', 'nulls', 'first nulls', ''] as const) {
+      expect(sqlOf(query().applyOrder({ field: 'firstName', nulls: nulls as 'first' }))).not.toContain('NULLS');
+    }
+  });
+});
