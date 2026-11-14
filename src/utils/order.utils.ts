@@ -4,24 +4,41 @@ import type { ArgsType } from '../types/util-types';
 import { defaultOrderDirection } from '../constants';
 import { assertArrayType, createUniqueParameterName } from './sql.utils';
 
+// a query parameter is text: `?isReversed=false` arrives as 'false', which is truthy
+const fromQueryText = (value: string): string | number | boolean => {
+  const text = value.trim().toLowerCase();
+
+  if (text === 'true' || text === 'false') {
+    return text === 'true';
+  }
+
+  return text === '1' || text === '-1' ? Number(text) : text;
+};
+
 /**
  * `'ASC'` / `'DESC'` for any `OrderDirection`: `'asc'` / `'desc'` in any case, `1` / `-1`,
- * `true` (ASC) / `false` (DESC). Anything else is the default direction (ASC).
+ * `true` (ASC) / `false` (DESC), also as query-string text (`'-1'`, `'false'`, `' desc '`).
+ * Anything else is the default direction (ASC).
  */
 export function toSqlOrderDirection(direction: OrderDirection | undefined | null): 'ASC' | 'DESC' {
-  if (typeof direction === 'boolean') {
-    return direction ? 'ASC' : 'DESC';
+  const value = typeof direction === 'string' ? fromQueryText(direction) : direction;
+
+  if (typeof value === 'boolean') {
+    return value ? 'ASC' : 'DESC';
   }
 
-  if (typeof direction === 'number') {
-    return direction === -1 ? 'DESC' : 'ASC';
+  if (typeof value === 'number') {
+    return value === -1 ? 'DESC' : 'ASC';
   }
 
-  if (typeof direction === 'string' && /asc|desc/i.test(direction)) {
-    return direction.toUpperCase() as 'ASC' | 'DESC';
-  }
+  return value === 'asc' || value === 'desc' ? (value.toUpperCase() as 'ASC' | 'DESC') : defaultOrderDirection;
+}
 
-  return defaultOrderDirection;
+/** `isReversed` as a boolean, also from query-string text (`'true'`, `'false'`); `undefined` for anything else. */
+export function toReversedFlag(isReversed: unknown): boolean | undefined {
+  const value = typeof isReversed === 'string' ? fromQueryText(isReversed) : isReversed;
+
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 /**

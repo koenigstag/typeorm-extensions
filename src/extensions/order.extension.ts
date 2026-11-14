@@ -11,7 +11,7 @@ import { isNil } from '../utils/common.utils';
 import type { ApplyOrderOptions } from '../types/extensions/order.types';
 import { patchPrototype } from '../utils/prototype.utils';
 import { tableHelper } from '../utils/table.utils';
-import { toSqlNullsOrder, toSqlOrderDirection } from '../utils/order.utils';
+import { toReversedFlag, toSqlNullsOrder, toSqlOrderDirection } from '../utils/order.utils';
 import { getColumnDatabaseName } from '../utils/query-builder.utils';
 import { getDriverType } from '../utils/sql.utils';
 import { isCalculatedColumn, selectCalculatedForOrder } from '../utils/calculated-column.utils';
@@ -98,9 +98,10 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
     otherTableAlias || customAlias ||
     (alwaysAliasFields.includes(field as string) ? defaultAlias : undefined);
 
+  const reversed = toReversedFlag(isReversed);
   const order =
-    typeof isReversed === 'boolean' && isNil(direction)
-      ? (isReversed ? 'DESC' : 'ASC')
+    reversed !== undefined && isNil(direction)
+      ? (reversed ? 'DESC' : 'ASC')
       : toSqlOrderDirection(direction);
 
   const nulls = toSqlNullsOrder(nullsOrder) ?? defaultNullsOrder;

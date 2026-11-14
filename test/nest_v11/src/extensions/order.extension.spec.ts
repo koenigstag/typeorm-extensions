@@ -111,3 +111,20 @@ setupTest('order.applyOrder.nulls', undefined, (context) => {
     }
   });
 });
+
+setupTest('order.applyOrder.queryText', undefined, (context) => {
+  const query = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+  const orderOf = (sql: string) => / ORDER BY .* (ASC|DESC)$/.exec(sql)?.[1];
+
+  it('SHOULD read isReversed sent as query-string text', () => {
+    expect(orderOf(sqlOf(query().applyOrder({ field: 'firstName', isReversed: 'true' as unknown as boolean })))).toBe('DESC');
+    expect(orderOf(sqlOf(query().applyOrder({ field: 'firstName', isReversed: ' FALSE ' as unknown as boolean })))).toBe('ASC');
+    expect(orderOf(sqlOf(query().applyOrder({ field: 'firstName', isReversed: 'maybe' as unknown as boolean })))).toBe('ASC');
+  });
+
+  it('SHOULD read direction sent as query-string text, and fall back to ASC on anything else', () => {
+    for (const [direction, order] of [['-1', 'DESC'], ['1', 'ASC'], ['false', 'DESC'], [' desc ', 'DESC'], ['ascending', 'ASC'], ['', 'ASC']]) {
+      expect(orderOf(sqlOf(query().applyOrder({ field: 'firstName', direction: direction as 'asc' })))).toBe(order);
+    }
+  });
+});

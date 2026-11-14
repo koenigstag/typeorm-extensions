@@ -25,9 +25,9 @@ type OrderParam<Entity> = {
 ```
 
 - `field`: entity property to order by.
-- `direction`: `'asc'` / `'desc'` in any case; `1` is `ASC`, `-1` is `DESC`; `true` is `ASC`, `false` is `DESC`.
+- `direction`: `'asc'` / `'desc'` in any case; `1` is `ASC`, `-1` is `DESC`; `true` is `ASC`, `false` is `DESC`. The same values as query-string text (`'-1'`, `'false'`) work too, as an unparsed query parameter holds them. Anything else is `ASC`.
 - `nulls`: `NULLS FIRST` / `NULLS LAST`, given as `first` / `last` or in the SQL form, in any case and with spaces around. Any other value adds no `NULLS`.
-- `isReversed`: used only when `direction` is not set: `true` is `DESC`, `false` is `ASC`.
+- `isReversed`: used only when `direction` is not set: `true` is `DESC`, `false` is `ASC`, also as the text `'true'` / `'false'`.
 - `tableAlias`: alias to prefix the field with, e.g. a joined relation's alias. Takes precedence over `ApplyOrderOptions.alias`.
 
 ## Example
