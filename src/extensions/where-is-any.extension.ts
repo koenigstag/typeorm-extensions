@@ -11,6 +11,7 @@ import {
   assertArrayType,
   createUniqueParameterName,
 } from '../utils/sql.utils';
+import { toValueList } from '../utils/where.utils';
 
 // declarations
 
@@ -124,8 +125,9 @@ function attachWhereIsAny<QB extends WhereExpressionBuilder>(
   }
 
   const castTo = arrayType === undefined ? undefined : assertArrayType(arrayType);
+  const values = toValueList(array, method);
 
-  if (!array?.length) {
+  if (!values.length) {
     // don't bind an empty array, same as IN / NOT IN:
     // `= ANY('{}')` matches nothing, `<> ALL('{}')` matches everything
     return builder[method](comparison === '= ANY' ? 'FALSE' : 'TRUE');
@@ -138,6 +140,6 @@ function attachWhereIsAny<QB extends WhereExpressionBuilder>(
   // "table"."column" = ANY(:param) / <> ALL(:param), where :param is the whole array
   return builder[method](
     `${toFieldSql(builder, field)} ${comparison}(${parameter})`,
-    { [paramName]: array }
+    { [paramName]: values }
   );
 }

@@ -3,7 +3,7 @@ import { ArgsType } from '../types/util-types';
 import { patchPrototype } from '../utils/prototype.utils';
 import { findFieldColumn, toFieldSql } from '../utils/query-builder.utils';
 import { assertArrayType, createUniqueParameterName } from '../utils/sql.utils';
-import { andWhereNarrowing } from '../utils/where.utils';
+import { andWhereNarrowing, toValueList } from '../utils/where.utils';
 
 // declarations
 
@@ -54,8 +54,9 @@ function innerJoinUnnest<Entity extends ObjectLiteral>(
   arrayType?: string
 ): SelectQueryBuilder<Entity> {
   const givenType = arrayType === undefined ? undefined : assertArrayType(arrayType);
+  const values = toValueList(array, 'innerJoinUnnest');
 
-  if (!array?.length) {
+  if (!values.length) {
     // narrows the whole WHERE, as the join does: after .where(a).orWhere(b) not a OR b AND FALSE
     return andWhereNarrowing(builder, 'FALSE');
   }
@@ -71,7 +72,7 @@ function innerJoinUnnest<Entity extends ObjectLiteral>(
     `(SELECT DISTINCT unnest(CAST(:${paramName} AS ${castTo})) AS ${value})`,
     alias,
     `${toFieldSql(builder, field)} = ${builder.escape(alias)}.${value}`,
-    { [paramName]: array }
+    { [paramName]: values }
   );
 }
 

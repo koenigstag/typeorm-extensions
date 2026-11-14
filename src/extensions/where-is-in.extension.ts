@@ -6,7 +6,7 @@ import {
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import { ArgsType } from '../types/util-types';
 import { WhereMethods } from '../types/extensions';
-import { attachWhere } from '../utils/where.utils';
+import { attachWhere, toValueList } from '../utils/where.utils';
 
 // declarations
 
@@ -104,7 +104,9 @@ function attachWhereIsIn<
   array?: ArgsType
 ): QB {
   if (method && typeof field === 'string' && typeof operator === 'string') {
-    if (!array?.length) {
+    const values = toValueList(array, method);
+
+    if (!values.length) {
       // if the array is empty, we can use a simple condition
       // IN (empty array) => FALSE
       // NOT IN (empty array) => TRUE
@@ -116,7 +118,7 @@ function attachWhereIsIn<
       method,
       field,
       operator,
-      { value: array },
+      { value: values },
       {
         addValue: true,
       }

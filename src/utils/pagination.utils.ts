@@ -20,7 +20,8 @@ export const setPageLimit = <Entity extends ObjectLiteral>(
   useTakeAndSkip: boolean
 ): SelectQueryBuilder<Entity> => (useTakeAndSkip ? builder.take(limit) : builder.limit(limit));
 
-export const getLimitAndOffset =({ page, pageSize }: PaginationFilter) => {
+export const getLimitAndOffset = (paginationFilter: PaginationFilter | null | undefined) => {
+  const { page, pageSize } = paginationFilter ?? {};
   const normalizedPage = toPositiveInteger(page, 1);
   const normalizedPageSize = normalizePageSize(pageSize);
 

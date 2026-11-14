@@ -17,6 +17,40 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   return `:${paramName}`;
 }
 
+const SCALAR_TYPES: readonly string[] = ['string', 'number', 'bigint', 'boolean'];
+const ARRAY_INDEX = /^(?:0|[1-9]\d*)$/;
+
+const isIndexedObject = (value: object): boolean => {
+  const prototype = Object.getPrototypeOf(value);
+
+  return (prototype === Object.prototype || prototype === null) && Object.keys(value).every((key) => ARRAY_INDEX.test(key));
+};
+
+/**
+ * The values of an IN / ANY / unnest list. A query string gives one value as a string (`?ids=2`) and a
+ * long list as an object (`{ 0: '1', 1: '2' }`); `null`, `undefined` and `''` are an empty list.
+ * Anything else throws a `TypeError` rather than matching all rows or none.
+ */
+export function toValueList(values: unknown, methodName: string): readonly unknown[] {
+  if (values === undefined || values === null || values === '') {
+    return [];
+  }
+
+  if (Array.isArray(values)) {
+    return values;
+  }
+
+  if (SCALAR_TYPES.includes(typeof values) || isDate(values)) {
+    return [values];
+  }
+
+  if (typeof values === 'object' && isIndexedObject(values)) {
+    return Object.values(values);
+  }
+
+  throw new TypeError(`${methodName} expects an array of values, got ${typeof values}`);
+}
+
 /**
  * A condition that ends with an operator, `=`, `>=`, `LIKE`, `IN`, `@>`: it needs a value after it. A word after
  * `:` or `.` is a parameter or a column (`ILIKE :like`, `= t.in`), not an operator.

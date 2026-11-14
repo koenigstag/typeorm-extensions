@@ -34,11 +34,18 @@ export function toSqlOrderDirection(direction: OrderDirection | undefined | null
   return value === 'asc' || value === 'desc' ? (value.toUpperCase() as 'ASC' | 'DESC') : defaultOrderDirection;
 }
 
-/** `isReversed` as a boolean, also from query-string text (`'true'`, `'false'`); `undefined` for anything else. */
+/**
+ * `isReversed` as a boolean: also `1` / `0` and query-string text (`'true'`, `'false'`, `'1'`, `'0'`);
+ * `undefined` for anything else.
+ */
 export function toReversedFlag(isReversed: unknown): boolean | undefined {
   const value = typeof isReversed === 'string' ? fromQueryText(isReversed) : isReversed;
 
-  return typeof value === 'boolean' ? value : undefined;
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  return value === 1 || value === 0 || value === '0' ? value === 1 : undefined;
 }
 
 /**

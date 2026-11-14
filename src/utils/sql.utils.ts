@@ -17,6 +17,12 @@ const IDENTIFIER = `(?:${UNQUOTED_IDENTIFIER}|${DOUBLE_QUOTED_IDENTIFIER}|${BACK
 // `id`, `user.id`, `"user"."id"`, `schema.table.column`, optionally ending with `.*`
 const IDENTIFIER_PATH = new RegExp(`^${IDENTIFIER}(?:\\.${IDENTIFIER})*(?:\\.\\*)?$`, 'u');
 const IDENTIFIER_PATH_SEGMENT = new RegExp(`${IDENTIFIER}|\\*`, 'gu');
+const SINGLE_DOUBLE_QUOTED_IDENTIFIER = new RegExp(`^${DOUBLE_QUOTED_IDENTIFIER}$`, 'u');
+const SINGLE_BACK_QUOTED_IDENTIFIER = new RegExp(`^${BACK_QUOTED_IDENTIFIER}$`, 'u');
+const UNQUOTED_IDENTIFIER_PATH = new RegExp(`^${UNQUOTED_IDENTIFIER}(?:\\.${UNQUOTED_IDENTIFIER})*$`, 'u');
+
+/** `user.firstName`, `firstName`: unquoted identifiers joined by dots, nothing else. */
+export const isUnquotedIdentifierPath = (value: string): boolean => UNQUOTED_IDENTIFIER_PATH.test(value);
 
 /** MySQL, MariaDB and Aurora MySQL: backtick identifiers, `<=>` null-safe comparison. */
 export const isMysqlLikeDriver = (driver?: DatabaseType): boolean =>
@@ -57,7 +63,8 @@ export const quoteIdentifier = (name: string, driver?: DatabaseType): string => 
   const mysql = isMysqlLikeDriver(driver);
   const quote = mysql ? BACKTICK : '"';
 
-  if (name.length >= 2 && name.startsWith(quote) && name.endsWith(quote)) {
+  // only one whole quoted identifier is kept: `"id" * (SELECT …), "id"` starts and ends with a quote too
+  if ((mysql ? SINGLE_BACK_QUOTED_IDENTIFIER : SINGLE_DOUBLE_QUOTED_IDENTIFIER).test(name)) {
     return name;
   }
 
