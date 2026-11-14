@@ -15,7 +15,8 @@ export interface JoinUnnestMethods {
    * large array the planner can join from it instead of testing every row against it.
    *
    * `arrayType` (`'uuid[]'`) defaults to the array of the column type, when `field` names an entity
-   * column; otherwise, and for enum columns, it is required. An empty array matches no row.
+   * column, quoted (`"user"."id"`, as `tableHelper` writes it) or not; otherwise, and for enum
+   * columns, it is required. An empty array matches no row, and needs no type.
    * PostgreSQL and CockroachDB.
    */
   innerJoinUnnest(field: string, array: ArgsType | null | undefined, arrayType?: string): this;
@@ -52,12 +53,14 @@ function innerJoinUnnest<Entity extends ObjectLiteral>(
   array: ArgsType | null | undefined,
   arrayType?: string
 ): SelectQueryBuilder<Entity> {
-  const castTo = assertArrayType(arrayType ?? columnArrayType(builder, field));
+  const givenType = arrayType === undefined ? undefined : assertArrayType(arrayType);
 
   if (!array?.length) {
     // narrows the whole WHERE, as the join does: after .where(a).orWhere(b) not a OR b AND FALSE
     return andWhereNarrowing(builder, 'FALSE');
   }
+
+  const castTo = givenType ?? assertArrayType(columnArrayType(builder, field));
 
   const paramName = createUniqueParameterName('unnest');
   const alias = createUniqueParameterName('unnest');
@@ -77,7 +80,7 @@ function columnArrayType<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   field: string
 ): string {
-  const column = findFieldColumn(builder, field);
+  const column = findFieldColumn(builder, unquotePath(field));
 
   if (!column || column.type === 'enum' || column.type === 'simple-enum') {
     throw new TypeError(
@@ -89,4 +92,19 @@ function columnArrayType<Entity extends ObjectLiteral>(
   const driver = (builder as unknown as QueryBuilder<ObjectLiteral>).connection.driver;
 
   return `${driver.normalizeType(column)}[]`;
+}
+
+const QUOTED_PATH = /^"((?:[^"]|"")+)"(?:\."((?:[^"]|"")+)")?$/;
+
+/** `"user"."id"` as `user.id`, the form `findFieldColumn` reads; any other field as it is. */
+function unquotePath(field: string): string {
+  const match = QUOTED_PATH.exec(field);
+  const parts = match ? [match[1], match[2]].filter((part): part is string => part !== undefined) : [];
+
+  // a name with a dot of its own would read as alias and column
+  if (!parts.length || parts.some((part) => part.includes('.'))) {
+    return field;
+  }
+
+  return parts.map((part) => part.replace(/""/g, '"')).join('.');
 }
