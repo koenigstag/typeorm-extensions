@@ -1,5 +1,6 @@
 import type { ObjectLiteral, SelectQueryBuilder } from "typeorm";
-import { defaultPageSize } from "../constants";
+import { defaultPageSize, defaultUseTakeAndSkip } from "../constants";
+import type { ApplyPaginationOptions } from "../types/extensions/pagination.types";
 import { PaginationFilter } from "../types/interfaces/pagination.interface";
 
 // an unparsed query parameter is a string: "20" + 1 would be "201"
@@ -29,4 +30,16 @@ export const getLimitAndOffset =({ page, pageSize }: PaginationFilter) => {
     page: normalizedPage,
     pageSize: normalizedPageSize,
   };
+};
+
+/** What `applyPagination` does, for code that must not depend on what is patched under that name. */
+export const paginateQuery = <Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  paginationFilter: PaginationFilter,
+  options?: ApplyPaginationOptions
+): SelectQueryBuilder<Entity> => {
+  const { useTakeAndSkip = defaultUseTakeAndSkip } = options || {};
+  const { limit, offset } = getLimitAndOffset(paginationFilter);
+
+  return useTakeAndSkip ? builder.take(limit).skip(offset) : builder.limit(limit).offset(offset);
 };

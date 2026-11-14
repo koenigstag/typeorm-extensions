@@ -2,14 +2,14 @@
 sidebar_position: 2
 ---
 
-# applyPaginationFilter
+# applyPagination
 
 ## Description
-`applyPaginationFilter` is a method that applies pagination to a query.
+`applyPagination` pages a query by `page` and `pageSize`: page 1 and 10 rows when they are missing. It adds `LIMIT` / `OFFSET`, or with `useTakeAndSkip` TypeORM's `take` / `skip`, which a query that joins a collection needs: `take` counts entities, `LIMIT` counts rows.
 
 ## Signature
 ```typescript
-applyPaginationFilter(
+applyPagination(
   paginationFilter: PaginationFilter,
   paginationOptions?: ApplyPaginationOptions
 ): SelectQueryBuilder<Entity>
@@ -22,5 +22,5 @@ applyPaginationFilter(
 ## Usage
 
 ```typescript
-query.applyPaginationFilter({ page: 1, pageSize: 10 }, { useTakeAndSkip: true })
+query.applyPagination({ page: 1, pageSize: 10 }, { useTakeAndSkip: true })
 ```

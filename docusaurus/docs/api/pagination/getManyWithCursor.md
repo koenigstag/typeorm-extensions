@@ -62,7 +62,7 @@ interface ListWithCursor<Entity> {
 
 - cursorFilter: The cursor and the page size, e.g. from query parameters.
 - options.orderBy: Properties of the main entity to order by, with `'ASC'` (default) or `'DESC'` (any `OrderDirection`: `'desc'`, `-1`, `false`, …). An unknown property throws a `TypeError`.
-- options.useTakeAndSkip: Use `take` instead of `limit`. Needed when the query joins a collection (`leftJoinAndSelect(user.images)`), as with [applyPaginationFilter](./applyPaginationFilter.md).
+- options.useTakeAndSkip: Use `take` instead of `limit`. Needed when the query joins a collection (`leftJoinAndSelect(user.images)`), as with [applyPagination](./applyPagination.md).
 
 ## Errors
 

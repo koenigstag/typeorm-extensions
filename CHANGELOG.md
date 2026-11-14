@@ -43,6 +43,10 @@ One change can make working code throw: a params object that goes after the cond
 - **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
 - **`tableHelper` takes a `driver` option**: `tableHelper('user', { driver: 'mysql' })` quotes with backticks.
 
+### Deprecations
+
+- **`applyPaginationFilter` is now `applyPagination`**, with the same arguments and result. The old name still works, marked `@deprecated`, and will be removed in 3.0. `getManyWithTotals` no longer calls either method through the query builder, so a method an application patches under one of these names doesn't change how it pages.
+
 ### Bug Fixes
 
 - **`leftJoinTyped` and the other typed joins given a string join it**: from untyped code, a string in place of the callback added no join and returned the builder as it was. It is joined as written now, as the typed map joins already did.

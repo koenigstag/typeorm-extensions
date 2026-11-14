@@ -58,7 +58,7 @@ npm install typeorm-extensions
 **Pagination** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/pagination/))
 - `getManyWithTotals` and `getRawManyWithTotals`: the rows of a page, the total, `page` / `pageSize`, `hasMore` and the order it was read in
 - `getManyWithCursor`: keyset pagination with an opaque cursor
-- `applyPaginationFilter` for a page of any query
+- `applyPagination` for a page of any query
 
 **Filters and ordering** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/where/))
 - `whereIsIn` / `whereIsNotIn` that handle empty arrays, `whereIsAny`, null-safe `whereIsDistinctFrom`

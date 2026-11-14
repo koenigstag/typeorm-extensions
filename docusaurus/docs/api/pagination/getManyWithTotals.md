@@ -10,7 +10,7 @@ sidebar_position: 3
 
 It runs two queries:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
-2. `getMany()` with [applyPaginationFilter](./applyPaginationFilter.md) applied, to get the page.
+2. `getMany()` with [applyPagination](./applyPagination.md) applied, to get the page.
 
 They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — they run one after another instead: there is a single connection, on which the driver would serialise them anyway, and on `pg` that queue is deprecated.
 

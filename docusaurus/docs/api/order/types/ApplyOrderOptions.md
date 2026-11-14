@@ -38,7 +38,7 @@ query
     order,
     { useQuotes: false } // ApplyOrderOptions
   )
-  .applyPaginationFilter(
+  .applyPagination(
     pagination,
     { useTakeAndSkip: true }
   )

@@ -2,7 +2,7 @@ import './pagination.extension';
 import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
-import { getLimitAndOffset, setPageLimit } from '../utils/pagination.utils';
+import { getLimitAndOffset, paginateQuery, setPageLimit } from '../utils/pagination.utils';
 import { defaultUseTakeAndSkip } from '../constants';
 import type {
   ApplyPaginationOptions,
@@ -149,15 +149,12 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
       return read.rows(builder);
     }
 
-    const paged = builder.applyPaginationFilter(
-      paginationFilter,
-      paginationOptions
-    );
+    const paged = paginateQuery(builder, paginationFilter, paginationOptions);
 
     if (probeForMore) {
       const { useTakeAndSkip = defaultUseTakeAndSkip } = paginationOptions;
 
-      // replaces the limit applyPaginationFilter just set, keeping its offset
+      // replaces the limit paginateQuery just set, keeping its offset
       setPageLimit(paged, limit + 1, useTakeAndSkip);
     }
 

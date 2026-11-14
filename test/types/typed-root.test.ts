@@ -133,7 +133,7 @@ typed.orderByTyped((q) => q.event.id).addOrderByTyped((q) => q.checkin.id).andWh
 typed.distinctOnTyped((q) => q.event.id).andWhereTyped((q) => q.checkin.customerId, '=', 'c');
 typed.whereIsIn('checkin.id', ['a']).andWhereIsNotIn('event.id', []).andWhereTyped((q) => q.checkin.id, '=', 'c');
 typed.whereIsAny('checkin.id', ['a']).andWhereIsNotAny('event.id', []).andWhereTyped((q) => q.checkin.id, '=', 'c');
-typed.applyOrder({ field: 'checkin.id' }).applyPaginationFilter({ page: 1 }).andWhereTyped((q) => q.checkin.id, '=', 'c');
+typed.applyOrder({ field: 'checkin.id' }).applyPagination({ page: 1 }).andWhereTyped((q) => q.checkin.id, '=', 'c');
 
 // the root import loads getManyWithCursor too: a builder still goes where SelectQueryBuilder<ObjectLiteral> does
 declare function countRows(query: SelectQueryBuilder<ObjectLiteral>): Promise<number>;
