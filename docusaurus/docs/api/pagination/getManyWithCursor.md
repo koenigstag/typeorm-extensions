@@ -27,7 +27,7 @@ How it works:
 - The cursor condition narrows the whole WHERE clause: existing OR conditions are put in parentheses first.
 - The query builder itself is not changed.
 
-Key columns must not be `NULL`.
+Key columns must not be `NULL`. To order by a computed value, use [getRawManyWithCursor](./getRawManyWithCursor.md).
 
 ## Signature
 

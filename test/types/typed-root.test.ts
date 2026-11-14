@@ -156,3 +156,11 @@ void checkIns.getManyWithCursor(null, { orderBy: [{ field: 'id' }] });
 void typed.getManyWithCursor(null, { orderBy: [{ field: 'eventType' }] });
 // @ts-expect-error not a property of the entity
 void checkIns.getManyWithCursor(null, { orderBy: [{ field: 'eventType' }] });
+
+// raw rows have the caller's row type, and SQL keys
+type RankedRow = { id: string; rank: number };
+const rawCursorPage = typed.getRawManyWithCursor<RankedRow>(null, { orderBy: [{ selector: 'checkin.id', direction: 'DESC' }] });
+const rawCursorList: Equal<Awaited<typeof rawCursorPage>['list'], RankedRow[]> = true;
+void rawCursorList;
+// @ts-expect-error a raw key is an SQL selector, not a field
+void checkIns.getRawManyWithCursor(null, { orderBy: [{ field: 'id' }] });

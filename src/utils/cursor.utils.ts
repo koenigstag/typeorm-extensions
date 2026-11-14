@@ -55,6 +55,21 @@ const fromBase64Url = (value: string): string => {
   );
 };
 
+/**
+ * Short stable name of an SQL expression key, for the cursor to recognise its order by: a cursor
+ * carries no SQL. 32-bit FNV-1a; telling orders apart doesn't need more.
+ */
+export function getExpressionKeyName(selector: string): string {
+  let hash = 0x811c9dc5;
+
+  for (let i = 0; i < selector.length; i++) {
+    hash ^= selector.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return `sql:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
 /** base64url-encoded JSON of the key fields and the key values of the last row. */
 export function encodeCursor(fields: string[], values: unknown[]): string {
   const payload: CursorPayload = { k: fields, v: values.map(toCursorValue) };
