@@ -3,6 +3,14 @@ import { DriverUtils } from 'typeorm/driver/DriverUtils';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { createUniqueParameterName } from './sql.utils';
 
+/** `addSelect`'s selection: an SQL expression, or a factory that builds a subquery on the builder it is given. */
+export type CalculatedSelection<SubEntity extends ObjectLiteral = ObjectLiteral> =
+  | string
+  | ((qb: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<SubEntity>);
+
+const ORDER_ALIAS_PREFIX = 'calculated';
+const ORDER_ALIAS_PATTERN = new RegExp(`^${ORDER_ALIAS_PREFIX}_\\w+$`);
+
 type ResolvedCalculatedColumn = {
   /** The key TypeORM reads the column's value from when it builds the entity. */
   key: string;
@@ -33,7 +41,7 @@ function findCalculatedColumn<Entity extends ObjectLiteral>(
 }
 
 // @CalculatedColumn: a virtual property without the query of TypeORM's @VirtualColumn
-const isCalculated = (column: ColumnMetadata | undefined): column is ColumnMetadata =>
+export const isCalculated = (column: ColumnMetadata | undefined): column is ColumnMetadata =>
   !!column?.isVirtualProperty && !column.query;
 
 /** Whether `property` of the entity of `aliasName` (the main alias by default) is a `@CalculatedColumn`. */
@@ -79,6 +87,9 @@ export function resolveCalculatedColumn<Entity extends ObjectLiteral>(
  * The alias the entity is built from can't be ordered by: PostgreSQL folds it unquoted
  * (`user_imagesCount` → `user_imagescount`), and quoted it breaks the DISTINCT query TypeORM pages
  * through with `take` / `skip` and joins, which takes only select aliases it knows unquoted.
+ *
+ * A value already selected for order keeps its alias, so ORDER BY and DISTINCT ON name the same
+ * column: PostgreSQL requires DISTINCT ON to match the leading ORDER BY.
  */
 export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
@@ -93,10 +104,55 @@ export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
     throw new TypeError(`${methodName}: ${label} isn't selected: select it with addSelectCalculated first`);
   }
 
-  const orderAlias = createUniqueParameterName('calculated').toLowerCase();
+  // found by its SQL rather than kept aside, so a clone of the builder finds it too
+  const selectedForOrder = builder.expressionMap.selects.find(
+    (candidate) =>
+      candidate.aliasName !== undefined &&
+      ORDER_ALIAS_PATTERN.test(candidate.aliasName) &&
+      candidate.selection === select.selection
+  );
+
+  if (selectedForOrder?.aliasName) {
+    return selectedForOrder.aliasName;
+  }
+
+  const orderAlias = createUniqueParameterName(ORDER_ALIAS_PREFIX).toLowerCase();
 
   // TypeORM keeps a subquery selection as its SQL, with its parameters already on the builder
   builder.addSelect(select.selection, orderAlias);
 
   return orderAlias;
+}
+
+/** Selects `selection` into the `@CalculatedColumn` `property` of the entity of `aliasName` (the main alias by default). */
+export function addSelectCalculatedColumn<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  selection: CalculatedSelection<SubEntity>,
+  property: string,
+  aliasName: string | undefined,
+  methodName: string
+): SelectQueryBuilder<Entity> {
+  const { key } = resolveCalculatedColumn(builder, property, aliasName, methodName);
+
+  // two calls: addSelect's overloads take a string or a factory, not their union
+  if (typeof selection === 'function') {
+    return builder.addSelect(selection, key);
+  }
+
+  return builder.addSelect(selection, key);
+}
+
+/** ORDER BY the value of a `@CalculatedColumn` selected with `addSelectCalculated`, through `orderBy` or `addOrderBy`. */
+export function orderByCalculatedColumn<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  method: 'orderBy' | 'addOrderBy',
+  property: string,
+  order: 'ASC' | 'DESC' | undefined,
+  nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined,
+  aliasName: string | undefined,
+  methodName: string
+): SelectQueryBuilder<Entity> {
+  const orderAlias = selectCalculatedForOrder(builder, property, aliasName, methodName);
+
+  return builder[method](orderAlias, order, nulls);
 }

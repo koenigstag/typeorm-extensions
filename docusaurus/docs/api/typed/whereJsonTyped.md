@@ -7,7 +7,7 @@ sidebar_position: 5.7
 ## Description
 Typesafe conditions on PostgreSQL `jsonb` / `json` columns: the column comes from an entity property instead of a string. They work like [whereJsonContains / whereJsonHasKey](../where/whereJson.md): `@>` and `?` on the column cast to `jsonb`, which still uses a GIN index on `jsonb` columns.
 
-The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias. The callback may go into the column to check a nested object: `user => user.metadata.settings` is `"user"."metadata" -> 'settings'` (see [Paths into JSON columns](./whereTyped.md#paths-into-json-columns)).
+The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column is not prefixed with an alias. The callback may go into the column to check a nested object: `user => user.metadata.settings` is `"user"."metadata" -> 'settings'` (see [Paths into JSON columns](./whereTyped.md#paths-into-json-columns)).
 
 **PostgreSQL only** (and compatible databases such as CockroachDB).
 

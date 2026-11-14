@@ -10,11 +10,11 @@ sidebar_position: 3
 
 - Works for any number of values. PostgreSQL allows at most 65535 bind parameters per query, so `IN` with more values fails, e.g. with `bind message has 4464 parameter formats but 0 parameters` for 70 000 values.
 - The SQL text is the same for any array length, which helps prepared statements and `pg_stat_statements`.
-- An empty (or missing) array becomes `FALSE` (no rows match), like `whereIsIn`.
+- An empty (or missing) array becomes `FALSE` (no rows match), like `whereIsIn`. A missing array (`null`, `undefined`) is read as an empty one, not as SQL `NULL`: in a negated group (`NOT (…)`) it matches every row, where `NOT (x = ANY(NULL))` would match none.
 
 **PostgreSQL only** (and compatible databases such as CockroachDB): it needs array parameters.
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 

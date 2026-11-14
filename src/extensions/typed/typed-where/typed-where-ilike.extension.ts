@@ -2,8 +2,6 @@ import {
   ObjectLiteral,
   SelectQueryBuilder,
   WhereExpressionBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import type {
@@ -13,7 +11,7 @@ import type {
 } from '../../../types/extensions/search.types';
 import type { WhereMethods } from '../../../types/extensions/where.types';
 import { getTypedColumnKey, getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { createUniqueParameterName, getDriverType } from '../../../utils/sql.utils';
 import {
   buildILikeCondition,
@@ -37,7 +35,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -47,7 +45,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column ILIKE :pattern` condition in the query builder.
    * `null`, `undefined` or a blank value adds no condition.
    */
-  andWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -57,7 +55,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column ILIKE :pattern` condition in the query builder.
    * `null`, `undefined` or a blank value adds no condition.
    */
-  orWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -71,7 +69,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selectors: ReadonlyArray<SearchSelector<Type>>,
     value: string | null | undefined,
     options?: TypedSearchOptions
@@ -81,7 +79,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
-  andWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selectors: ReadonlyArray<SearchSelector<Type>>,
     value: string | null | undefined,
     options?: TypedSearchOptions
@@ -91,7 +89,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
-  orWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selectors: ReadonlyArray<SearchSelector<Type>>,
     value: string | null | undefined,
     options?: TypedSearchOptions
@@ -113,6 +111,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereILikeMethods<Entity> {}
+}
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereILikeMethods<Entity> {}
 }
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
@@ -172,15 +174,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 

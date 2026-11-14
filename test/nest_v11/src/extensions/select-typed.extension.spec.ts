@@ -1,9 +1,24 @@
 import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
+import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
 import { createFakeUsers, setupTest } from "../test-utils";
-import { UserEntity } from "../models";
+import { LegacyColumnsEntity, UserEntity } from "../models";
 import { sqlOf } from '../test-utils';
 
 setupTest('select-typed.where', undefined, (context) => {
+  it('SHOULD read a KeyHolder like a callback: under the main alias, with the column name when quoted', async () => {
+    const legacy = context.dataSource.getRepository(LegacyColumnsEntity);
+    await legacy.save([new LegacyColumnsEntity({ firstName: 'Bob' }), new LegacyColumnsEntity({ firstName: 'Ann' })]);
+
+    const quoted = legacy.createQueryBuilder('legacy').selectTyped(new KeyHolder(['firstName']), 'name', true);
+
+    expect(sqlOf(quoted)).toContain('SELECT "legacy"."first-name" AS "name"');
+    expect(await quoted.getRawMany()).toEqual([{ name: 'Bob' }, { name: 'Ann' }]);
+
+    const mapped = legacy.createQueryBuilder('legacy').selectTyped([new KeyHolder(['firstName'])]);
+
+    expect(sqlOf(mapped)).toContain('SELECT "legacy"."first-name" AS "legacy_first-name"');
+  });
+
   it('SHOULD select single column correctly', async () => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 

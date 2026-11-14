@@ -2,16 +2,14 @@ import {
   ObjectLiteral,
   SelectQueryBuilder,
   WhereExpressionBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { TypedWhereArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
-import { attachWhere, isParamsObject } from '../../../utils/where.utils';
+import { attachWhere, getComparedValue } from '../../../utils/where.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
@@ -33,7 +31,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -47,7 +45,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -61,7 +59,7 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
     Value extends ProxyColumnValueType = ProxyColumnValueType,
     Operator extends string = string,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity>>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     conditions: Operator,
     ...args: TypedWhereArgs<Type, Operator, Value>
   ): this;
@@ -82,6 +80,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereMethods<Entity> {}
+}
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereMethods<Entity> {}
 }
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
@@ -113,15 +115,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 
@@ -141,7 +135,7 @@ function attachTypedWhere<
   if (typeof where === 'function') {
     // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
     // a path into a JSON column is cast to the type of the value it is compared with
-    const value = isParamsObject(parameters) ? Object.values(parameters)[0] : parameters;
+    const value = getComparedValue(parameters);
     const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
 
     return attachWhere<QB>(builder, method, key, conditions, parameters, {

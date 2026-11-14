@@ -2,10 +2,8 @@ import {
   SelectQueryBuilder,
   WhereExpressionBuilder,
   ObjectLiteral,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
-import { patchPrototype } from '../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import { toFieldSql } from '../utils/query-builder.utils';
 import { ArgsType } from '../types/util-types';
 import { WhereMethods } from '../types/extensions';
@@ -16,169 +14,66 @@ import {
 
 // declarations
 
+export interface WhereIsAnyMethods {
+  /**
+   * Sets WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
+   * The array is bound as a single parameter instead of one parameter per value.
+   * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
+   * If you had previously WHERE expression defined,
+   * calling this function will override previously set WHERE conditions.
+   */
+  whereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
+
+  /**
+   * Adds new AND WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
+   */
+  andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
+
+  /**
+   * Adds new OR WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
+   */
+  orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
+
+  /**
+   * Sets WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL):
+   * the field differs from every value of the array.
+   * If you had previously WHERE expression defined,
+   * calling this function will override previously set WHERE conditions.
+   */
+  whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
+
+  /**
+   * Adds new AND WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
+   */
+  andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
+
+  /**
+   * Adds new OR WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
+   */
+  orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
+}
+
+/* eslint-disable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 declare module 'typeorm/query-builder/WhereExpressionBuilder' {
-  interface WhereExpressionBuilder {
-    /**
-     * Sets WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     * The array is bound as a single parameter instead of one parameter per value.
-     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
-
-    /**
-     * Adds new AND WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
-
-    /**
-     * Adds new OR WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): this;
-
-    /**
-     * Sets WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL):
-     * the field differs from every value of the array.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
-
-    /**
-     * Adds new AND WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
-
-    /**
-     * Adds new OR WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): this;
-  }
+  interface WhereExpressionBuilder extends WhereIsAnyMethods {}
 }
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity extends ObjectLiteral> {
-    /**
-     * Sets WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     * The array is bound as a single parameter instead of one parameter per value.
-     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
-
-    /**
-     * Sets WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL):
-     * the field differs from every value of the array.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): SelectQueryBuilder<Entity>;
-  }
+  interface SelectQueryBuilder<Entity extends ObjectLiteral> extends WhereIsAnyMethods {}
 }
 
 declare module 'typeorm/query-builder/UpdateQueryBuilder' {
-  interface UpdateQueryBuilder<Entity extends ObjectLiteral> {
-    /**
-     * Sets WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     * The array is bound as a single parameter instead of one parameter per value.
-     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsAny(field: string, array?: ArgsType, arrayType?: string): UpdateQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): UpdateQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): UpdateQueryBuilder<Entity>;
-
-    /**
-     * Sets WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL):
-     * the field differs from every value of the array.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): UpdateQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): UpdateQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): UpdateQueryBuilder<Entity>;
-  }
+  interface UpdateQueryBuilder<Entity extends ObjectLiteral> extends WhereIsAnyMethods {}
 }
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
-  interface DeleteQueryBuilder<Entity extends ObjectLiteral> {
-    /**
-     * Sets WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     * The array is bound as a single parameter instead of one parameter per value.
-     * `arrayType` (e.g. `'uuid[]'`) casts the parameter: `= ANY(CAST(:array AS uuid[]))`.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsAny(field: string, array?: ArgsType, arrayType?: string): DeleteQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsAny(field: string, array?: ArgsType, arrayType?: string): DeleteQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE `field = ANY(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsAny(field: string, array?: ArgsType, arrayType?: string): DeleteQueryBuilder<Entity>;
-
-    /**
-     * Sets WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL):
-     * the field differs from every value of the array.
-     * If you had previously WHERE expression defined,
-     * calling this function will override previously set WHERE conditions.
-     */
-    whereIsNotAny(field: string, array?: ArgsType, arrayType?: string): DeleteQueryBuilder<Entity>;
-
-    /**
-     * Adds new AND WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    andWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): DeleteQueryBuilder<Entity>;
-
-    /**
-     * Adds new OR WHERE `field <> ALL(:array)` condition in the query builder (PostgreSQL).
-     */
-    orWhereIsNotAny(field: string, array?: ArgsType, arrayType?: string): DeleteQueryBuilder<Entity>;
-  }
+  interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereIsAnyMethods {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereIsAnyMethods {}
+}
+/* eslint-enable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 
 // patching
 
@@ -212,15 +107,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 

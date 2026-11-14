@@ -12,7 +12,7 @@ sidebar_position: 1
 import { tableHelper } from 'typeorm-extensions/helpers';
 ```
 
-The names are the entity's property names, written into the SQL as they are: the helper has no entity metadata, so a column renamed with `@Column({ name: 'amount_cents' })` has to be named that way, `t.column('amount_cents' as never)`, or selected with a typed method, which maps it.
+The names are the entity's property names. Given the type only (`tableHelper<Payment>('p')`), the helper writes them into the SQL as they are, so a column renamed with `@Column({ name: 'amount_cents' }) amount` comes out as `"p"."amount"`, which doesn't exist. Given the entity class (`tableHelper(Payment, 'p')`), it writes the column each property is mapped to: `tableHelper(Payment, 'p').amount` is `"p"."amount_cents"`. The class form reads the `name` of `@Column` and the other column decorators on the class and its parents, the nearest declaration winning, once per class and without a `DataSource`. Every other column keeps its property name, as under TypeORM's default naming strategy; a custom naming strategy and the columns of embedded entities are not applied.
 
 `typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
@@ -22,11 +22,18 @@ The names are the entity's property names, written into the SQL as they are: the
 tableHelper<Entity>(
   alias?: string,
   options?: { useQuotes?: boolean; driver?: DatabaseType }
-)
+): TableHelper<Entity>
+
+tableHelper(
+  entity: EntityClass<Entity>,
+  alias?: string,
+  options?: { useQuotes?: boolean; driver?: DatabaseType }
+): TableHelper<Entity>
 ```
 
 ## Arguments
 
+- entity: `EntityClass<Entity>`: The entity class, abstract ones included. The helper takes the entity type from it and writes the database names of renamed columns.
 - alias?: string: Alias of the table in the query, e.g. `'user'` for `createQueryBuilder('user')`.
 - options.useQuotes?: boolean: Quote identifiers (`"user"."email"`). Default `true`; with `false` they are left as is (`user.email`).
 - options.driver?: DatabaseType: The database the SQL is for. MySQL and MariaDB quote identifiers with backticks (`` `user`.`email` ``); without it they get double quotes. Pass `dataSource.options.type`.
@@ -62,6 +69,25 @@ Notes:
 - `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number. With `driver: 'mysql'` it casts `AS SIGNED`, since MySQL has no `AS integer`; that is a `BIGINT`, which TypeORM's MySQL driver returns as a string by default. Its options are described in [Counting](#counting).
 - `column()` returns a quoted expression, so `select(t.column('id'), 'id')` keeps its position in the select list, unlike `select('user.id')`, which TypeORM moves into entity column order. See [selectTyped › Column order](../typed/selectTyped.md#column-order).
 - `expression` in `where()` / `joinOn()` is inserted as is. Build the columns in it with `tableHelper` too, see [Composing helpers](#composing-helpers).
+
+## Columns as properties
+
+Each column is also a read-only property of the helper that gives what `column()` gives, with the same alias and options:
+
+```typescript
+const t = tableHelper<UserEntity>('user');
+
+t.email                   // "user"."email", as t.column('email')
+`${t.id} = ${image.userId}` // "user"."id" = "images"."userId"
+
+const cte = tableHelper<Record<'utm_id' | 'total', unknown>>('cte');
+cte.utm_id                // "cte"."utm_id"
+```
+
+- The members of the helper win: a column named like one of them (`alias`, `column`, `where`, `count`, `sum`, `cast`, …) is reachable through `column()` only. For an entity with a `count` column, `t.count` is the method and `t.column('count')` the column.
+- An unknown name doesn't compile (`t.notAColumn`). The names are the keys of the entity type, as `column()` takes them, relations included.
+- Symbols and the keys that JavaScript and test tools read on any object (`then`, `toJSON`, `toString`, `valueOf`, `constructor`, `inspect`, `asymmetricMatch`, `$$typeof`, `nodeType`, and the other members of `Object.prototype`) are not columns: `await`, `JSON.stringify`, `String()`, `util.inspect` and Jest matchers treat the helper as a plain object.
+- `tableHelper<Entity>()` returns a `TableHelper<Entity>`, exported for code that keeps a helper in a variable or a field.
 
 ## Counting
 

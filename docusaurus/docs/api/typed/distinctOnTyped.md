@@ -15,7 +15,7 @@ distinctOnTyped(
 ```
 
 ## Arguments
-- distinctOn: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callbacks which select fields of entity for the DISTINCT ON rule. PostgreSQL only. A path into a JSON column (`user => user.metadata.role`) throws a `TypeError`: for a JSON value use [tableHelper](../utils/tableHelper.md#jsonb) `jsonColumn`.
+- distinctOn: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callbacks which select fields of entity for the DISTINCT ON rule. PostgreSQL only. A path into a JSON column (`user => user.metadata.role`) throws a `TypeError`: for a JSON value use [tableHelper](../utils/tableHelper.md#jsonb) `jsonColumn`. A [@CalculatedColumn](../columns/calculatedColumn.md#ordering) selected with `addSelectCalculated` goes in under the alias `orderByCalculated` orders it by, as DISTINCT ON has to match the leading ORDER BY; one not selected yet throws a `TypeError`.
 
 ## Usage
 

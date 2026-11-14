@@ -1,7 +1,11 @@
 import 'typeorm-extensions/extensions/cursor-pagination.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { InvalidCursorError } from 'typeorm-extensions/extensions/cursor-pagination.extension';
-import type { GetManyWithCursorOptions } from 'typeorm-extensions/types/extensions/cursor-pagination.types';
+import type {
+  GetManyWithCursorOptions,
+  GetRawManyWithCursorOptions,
+  ListWithCursor,
+} from 'typeorm-extensions/types/extensions/cursor-pagination.types';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { setupTest, createFakeUsers, createFakeImages, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
@@ -17,7 +21,7 @@ async function walk<Entity extends ObjectLiteral>(
   let cursor: string | null = null;
 
   do {
-    const page = await query().getManyWithCursor({ cursor, pageSize }, options);
+    const page: ListWithCursor<Entity> = await query().getManyWithCursor({ cursor, pageSize }, options);
     pages.push(page.list);
     cursor = page.nextCursor;
 
@@ -100,7 +104,37 @@ setupTest('cursor-pagination', undefined, (context) => {
       .createQueryBuilder('user')
       .where('1 = 0')
       .getManyWithCursor(null, { orderBy: [] });
-    expect(empty).toEqual({ list: [], nextCursor: null, hasMore: false });
+    expect(empty).toEqual({
+      list: [],
+      nextCursor: null,
+      hasMore: false,
+      pageSize: 10,
+      orderBy: [{ selector: 'user.id', order: 'ASC' }],
+    });
+  });
+
+  it('SHOULD return the page size and the order the page was read in', async () => {
+    await seedUsers(3);
+
+    const page = await users()
+      .createQueryBuilder('user')
+      .orderBy('user.firstName')
+      .getManyWithCursor({ pageSize: 2.5 }, { orderBy: [{ field: 'createdAt', direction: 'DESC' }] });
+
+    expect(page.list).toHaveLength(2);
+    expect(page.pageSize).toBe(2);
+    expect(page.orderBy).toEqual([
+      { selector: 'user.createdAt', order: 'DESC' },
+      { selector: 'user.id', order: 'DESC' },
+    ]);
+
+    // an unparsed query parameter
+    const fromQuery = await users()
+      .createQueryBuilder('user')
+      .getManyWithCursor({ pageSize: '2' as unknown as number }, { orderBy: [{ field: 'id' }] });
+
+    expect(fromQuery).toMatchObject({ pageSize: 2, hasMore: true });
+    expect(fromQuery.list).toHaveLength(2);
   });
 
   it('SHOULD report hasMore on every page, in step with nextCursor', async () => {
@@ -112,7 +146,7 @@ setupTest('cursor-pagination', undefined, (context) => {
     let cursor: string | null = null;
 
     do {
-      const page = await query().getManyWithCursor({ cursor, pageSize: 2 }, options);
+      const page: ListWithCursor<UserEntity> = await query().getManyWithCursor({ cursor, pageSize: 2 }, options);
       seen.push({ hasMore: page.hasMore, hasCursor: page.nextCursor !== null });
       cursor = page.nextCursor;
     } while (cursor);
@@ -251,5 +285,151 @@ setupTest('cursor-pagination.postgres', undefined, (context) => {
     );
 
     expect(ids(pages.flat())).toEqual(ids(saved).reverse());
+  });
+});
+
+/** Loads every page of raw rows and returns the pages; fails on a loop. */
+async function walkRaw(
+  query: () => SelectQueryBuilder<ObjectLiteral>,
+  options: GetRawManyWithCursorOptions,
+  pageSize: number,
+): Promise<{ pages: ObjectLiteral[][]; cursors: string[] }> {
+  const pages: ObjectLiteral[][] = [];
+  const cursors: string[] = [];
+  let cursor: string | null = null;
+
+  do {
+    const page: ListWithCursor<ObjectLiteral> = await query().getRawManyWithCursor({ cursor, pageSize }, options);
+    pages.push(page.list);
+    cursor = page.nextCursor;
+
+    if (cursor) {
+      cursors.push(cursor);
+    }
+
+    if (pages.length > 100) {
+      throw new Error('too many pages');
+    }
+  } while (cursor);
+
+  return { pages, cursors };
+}
+
+const rawIds = (rows: ObjectLiteral[]) => rows.map((row) => Number(row.id));
+
+setupTest('cursor-pagination.raw', undefined, (context) => {
+  const users = () => context.dataSource.getRepository(UserEntity);
+  const rank = 'CASE WHEN user.id % 3 = 0 THEN 0 ELSE 1 END';
+
+  const seedUsers = async (count: number) => {
+    const saved = await users().save(await createFakeUsers({ count }));
+
+    for (const [i, user] of saved.entries()) {
+      await users()
+        .createQueryBuilder()
+        .update()
+        .set({ createdAt: new Date(Date.UTC(2024, 0, 1 + (i % 3), 12)) })
+        .where('id = :id', { id: user.id })
+        .execute();
+    }
+
+    return saved;
+  };
+
+  const rows = () => users().createQueryBuilder('user').select('user.id', 'id').addSelect('user.createdAt', 'createdAt');
+
+  it('SHOULD walk raw rows once, in order, with the primary key appended to tied keys', async () => {
+    await seedUsers(7);
+
+    const expected = await rows().orderBy('user.createdAt', 'DESC').addOrderBy('user.id', 'DESC').getRawMany();
+    const { pages } = await walkRaw(rows, { orderBy: [{ selector: 'user.createdAt', direction: 'DESC' }] }, 3);
+
+    expect(pages.map((page) => page.length)).toEqual([3, 3, 1]);
+    expect(rawIds(pages.flat())).toEqual(rawIds(expected));
+    expect(Object.keys(pages[0][0]).sort()).toEqual(['createdAt', 'id']);
+  });
+
+  it('SHOULD order by a computed key, and keep its SQL out of the cursor', async () => {
+    await seedUsers(8);
+
+    const expected = await rows()
+      .orderBy(rank, 'ASC')
+      .addOrderBy('user.createdAt', 'DESC')
+      .addOrderBy('user.id', 'DESC')
+      .getRawMany();
+
+    const { pages, cursors } = await walkRaw(
+      rows,
+      { orderBy: [{ selector: rank }, { selector: 'user.createdAt', direction: 'DESC' }] },
+      2,
+    );
+
+    expect(rawIds(pages.flat())).toEqual(rawIds(expected));
+
+    const payload = JSON.parse(Buffer.from(cursors[0], 'base64url').toString('utf8'));
+    expect(payload.k).toHaveLength(3);
+    expect(payload.k.every((key: string) => /^sql:[0-9a-f]{8}$/.test(key))).toBe(true);
+    expect(JSON.stringify(payload)).not.toMatch(/CASE|user/);
+  });
+
+  it('SHOULD page grouped rows by their group key, without appending the primary key', async () => {
+    await seedUsers(7);
+
+    const { pages } = await walkRaw(
+      () =>
+        users()
+          .createQueryBuilder('user')
+          .select('user.createdAt', 'day')
+          .addSelect('COUNT(*)', 'count')
+          .groupBy('user.createdAt'),
+      { orderBy: [{ selector: 'user.createdAt' }] },
+      1,
+    );
+
+    expect(pages.map((page) => page.length)).toEqual([1, 1, 1]);
+    expect(pages.flat().map((row) => Number(row.count))).toEqual([3, 2, 2]);
+  });
+
+  it('SHOULD reject a cursor made for another order, and not change the query builder', async () => {
+    await seedUsers(4);
+
+    const query = rows();
+    const sql = sqlOf(query);
+    const first = await query.getRawManyWithCursor({ pageSize: 2 }, { orderBy: [{ selector: rank }] });
+
+    expect(sqlOf(query)).toEqual(sql);
+    expect(first.nextCursor).not.toBeNull();
+    await expect(
+      rows().getRawManyWithCursor({ cursor: first.nextCursor, pageSize: 2 }, { orderBy: [{ selector: 'user.createdAt' }] }),
+    ).rejects.toThrow(InvalidCursorError);
+  });
+});
+
+setupTest('cursor-pagination.raw.postgres', undefined, (context) => {
+  if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  it('SHOULD keep microsecond precision of timestamp keys', async () => {
+    const users = context.dataSource.getRepository(UserEntity);
+    const saved = await users.save(await createFakeUsers({ count: 5 }));
+
+    for (const [i, user] of saved.entries()) {
+      await context.dataSource.query(`UPDATE users SET "createdAt" = $1 WHERE id = $2`, [
+        `2024-01-01 00:00:00.12340${i}`,
+        user.id,
+      ]);
+    }
+
+    const { pages } = await walkRaw(
+      () => users.createQueryBuilder('user').select('user.id', 'id'),
+      { orderBy: [{ selector: 'user.createdAt', direction: 'DESC' }] },
+      1,
+    );
+
+    expect(rawIds(pages.flat())).toEqual(ids(saved).reverse());
   });
 });

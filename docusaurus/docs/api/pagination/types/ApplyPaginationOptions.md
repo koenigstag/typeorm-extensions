@@ -24,7 +24,7 @@ type ApplyPaginationOptions = {
 
 ```typescript
 query
-  .applyPaginationFilter(
+  .applyPagination(
     pagination,
     { useTakeAndSkip: true } // ApplyPaginationOptions
   )

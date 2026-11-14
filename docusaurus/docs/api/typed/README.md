@@ -11,9 +11,9 @@ This category provides a set of extensions for typed features. Instead of column
 Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see [Paths into JSON columns](./whereTyped#paths-into-json-columns)), and with the opt-in [`strictParams`](./whereTyped#checking-parameters-strictparams) their parameters are checked against the column type.
 
 ### Methods:
-- [typed](./typed): set the root of the typed callbacks once for the query, e.g. its aliases.
+- [typed](./typedRoot): set the root of the typed callbacks once for the query, e.g. its aliases. `from()` and `addFrom()` keep it.
 - [selectTyped](./selectTyped): add typesafe select to a query.
-- [joinTyped](./joinTyped): add typesafe join to a query.
+- [joinTyped](./joinTyped): add typesafe join to a query, and map joined data to a typed property (`leftJoinAndMapOneTyped`, `leftJoinAndMapManyTyped`, …).
 - [whereTyped](./whereTyped): add typesafe condition to a query.
 - [whereIsInTyped](./whereIsInTyped): add typesafe IN / NOT IN condition to a query.
 - [whereIsAnyTyped](./whereIsAnyTyped): add typesafe `= ANY(array)` condition to a query (only PostgreSQL).
@@ -30,6 +30,7 @@ Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see 
 - [groupByTyped](./groupByTyped): add typesafe GROUP BY to a query.
 - [havingTyped](./havingTyped): add a typesafe HAVING condition on an aggregate (`COUNT`, `SUM`, `MAX`, …) of a property.
 - [orderByArrayPositionTyped](./orderByArrayPositionTyped): order by the position of a property's value in an array (only PostgreSQL).
+- [addSelectCalculatedTyped](../columns/calculatedColumn#typed-callbacks): select into a `@CalculatedColumn` picked by a typed callback; `orderByTyped` / `addOrderByTyped` then order by it.
 - [returningTyped](./returningTyped): return typesafe columns from INSERT / UPDATE / DELETE (PostgreSQL, MariaDB, SQL Server).
 
 ### Types:

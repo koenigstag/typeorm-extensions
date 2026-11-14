@@ -7,7 +7,7 @@ sidebar_position: 5.6
 ## Description
 Typesafe conditions on PostgreSQL array columns: the column comes from an entity property instead of a string. They work like [whereArrayContains / ContainedBy / Overlaps](../where/whereArray.md): `@>`, `<@` and `&&` with the values bound as one array parameter.
 
-The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
+The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column is not prefixed with an alias.
 
 **PostgreSQL only** (and compatible databases such as CockroachDB).
 

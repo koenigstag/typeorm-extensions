@@ -1,6 +1,7 @@
-import { DatabaseType, ObjectLiteral } from "typeorm";
+import { DatabaseType, getMetadataArgsStorage, ObjectLiteral } from "typeorm";
 import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
+import { parseUtcOffset } from './time-zone.utils';
 
 export type TableHelperOptions = {
 	useQuotes?: boolean;
@@ -157,9 +158,9 @@ const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
 	'millennium',
 ];
 
-function assertPostgres(method: string, driver: DatabaseType | undefined) {
+function assertPostgres(method: string, driver: DatabaseType | undefined, hint?: string) {
 	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
-		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"`);
+		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"${hint ? `: ${hint}` : ''}`);
 	}
 }
 
@@ -173,7 +174,7 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 			throw new TypeError(`tableHelper.${method}(): the time zone is empty`);
 		}
 
-		return sqlString(toPostgresZone(timeZone));
+		return sqlString(toPostgresZone(method, timeZone));
 	}
 
 	if ('sql' in timeZone) {
@@ -184,23 +185,21 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 
 	return timeZone.fallback === undefined
 		? column
-		: `COALESCE(${column}, ${sqlString(toPostgresZone(timeZone.fallback))})`;
+		: `COALESCE(${column}, ${sqlString(toPostgresZone(method, timeZone.fallback))})`;
 }
-
-const ISO_OFFSET = /^([+-])(\d{2}):?(\d{2})?$/;
 
 /**
  * PostgreSQL reads `'+02:00'` as a POSIX zone, whose offsets count west: UTC−2. An ISO 8601 offset is
  * written as the POSIX zone of the same offset, `'<+0200>-02:00'`, so `'+02:00'` is UTC+2 as everywhere else.
  */
-function toPostgresZone(timeZone: string): string {
-	const offset = ISO_OFFSET.exec(timeZone.trim());
+function toPostgresZone(method: string, timeZone: string): string {
+	const offset = parseUtcOffset(timeZone.trim(), `tableHelper.${method}(): "${timeZone}" is not a UTC offset`);
 
 	if (offset === null) {
 		return timeZone;
 	}
 
-	const [, sign, hours, minutes = '00'] = offset;
+	const { sign, hours, minutes } = offset;
 
 	return `<${sign}${hours}${minutes}>${sign === '+' ? '-' : '+'}${hours}:${minutes}`;
 }
@@ -240,17 +239,11 @@ export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
-/**
- * Creates a type-safe SQL helper for building column references, WHERE expressions,
- * JOIN clauses, and JSONB accessors for a given entity type.
- *
- * @example
- * const t = tableHelper<UserEntity>('user');
- * t.column('email')              // → "user"."email"
- * t.where('id', '= :id')        // → "user"."id" = :id
- * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
- */
-export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}) => ({
+const createTableHelper = <T extends ObjectLiteral>(
+	alias?: string,
+	options: TableHelperOptions = {},
+	databaseNames?: ReadonlyMap<string, string>,
+) => ({
 	alias,
 	/**
 	 * Returns a quoted SQL column identifier, e.g. `"alias"."column"`. The column is always quoted as one
@@ -260,7 +253,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		const { useQuotes = true, driver } = options;
 
 		const tableAlias = alias ?? this.alias;
-		const column = String(columnName);
+		const column = databaseNames?.get(String(columnName)) ?? String(columnName);
 
 		if (!useQuotes) {
 			return [tableAlias, column].filter(Boolean).join('.');
@@ -363,9 +356,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	arrayAgg(columnName: ColumnName<T>, aggOptions: TableHelperArrayAggOptions<T> = {}) {
 		const { distinct = false, orderBy, filter } = aggOptions;
 
-		if (options.driver !== undefined && !isPostgresLikeDriver(options.driver)) {
-			throw new TypeError(`tableHelper.arrayAgg(): arrays are PostgreSQL's, the driver is "${options.driver}": use jsonAgg`);
-		}
+		assertPostgres('arrayAgg', options.driver, 'use jsonAgg');
 
 		const order = orderBy ? aggregateOrder('arrayAgg', orderBy, (column) => this.column(column)) : undefined;
 
@@ -499,3 +490,98 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		return `date_trunc('${unit}', ${toExpression(value, toColumn)}${zone})`;
 	}
 });
+
+type TableHelperMemberName = keyof ReturnType<typeof createTableHelper>;
+
+/**
+ * The helper `tableHelper` returns: its methods, and each column of the table as a read-only property,
+ * `t.email` for `t.column('email')`. A column named like a member (`alias`, `count`, …) is the member there.
+ */
+export type TableHelper<T extends ObjectLiteral> = ReturnType<typeof createTableHelper<T>> & {
+	readonly [K in Exclude<ColumnName<T>, TableHelperMemberName>]: string;
+};
+
+// keys that JavaScript, Node and test tools read on any object (await, JSON.stringify, util.inspect, Jest): they
+// must stay undefined, as must symbols. The members of Object.prototype are in the target already
+const PROTOCOL_KEYS: ReadonlySet<string> = new Set(['then', 'toJSON', 'inspect', 'asymmetricMatch', '$$typeof', 'nodeType']);
+
+const columnAccess: ProxyHandler<{ column(columnName: string): string }> = {
+	get(target, key, receiver) {
+		if (typeof key === 'symbol' || key in target || PROTOCOL_KEYS.has(key)) {
+			return Reflect.get(target, key, receiver);
+		}
+
+		return target.column(key);
+	},
+};
+
+/** An entity class, abstract ones included. */
+export type EntityClass<T> = abstract new (...args: never[]) => T;
+
+const databaseNamesByEntity = new WeakMap<object, ReadonlyMap<string, string>>();
+
+// The names set with `@Column({ name })` on the class or a parent, the nearest declaration winning. Every other
+// column keeps its property name, as under TypeORM's default naming strategy. Columns of embedded entities are not read
+const databaseColumnNames = (entity: EntityClass<ObjectLiteral>): ReadonlyMap<string, string> => {
+	const cached = databaseNamesByEntity.get(entity);
+
+	if (cached) {
+		return cached;
+	}
+
+	const lineage: unknown[] = [];
+
+	for (let target: unknown = entity; typeof target === 'function' && target !== Function.prototype; target = Object.getPrototypeOf(target)) {
+		lineage.push(target);
+	}
+
+	const names = new Map<string, string>();
+	const depths = new Map<string, number>();
+
+	for (const { target, propertyName, options } of getMetadataArgsStorage().columns) {
+		const depth = lineage.indexOf(target);
+
+		if (depth !== -1 && options.name && depth < (depths.get(propertyName) ?? Infinity)) {
+			names.set(propertyName, options.name);
+			depths.set(propertyName, depth);
+		}
+	}
+
+	databaseNamesByEntity.set(entity, names);
+
+	return names;
+};
+
+/**
+ * Creates a type-safe SQL helper for building column references, WHERE expressions,
+ * JOIN clauses, and JSONB accessors for a given entity type.
+ *
+ * Given the entity class, it takes property names and writes the column names the entity maps them to:
+ * `tableHelper(UserEntity, 'user').adminEmail` is `"user"."email"` for `@Column({ name: 'email' }) adminEmail`.
+ *
+ * @example
+ * const t = tableHelper<UserEntity>('user');
+ * t.column('email')              // → "user"."email"
+ * t.email                        // → "user"."email", the same
+ * t.where('id', '= :id')        // → "user"."id" = :id
+ * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
+ */
+export function tableHelper<T extends ObjectLiteral>(entity: EntityClass<T>, alias?: string, options?: TableHelperOptions): TableHelper<T>;
+export function tableHelper<T extends ObjectLiteral>(alias?: string, options?: TableHelperOptions): TableHelper<T>;
+export function tableHelper<T extends ObjectLiteral>(
+	entityOrAlias?: EntityClass<T> | string,
+	aliasOrOptions?: string | TableHelperOptions,
+	entityOptions?: TableHelperOptions,
+): TableHelper<T> {
+	if (entityOrAlias === undefined && typeof aliasOrOptions === 'string') {
+		throw new TypeError(
+			`tableHelper(entity, '${aliasOrOptions}'): the entity class is undefined, as a circular import leaves it at module load. Create the helper where it is used`
+		);
+	}
+
+	const helper = typeof entityOrAlias === 'function'
+		? createTableHelper<T>(aliasOrOptions as string | undefined, entityOptions, databaseColumnNames(entityOrAlias))
+		: createTableHelper<T>(entityOrAlias, aliasOrOptions as TableHelperOptions | undefined);
+
+	return new Proxy(helper, columnAccess) as TableHelper<T>;
+}

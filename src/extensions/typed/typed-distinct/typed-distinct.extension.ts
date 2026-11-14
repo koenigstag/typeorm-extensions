@@ -1,5 +1,7 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
+import { findTypedCalculatedProperty, getTypedSelectionKey } from '../../../utils/query-builder.utils';
+import { getKeyHolder } from '../../../utils/proxy-key.utils';
+import { selectCalculatedForOrder } from '../../../utils/calculated-column.utils';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -8,19 +10,21 @@ import type { TypedRoot } from '../../../types/modules/typed-root.types';
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
-     * Sets the distinct on clause for Postgres.
+     * Sets the distinct on clause for Postgres. A `@CalculatedColumn` selected with `addSelectCalculated`
+     * goes in under the alias `orderByCalculated` orders it by, as DISTINCT ON has to match the leading ORDER BY.
      */
-    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       ...distinctOn: Array<KeyProxyCallback<Type>>
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
-     * Sets the distinct on clause for Postgres.
+     * Sets the distinct on clause for Postgres. A `@CalculatedColumn` selected with `addSelectCalculated`
+     * goes in under the alias `orderByCalculated` orders it by, as DISTINCT ON has to match the leading ORDER BY.
      */
-    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       distinctOn: KeyProxyCallback<Type>
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 
@@ -34,9 +38,17 @@ SelectQueryBuilder.prototype.distinctOnTyped = function <
 	...distinctOn: Array<KeyProxyCallback<Type>>
 ): SelectQueryBuilder<Entity> {
 	if (Array.isArray(distinctOn) && distinctOn.length) {
-		const keys = distinctOn.map((callback) => getTypedSelectionKey<Type>(this, callback)).flat();
+		const keys = distinctOn.flatMap((callback) =>
+			[getKeyHolder<Type>(callback)].flat().map((keyHolder) => {
+				const calculated = findTypedCalculatedProperty(this, keyHolder);
 
-		return this.distinctOn(keys as string[]);
+				return calculated
+					? selectCalculatedForOrder(this, calculated.propertyPath, calculated.aliasName, 'distinctOnTyped')
+					: getTypedSelectionKey<Type>(this, keyHolder, undefined, 'distinctOnTyped');
+			})
+		);
+
+		return this.distinctOn(keys.flat());
 	}
 
 	return this;

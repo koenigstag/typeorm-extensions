@@ -27,7 +27,7 @@ How it works:
 - The cursor condition narrows the whole WHERE clause: existing OR conditions are put in parentheses first.
 - The query builder itself is not changed.
 
-Key columns must not be `NULL`.
+Key columns must not be `NULL`. To order by a computed value, use [getRawManyWithCursor](./getRawManyWithCursor.md).
 
 ## Signature
 
@@ -51,14 +51,18 @@ interface ListWithCursor<Entity> {
   list: Entity[];
   nextCursor: string | null; // null on the last page
   hasMore: boolean;          // whether a next page follows; same as nextCursor !== null
+  pageSize: number;          // the pageSize given (a numeric string too), rounded down; 10 when missing or below 1
+  orderBy: OrderType[];      // options.orderBy, then the primary key: [{ selector: 'post.createdAt', order: 'DESC' }, …]
 }
 ```
+
+`orderBy` is the order the cursors of these pages encode, as `alias.property` selectors. Like the `orderBy` of [ListWithTotals](./types/ListWithTotals.md), it is for logs and debugging, not for the client to send back.
 
 ## Arguments
 
 - cursorFilter: The cursor and the page size, e.g. from query parameters.
 - options.orderBy: Properties of the main entity to order by, with `'ASC'` (default) or `'DESC'` (any `OrderDirection`: `'desc'`, `-1`, `false`, …). An unknown property throws a `TypeError`.
-- options.useTakeAndSkip: Use `take` instead of `limit`. Needed when the query joins a collection (`leftJoinAndSelect(user.images)`), as with [applyPaginationFilter](./applyPaginationFilter.md).
+- options.useTakeAndSkip: Use `take` instead of `limit`. Needed when the query joins a collection (`leftJoinAndSelect(user.images)`), as with [applyPagination](./applyPagination.md).
 
 ## Errors
 
@@ -80,7 +84,13 @@ const page = await repository
     { orderBy: [{ field: 'createdAt', direction: 'DESC' }] },
   );
 
-// { list: Post[], nextCursor: 'eyJrIjpb…' | null, hasMore: true | false }
+// {
+//   list: Post[],
+//   nextCursor: 'eyJrIjpb…' | null,
+//   hasMore: true | false,
+//   pageSize: 20,
+//   orderBy: [{ selector: 'post.createdAt', order: 'DESC' }, { selector: 'post.id', order: 'DESC' }],
+// }
 ```
 
 ```typescript

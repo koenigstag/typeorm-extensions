@@ -23,7 +23,7 @@ interface PeriodFilter {
 - The conditions are added with AND and narrow the whole WHERE clause: after `.where(a).orWhere(b)` the result is `(a OR b) AND …`, not `a OR (b AND …)` as with TypeORM's `andWhere`.
 - An invalid `Date` or a date-only string that isn't a calendar date (`'2024-02-30'`) throws a `TypeError`.
 
-Works on every database. Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Works on every database. Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 

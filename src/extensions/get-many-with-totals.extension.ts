@@ -1,10 +1,8 @@
 import './pagination.extension';
 import { ObjectLiteral } from 'typeorm';
-import type { QueryRunner } from 'typeorm';
-import type { QueryBuilder } from 'typeorm/query-builder/QueryBuilder';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { PaginationFilter } from '../types/interfaces/pagination.interface';
-import { getLimitAndOffset } from '../utils/pagination.utils';
+import { getLimitAndOffset, paginateQuery, setPageLimit } from '../utils/pagination.utils';
 import { defaultUseTakeAndSkip } from '../constants';
 import type {
   ApplyPaginationOptions,
@@ -12,8 +10,8 @@ import type {
   GetRawManyWithTotalsOptions,
   ListWithTotals,
 } from '../types/extensions';
-import type { OrderType } from '../types/interfaces/ordering.interface';
 import { patchPrototype } from '../utils/prototype.utils';
+import { getAppliedOrderBy, getQueryRunner, withoutPaging } from '../utils/query-builder.utils';
 
 // declarations
 
@@ -76,11 +74,7 @@ patchPrototype(SelectQueryBuilder, extension);
 function canCountConcurrently<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>
 ): boolean {
-  const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral> & {
-    queryRunner?: QueryRunner;
-  };
-
-  return !queryBuilder.queryRunner;
+  return !getQueryRunner(builder);
 }
 
 function getManyWithTotals<Entity extends ObjectLiteral>(
@@ -143,8 +137,8 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
     ...paginationOptions
   } = options || {};
 
-  const { limit, offset } = loadAll
-    ? { limit: null, offset: null }
+  const { limit, offset, page, pageSize } = loadAll
+    ? { limit: null, offset: null, page: null, pageSize: null }
     : getLimitAndOffset(paginationFilter);
 
   // without a total, one row past the page is what tells whether more rows follow
@@ -155,21 +149,13 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
       return read.rows(builder);
     }
 
-    const paged = builder.applyPaginationFilter(
-      paginationFilter,
-      paginationOptions
-    );
+    const paged = paginateQuery(builder, paginationFilter, paginationOptions);
 
     if (probeForMore) {
-      const probeLimit = limit + 1;
       const { useTakeAndSkip = defaultUseTakeAndSkip } = paginationOptions;
 
-      // replaces the limit applyPaginationFilter just set, keeping its offset
-      if (useTakeAndSkip) {
-        paged.take(probeLimit);
-      } else {
-        paged.limit(probeLimit);
-      }
+      // replaces the limit paginateQuery just set, keeping its offset
+      setPageLimit(paged, limit + 1, useTakeAndSkip);
     }
 
     return read.rows(paged);
@@ -204,23 +190,15 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
       total !== null && offset !== null ? offset + rows.length < total : null;
   }
 
-  // allOrderBys, not orderBys: it is what the SQL is built from, so without an explicit order it
-  // falls back to the `orderBy` of @Entity, and respects the `disable-global-order` option
-  const orderBy: OrderType[] = Object.entries(
-    builder.expressionMap.allOrderBys ?? {}
-  ).map(([selector, value]) =>
-    typeof value === 'string'
-      ? { selector, order: value }
-      : { selector, order: value.order, nulls: value.nulls }
-  );
-
   return {
     list,
     total,
+    page,
+    pageSize,
     limit,
     offset,
     hasMore,
-    orderBy,
+    orderBy: getAppliedOrderBy(builder),
   };
 }
 
@@ -254,12 +232,6 @@ function settle<T>(promise: Promise<T>): Promise<Settled<T>> {
   );
 }
 
-function getQueryRunner<Entity extends ObjectLiteral>(
-  builder: SelectQueryBuilder<Entity>
-): QueryRunner | undefined {
-  return (builder as unknown as { queryRunner?: QueryRunner }).queryRunner;
-}
-
 type NativeParametersSetter = { setNativeParameters(parameters: ObjectLiteral): unknown };
 
 /**
@@ -272,13 +244,7 @@ async function countRawRows<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   countExpression?: string
 ): Promise<number> {
-  const unpaged = cloneForCount(builder)
-    .orderBy()
-    .offset(undefined)
-    .limit(undefined)
-    .skip(undefined)
-    .take(undefined)
-    .setOption('disable-global-order');
+  const unpaged = withoutPaging(cloneForCount(builder));
 
   type CountRow = { count: number | string };
   let counting: Promise<CountRow | undefined>;

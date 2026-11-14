@@ -1,8 +1,10 @@
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
 import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
+import 'typeorm-extensions/extensions/typed/typed-group-by/typed-group-by.extension';
+import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
 import { createFakeUsers, mysqlRun, nativeSql, setupTest, sqlOf } from '../test-utils';
-import { UserEntity } from '../models';
+import { ImageEntity, UserEntity } from '../models';
 
 setupTest('order-by-typed.orderByTyped', undefined, (context) => {
   it('SHOULD apply order by correctly', async () => {
@@ -127,5 +129,82 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
 
     const unquoted = fromSubQuery().orderByTyped<Joins>((j) => j.userNames.userId, 'DESC', undefined, { useQuotes: false });
     expect(unquoted.expressionMap.orderBys).toEqual({ 'userNames.userId': 'DESC' });
+  });
+
+  it('SHOULD quote keys of an alias without metadata added after the call', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    type Joins = { userNames: { userId: number } };
+
+    const query = context.dataSource
+      .createQueryBuilder()
+      .selectTyped<Joins>((j) => j.userNames.userId, 'userId')
+      .orderByTyped<Joins>((j) => j.userNames.userId, 'DESC')
+      .from((qb) => qb.from(UserEntity, 'u').select('u.id', 'userId'), 'userNames');
+
+    expect(sqlOf(query)).toMatch(
+      /^SELECT "userNames"\."userId" AS "userId" FROM \(.+\) "userNames" ORDER BY "userNames"\."userId" DESC$/,
+    );
+
+    const ids = (await query.getRawMany<{ userId: number }>()).map((row) => Number(row.userId));
+    expect(ids).toEqual([...ids].sort((a, b) => b - a));
+    expect(ids).toHaveLength(3);
+  });
+
+  // an alias that only raw SQL adds, as a LATERAL subquery in the condition of a raw join does
+  it('SHOULD quote keys of an alias the query never registers', async () => {
+    const users = await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    const escape = (name: string) => context.dataSource.driver.escape(name);
+    type Joins = { user: UserEntity; names: { userId: number } };
+
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .selectTyped<Joins>((j) => j.names.userId, 'userId')
+      .addSelect('COUNT(*)', 'count')
+      .innerJoin(
+        '(SELECT 1)',
+        '__names__',
+        `1 = 1 INNER JOIN (SELECT ${escape('id')} AS ${escape('userId')} FROM ${escape('users')}) ${escape('names')} ` +
+          `ON ${escape('names')}.${escape('userId')} = ${escape('user')}.${escape('id')}`,
+      )
+      .whereTyped<Joins>((j) => j.names.userId, '>', { minId: users[0].id })
+      .groupByTyped<Joins>((j) => j.names.userId)
+      .orderByTyped<Joins>((j) => j.names.userId, 'DESC');
+
+    expect(sqlOf(query)).toMatch(
+      /^SELECT "names"\."userId" AS "userId", COUNT\(\*\) AS "count" FROM .+ WHERE "names"\."userId" > :\w+ GROUP BY "names"\."userId" ORDER BY "names"\."userId" DESC$/,
+    );
+
+    const rows = await query.getRawMany<{ userId: number }>();
+    expect(rows.map((row) => Number(row.userId))).toEqual([users[2].id, users[1].id]);
+
+    const unquoted = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .selectTyped<Joins>((j) => j.names.userId, 'userId', false)
+      .innerJoin('(SELECT 1)', '__names__', '1 = 1');
+
+    expect(sqlOf(unquoted)).toMatch(/^SELECT names\.userId AS "userId" FROM /);
+  });
+
+  // TypeORM reads a select of `alias.property` as a column of the joined entity and fills it
+  it('SHOULD leave keys of an entity joined after the call to TypeORM', async () => {
+    const [user] = await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 1 }));
+    await context.dataSource.getRepository(ImageEntity).save(Object.assign(new ImageEntity(), { id: 1, url: 'a.png', userId: user.id }));
+    type Joins = { user: UserEntity; image: ImageEntity };
+
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .select('user.id')
+      .addSelectTyped<Joins>((j) => [j.image.id, j.image.url])
+      .addOrderByTyped<Joins>((j) => j.image.url, 'ASC')
+      .leftJoin('user.images', 'image');
+
+    expect(query.expressionMap.selects.map((select) => select.selection)).toEqual(['user.id', 'image.id', 'image.url']);
+    expect(query.expressionMap.orderBys).toEqual({ 'image.url': 'ASC' });
+
+    const [loaded] = await query.getMany();
+    expect(loaded.images?.map((image) => image.url)).toEqual(['a.png']);
   });
 });

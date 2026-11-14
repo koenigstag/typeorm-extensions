@@ -48,4 +48,22 @@ setupTest('typed-where.options', undefined, (context) => {
       /WHERE "user"\."createdAt" < :where\w+/,
     );
   });
+
+  // a bare undefined left the condition without an operand, `"user"."email" =`, a syntax error in the database
+  it('SHOULD throw for an undefined value after an operator', () => {
+    const query = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+    const email: string | undefined = undefined;
+
+    expect(() => query().whereTyped((u) => u.email, '=', email)).toThrow(/The value after ".*email\W* =" is undefined/);
+    expect(() => query().orWhereTyped((u) => u.email, 'LIKE', email)).toThrow(/LIKE" is undefined/);
+
+    expect(sqlOf(query().whereTyped((u) => u.email, 'IS NULL', email))).toMatch(/WHERE "user"\."email" IS NULL/);
+    expect(sqlOf(query().whereTyped((u) => u.email, '=', null))).toMatch(/WHERE "user"\."email" = NULL/);
+    expect(sqlOf(query().whereTyped((u) => u.email, '=', { email }))).toMatch(/WHERE "user"\."email" = NULL/);
+
+    // a placeholder set later with setParameter, even one named like an operator
+    for (const condition of ['ILIKE :like', 'IN (:...in)', '= :any', '= ANY(:all)', 'BETWEEN :between AND :and']) {
+      expect(sqlOf(query().whereTyped((u) => u.email, condition))).toContain(`WHERE "user"."email" ${condition}`);
+    }
+  });
 });

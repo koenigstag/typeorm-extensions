@@ -7,7 +7,7 @@ sidebar_position: 4
 ## Description
 `whereTyped` is a method that applies typesafe condition to a query.
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`, together with `andWhereTyped` and `orWhereTyped`. On `UpdateQueryBuilder` / `DeleteQueryBuilder` the column isn't prefixed with an alias (`UPDATE "users" … WHERE "firstName" = …`), since UPDATE / DELETE statements have none. Properties are mapped to their database column names, so `@Column({ name: 'first_name' }) firstName` gives `"user"."first_name"`. The same holds for `whereIsInTyped` and `whereIsAnyTyped`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`), together with `andWhereTyped` and `orWhereTyped`. On `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column isn't prefixed with an alias (`UPDATE "users" … WHERE "firstName" = …`), since UPDATE / DELETE statements have none. Properties are mapped to their database column names, so `@Column({ name: 'first_name' }) firstName` gives `"user"."first_name"`. The same holds for `whereIsInTyped` and `whereIsAnyTyped`.
 
 ## Signature
 ```typescript
@@ -91,7 +91,7 @@ query.whereTyped(e => e.id, 'IN', 'a');                     // error: IN takes a
 query.whereTyped(e => e.settings, '=', { settings: value }); // ok; the bare `value` doesn't compile
 ```
 
-Calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked: TypeScript can't infer the column type when one type argument is given. Set the root with [`typed<Joins>()`](./typed.md) instead, and the calls are checked.
+Calls with an explicit type argument (`whereTyped<Joins>(…)`) stay unchecked: TypeScript can't infer the column type when one type argument is given. Set the root with [`typed<Joins>()`](./typedRoot.md) instead, and the calls are checked.
 
 ## Usage
 

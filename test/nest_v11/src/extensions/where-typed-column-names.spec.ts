@@ -2,6 +2,8 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-any.extension';
 import 'typeorm-extensions/extensions/where-is-in.extension';
+import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
+import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
 import { Brackets } from 'typeorm';
 import { setupTest, createFakeUsers, nativeSql, sqlOf } from '../test-utils';
 import { TicketEntity, UserEntity } from '../models';
@@ -106,6 +108,42 @@ setupTest('where-typed.column-names', undefined, (context) => {
       .whereTyped<Joins>((j) => j.t.status, '=', 'open');
 
     expect(sqlOf(subQuery)).toMatch(/WHERE "t"\."ticket_status" = :where_\w+/);
+  });
+
+  // the alias is unknown when the method is called: its columns are mapped when TypeORM builds the SQL
+  it('SHOULD use database column names of an alias joined after the call', async () => {
+    const { users } = await seed();
+    type Joins = { user: UserEntity; t: TicketEntity };
+
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .select('user.id', 'id')
+      .addSelectTyped<Joins>((j) => j.t.status, 'status', true)
+      .whereTyped<Joins>((j) => j.t.status, '=', 'closed')
+      .andWhere(new Brackets((where) => where.whereIsIn('t.status', ['closed'])))
+      .orderByTyped<Joins>((j) => j.t.ownerId, 'ASC', undefined, { useQuotes: true })
+      .innerJoin(TicketEntity, 't', nativeSql('"t"."owner_id" = "user"."id"'));
+
+    const sql = sqlOf(query);
+    expect(sql).toContain('"t"."ticket_status" AS "status"');
+    expect(sql).toMatch(/WHERE "t"\."ticket_status" = :where_\w+ AND \("t"\."ticket_status" IN \(/);
+    expect(sql).toMatch(/ORDER BY "t"\."owner_id" ASC$/);
+
+    const rows = await query.getRawMany<{ id: number; status: string }>();
+    expect(rows.map((row) => ({ id: Number(row.id), status: row.status }))).toEqual([{ id: users[0].id, status: 'closed' }]);
+  });
+
+  it('SHOULD keep the property name for an alias joined after the call without metadata', () => {
+    type Joins = { sub: { ownerId: number } };
+
+    const query = context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .whereTyped<Joins>((j) => j.sub.ownerId, '=', 1)
+      .innerJoin((qb) => qb.from(TicketEntity, 'x').select('x.ownerId', 'ownerId'), 'sub', 'TRUE');
+
+    expect(sqlOf(query)).toMatch(/WHERE "sub"\."ownerId" = :where_\w+/);
   });
 
   it('SHOULD use database column names on UPDATE / DELETE', async () => {

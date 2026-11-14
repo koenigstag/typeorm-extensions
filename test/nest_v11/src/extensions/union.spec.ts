@@ -53,6 +53,22 @@ setupTest('union', undefined, (context) => {
     expect(pasted.map(({ id }) => Number(id))).toEqual([2]);
   });
 
+  // SQLite rejects a part of a UNION in parentheses, which a subQuery() builder writes around itself
+  it('SHOULD take a part built with subQuery(), without its parentheses', async () => {
+    await seed();
+
+    const closed = context.dataSource
+      .createQueryBuilder()
+      .subQuery()
+      .select('ticket.id', 'id')
+      .addSelect('ticket.ownerId', 'ownerId')
+      .from(TicketEntity, 'ticket')
+      .where('ticket.status = :status', { status: 'closed' })
+      .setOption('disable-global-order');
+
+    expect(await unionIds([ticketsWithStatus('open'), closed])).toEqual([1, 2, 3]);
+  });
+
   it('SHOULD remove duplicate rows, and keep them with all', async () => {
     await seed();
 

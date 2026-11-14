@@ -6,11 +6,11 @@ sidebar_position: 3
 
 ## Description
 
-`getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
+`getManyWithTotals` loads one page of entities together with the total number of matching rows, the `page` and `pageSize` it read with (defaults applied), the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
 
 It runs two queries:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
-2. `getMany()` with [applyPaginationFilter](./applyPaginationFilter.md) applied, to get the page.
+2. `getMany()` with [applyPagination](./applyPagination.md) applied, to get the page.
 
 They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — they run one after another instead: there is a single connection, on which the driver would serialise them anyway, and on `pg` that queue is deprecated.
 
@@ -29,7 +29,7 @@ getManyWithTotals(
 
 ## Arguments
 
-- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Invalid or missing values fall back to page `1` and page size `10`.
+- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Numeric strings, as an unparsed query parameter holds them, are read as numbers, and fractions are rounded down. Invalid or missing values fall back to page `1` and page size `10`.
 - options?: [GetManyWithTotalsOptions](./types/GetManyWithTotalsOptions.md): Skip the count query, or load all rows without pagination.
 
 ## What the count counts
@@ -55,23 +55,25 @@ Reach for `total` when the interface shows a count or numbered pages. Note that 
 
 ## Returns
 
-[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, limit, offset, hasMore, orderBy }`.
+[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, page, pageSize, limit, offset, hasMore, orderBy }`.
 
 ## Usage
 
 ```typescript
-const { list, total, limit, offset, hasMore, orderBy } = await usersRepository
+const { list, total, page, pageSize, limit, offset, hasMore, orderBy } = await usersRepository
   .createQueryBuilder('user')
   .whereTyped(user => user.lastName, 'LIKE', '%Doe%')
   .orderBy('user.lastName', 'ASC')
   .getManyWithTotals({ page: 2, pageSize: 20 });
 
-// list    - users 21..40
-// total   - number of all users matching the condition
-// limit   - 20
-// offset  - 20
-// hasMore - true while rows follow the page, null only with loadAll
-// orderBy - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
+// list     - users 21..40
+// total    - number of all users matching the condition
+// page     - 2 (1 when the page is missing or below 1)
+// pageSize - 20 (10 when the size is missing or below 1)
+// limit    - 20
+// offset   - 20
+// hasMore  - true while rows follow the page, null only with loadAll
+// orderBy  - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
 ```
 
 ```typescript
@@ -81,6 +83,6 @@ await query.getManyWithTotals({ page: 1, pageSize: 10 }, { disableTotalsCalculat
 ```
 
 ```typescript
-// All matching rows: pagination is not applied, limit, offset and hasMore are null
+// All matching rows: pagination is not applied, page, pageSize, limit, offset and hasMore are null
 await query.getManyWithTotals({}, { loadAll: true });
 ```

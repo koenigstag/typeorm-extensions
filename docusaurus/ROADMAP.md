@@ -15,7 +15,6 @@ navbar section of recipes: how to solve real tasks with the library, from simple
 - Same docs plugin, not a second plugin instance: the URLs stay `/docs/examples/...` (no broken links), and
   recipes and API pages keep linking to each other with relative `.md` links.
 - Categories by task, not by level (people look for "how to build a feed"); the level is a badge on each recipe.
-- Remove the Docusaurus template leftovers `docs/tutorial-basics` and `docs/tutorial-extras` in the same change.
 
 ### Recipe format
 

@@ -1,6 +1,6 @@
 {
   "name": "typeorm-extensions",
-  "version": "2.2.0-rc.3",
+  "version": "2.2.0-rc.11",
   "description": "typeorm commonly used extensions",
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p .",
     "lint": "eslint . --ext .ts",
-    "test:types": "tsc -p test/types && tsc -p test/types/tsconfig.loose.json"
+    "test:types": "tsc -p test/types && tsc -p test/types/tsconfig.loose.json && tsc -p test/types/typed-imports && tsc -p test/types/typed-imports/tsconfig.loose.json"
   },
   "keywords": [
     "typeorm",

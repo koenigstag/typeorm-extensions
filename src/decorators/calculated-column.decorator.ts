@@ -4,11 +4,15 @@ export type CalculatedColumnOptions = {
   /**
    * The type the selected value is converted from, as for `@Column`: `'boolean'`, `'jsonb'`, `'timestamptz'`.
    * Defaults to the property's TypeScript type with `emitDecoratorMetadata`: `Number`, `String`, `Boolean`, `Date`.
-   * `Number` turns numeric strings (a PostgreSQL `COUNT`, an `AVG`) into numbers, decimals kept; `Boolean`
-   * reads `0` / `1`, `'0'` / `'1'` and `t` / `f` as well.
+   * `Number` and the numeric SQL types (`'integer'`, `'bigint'`, `'numeric'`, `'decimal'`, `'float'`, …) turn
+   * numeric strings (a PostgreSQL `COUNT`, an `AVG`) into numbers, decimals kept; `Boolean` reads `0` / `1`,
+   * `'0'` / `'1'` and `t` / `f` as well.
    */
   type?: ColumnType;
-  /** Converts the selected value, e.g. JSON text from SQLite. Only `from` is used. */
+  /**
+   * Converts the selected value, e.g. JSON text from SQLite. Only `from` is used. It replaces the conversion of
+   * the type: it gets the value as the database returned it, a PostgreSQL `COUNT` as a string.
+   */
   transformer?: ValueTransformer | ValueTransformer[];
 };
 
@@ -49,8 +53,9 @@ export function CalculatedColumn(
       );
     }
 
-    const conversion = ownConversions.get(type);
-    const transformers = [options.transformer ?? []].flat();
+    const ownConversion = ownConversions.get(typeof type === 'string' ? type.toLowerCase() : type);
+    // a transformer of its own replaces the conversion and takes the value as the database returned it
+    const conversion = options.transformer === undefined ? ownConversion : undefined;
 
     // the mode of TypeORM's @VirtualColumn: not a column of the table, never inserted or updated;
     // with no `query` and `select: false` TypeORM never selects it by itself
@@ -60,12 +65,12 @@ export function CalculatedColumn(
       mode: 'virtual-property',
       options: {
         // the drivers parseInt a Number (AVG 150.5 → 150) and read MySQL's '0' as true, so these
-        // types are converted here; String is a type no driver converts. TypeORM applies `from` last to first
-        type: conversion ? String : type,
+        // types are converted here; String is a type no driver converts
+        type: ownConversion ? String : type,
         select: false,
         insert: false,
         update: false,
-        transformer: conversion ? [...transformers, conversion] : options.transformer,
+        transformer: conversion ?? options.transformer,
       },
     });
   };
@@ -100,8 +105,37 @@ function toBoolean(value: unknown): unknown {
 const numberConversion: ValueTransformer = { from: toNumber, to: (value) => value };
 const booleanConversion: ValueTransformer = { from: toBoolean, to: (value) => value };
 
+// a COUNT is a bigint and an AVG a numeric, which drivers hand over as strings to keep their precision
+const numericTypes = [
+  'int',
+  'int2',
+  'int4',
+  'int8',
+  'int64',
+  'integer',
+  'tinyint',
+  'smallint',
+  'mediumint',
+  'bigint',
+  'unsigned big int',
+  'long',
+  'numeric',
+  'decimal',
+  'dec',
+  'fixed',
+  'smalldecimal',
+  'number',
+  'float',
+  'float4',
+  'float8',
+  'double',
+  'double precision',
+  'real',
+];
+
 const ownConversions = new Map<unknown, ValueTransformer>([
   [Number, numberConversion],
+  ...numericTypes.map((type): [string, ValueTransformer] => [type, numberConversion]),
   [Boolean, booleanConversion],
   ['boolean', booleanConversion],
   ['bool', booleanConversion],

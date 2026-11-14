@@ -1,14 +1,12 @@
 import {
-  DeleteQueryBuilder,
   ObjectLiteral,
   SelectQueryBuilder,
-  UpdateQueryBuilder,
   WhereExpressionBuilder,
 } from 'typeorm';
-import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import type { WhereMethods } from '../types/extensions';
-import { patchPrototype } from '../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import { withUniqueParameterNames } from '../utils/parameter.utils';
+import { withoutPaging } from '../utils/query-builder.utils';
 
 // declarations
 
@@ -101,10 +99,8 @@ const notExistsMethods: { prototype: WhereNotExistsMethods } = {
 
 // only where the builder lacks them: SelectQueryBuilder keeps TypeORM's own whereExists /
 // andWhereExists / orWhereExists, and a later TypeORM that adds any of these keeps its own
-[SelectQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder, SoftDeleteQueryBuilder].forEach((builder) => {
-  patchPrototype(builder, existsMethods, { onlyMissing: true });
-  patchPrototype(builder, notExistsMethods, { onlyMissing: true });
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, existsMethods, { onlyMissing: true });
+patchPrototypes(WHERE_QUERY_BUILDERS, notExistsMethods, { onlyMissing: true });
 
 // implementation
 
@@ -124,15 +120,7 @@ export function attachExists<QB extends WhereExpressionBuilder>(
  * drops GROUP BY, which leaves a HAVING to aggregate the whole subquery: the GROUP BY stays with one.
  */
 function getExistsCondition(subQuery: SubQuery): [string, ObjectLiteral] {
-  const query = subQuery
-    .clone()
-    .orderBy()
-    .offset(undefined)
-    .limit(undefined)
-    .skip(undefined)
-    .take(undefined)
-    .select('1')
-    .setOption('disable-global-order');
+  const query = withoutPaging(subQuery.clone()).select('1');
 
   if (query.expressionMap.havings.length === 0) {
     query.groupBy();

@@ -18,6 +18,7 @@ describe('typeorm-extensions/helpers', () => {
     for (const method of [
       'getManyWithTotals',
       'applyOrder',
+      'applyPagination',
       'applyPaginationFilter',
       'whereIsIn',
       'whereIsAny',

@@ -21,6 +21,10 @@ export type GetRawManyWithTotalsOptions = Omit<GetManyWithTotalsOptions, 'useTak
 export interface ListWithTotals<Entity> {
   list: Entity[];
   total: number | null;
+  /** The page read, 1-based: the `page` given, or `1` when it was missing or below 1. `null` with `loadAll`. */
+  page: number | null;
+  /** The page size used: the `pageSize` given, or `10` when it was missing or below 1. `null` with `loadAll`. */
+  pageSize: number | null;
   limit: number | null;
   offset: number | null;
   /**
