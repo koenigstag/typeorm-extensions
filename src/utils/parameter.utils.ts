@@ -1,5 +1,21 @@
-import type { ObjectLiteral } from 'typeorm';
+import type { ObjectLiteral, QueryRunner, SelectQueryBuilder } from 'typeorm';
 import { createUniqueParameterName } from './sql.utils';
+
+/**
+ * A subquery builder for a factory, as TypeORM's `subQuery()` but without a parent: TypeORM's would
+ * set the factory's parameters on the outer query under their own names, before they can be renamed.
+ */
+export function detachedSubQuery<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>
+): SelectQueryBuilder<ObjectLiteral> {
+  // queryRunner is protected in TypeORM's types: the subquery runs inside the builder's transaction
+  const { queryRunner } = builder as unknown as { queryRunner?: QueryRunner };
+  const subQuery = builder.connection.createQueryBuilder(queryRunner);
+
+  subQuery.expressionMap.subQuery = true;
+
+  return subQuery;
+}
 
 // TypeORM's placeholder syntax, `:name` and `:...name`, as its drivers match it
 const PARAMETER_PLACEHOLDER = /:(\.\.\.)?([A-Za-z0-9_.]+)/g;

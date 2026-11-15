@@ -3,11 +3,14 @@ import { defaultPageSize, defaultUseTakeAndSkip } from "../constants";
 import type { ApplyPaginationOptions } from "../types/extensions/pagination.types";
 import { PaginationFilter } from "../types/interfaces/pagination.interface";
 
-// an unparsed query parameter is a string: "20" + 1 would be "201"
+// an unparsed query parameter is a string: "20" + 1 would be "201"; past MAX_SAFE_INTEGER a number is
+// written in exponent form (`OFFSET 1e+22`), which no database reads
 const toPositiveInteger = (value: unknown, fallback: number): number => {
   const number = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
 
-  return typeof number === 'number' && Number.isFinite(number) && number >= 1 ? Math.floor(number) : fallback;
+  return typeof number === 'number' && Number.isFinite(number) && number >= 1
+    ? Math.min(Math.floor(number), Number.MAX_SAFE_INTEGER)
+    : fallback;
 };
 
 /** The page size to read: a number or a numeric string of at least 1, rounded down; `defaultPageSize` otherwise. */
@@ -22,8 +25,9 @@ export const setPageLimit = <Entity extends ObjectLiteral>(
 
 export const getLimitAndOffset = (paginationFilter: PaginationFilter | null | undefined) => {
   const { page, pageSize } = paginationFilter ?? {};
-  const normalizedPage = toPositiveInteger(page, 1);
   const normalizedPageSize = normalizePageSize(pageSize);
+  // a page past the last representable offset is just as empty
+  const normalizedPage = Math.min(toPositiveInteger(page, 1), Math.floor(Number.MAX_SAFE_INTEGER / normalizedPageSize) + 1);
 
   return {
     limit: normalizedPageSize,

@@ -375,7 +375,7 @@ setupTest('cursor-pagination.raw', undefined, (context) => {
 
     const payload = JSON.parse(Buffer.from(cursors[0], 'base64url').toString('utf8'));
     expect(payload.k).toHaveLength(3);
-    expect(payload.k.every((key: string) => /^sql:[0-9a-f]{8}$/.test(key))).toBe(true);
+    expect(payload.k.every((key: string) => /^-?sql:[0-9a-f]{8}$/.test(key))).toBe(true);
     expect(JSON.stringify(payload)).not.toMatch(/CASE|user/);
   });
 

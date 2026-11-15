@@ -117,13 +117,20 @@ export function attachExists<QB extends WhereExpressionBuilder>(
 
 /**
  * TypeORM's EXISTS condition: the subquery selects 1, without ORDER BY, LIMIT and OFFSET. TypeORM also
- * drops GROUP BY, which leaves a HAVING to aggregate the whole subquery: the GROUP BY stays with one.
+ * drops GROUP BY, which leaves a HAVING to aggregate the whole subquery: with a HAVING the GROUP BY
+ * stays, and so do the aliased selections, which a HAVING may name on MySQL and SQLite (`cnt > 1`).
+ * An entity's own columns go either way: next to a GROUP BY they would not be grouped.
  */
 function getExistsCondition(subQuery: SubQuery): [string, ObjectLiteral] {
-  const query = withoutPaging(subQuery.clone()).select('1');
+  const query = withoutPaging(subQuery.clone());
+  const aliased = query.expressionMap.selects.filter((select) => select.aliasName !== undefined);
+
+  query.select('1');
 
   if (query.expressionMap.havings.length === 0) {
     query.groupBy();
+  } else {
+    aliased.forEach((select) => query.addSelect(select.selection, select.aliasName));
   }
 
   return [`EXISTS (${query.getQuery()})`, query.getParameters()];

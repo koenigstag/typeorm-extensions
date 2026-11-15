@@ -182,6 +182,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
 
   const keys = getCursorKeys(builder, orderBy);
   const fields = keys.map((key) => key.column.propertyPath);
+  const cursorFields = keys.map((key, i) => toCursorField(fields[i], key.direction));
   const pageSize = normalizePageSize(cursorFilter?.pageSize);
 
   const query = builder.clone();
@@ -193,7 +194,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     `${query.escape(alias)}.${query.escape(column.databaseName)}`;
 
   if (cursorFilter?.cursor) {
-    const values = decodeCursor(cursorFilter.cursor, fields);
+    const values = decodeCursor(cursorFilter.cursor, cursorFields);
     const knownTextCast = textCastType === 'text' || textCastType === 'char';
 
     keys.forEach((key, i) => {
@@ -228,10 +229,20 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     return keyAlias;
   });
 
+  // a date key is read as text, which never equals the entity's Date: such a key is also read as is
   const primaryAliases = keys
     .map((key, i) => ({ key, i }))
     .filter(({ key }) => key.column.isPrimary)
-    .map(({ key, i }) => ({ column: key.column, keyAlias: keyAliases[i] }));
+    .map(({ key, i }) => {
+      if (!(isDateColumn(key.column) && textCastType)) {
+        return { column: key.column, keyAlias: keyAliases[i], hydrate: false };
+      }
+
+      const matchAlias = `cursor_match_${i}`;
+      query.addSelect(quotedColumn(key.column), matchAlias);
+
+      return { column: key.column, keyAlias: matchAlias, hydrate: true };
+    });
 
   setPageLimit(query, pageSize + 1, useTakeAndSkip);
 
@@ -245,10 +256,13 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
 
   // with joined collections there are several raw rows per entity: find one of the last entity's
   const last = list[list.length - 1];
+  const comparable = (value: unknown): unknown => (isDate(value) ? value.getTime() : String(value));
   const lastRaw = raw.find((row) =>
-    primaryAliases.every(
-      ({ column, keyAlias }) => String(row[keyAlias]) === String(column.getEntityValue(last))
-    )
+    primaryAliases.every(({ column, keyAlias, hydrate }) => {
+      const value = hydrate ? query.connection.driver.prepareHydratedValue(row[keyAlias], column) : row[keyAlias];
+
+      return comparable(value) === comparable(column.getEntityValue(last));
+    })
   );
 
   if (!lastRaw) {
@@ -267,8 +281,11 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     return value;
   });
 
-  return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, ...appliedOrderBy };
+  return { list, nextCursor: encodeCursor(cursorFields, values), hasMore: true, pageSize, ...appliedOrderBy };
 }
+
+// a cursor names its keys with their direction: one made for `id DESC` would read as a position in `id ASC`
+const toCursorField = (name: string, direction: 'ASC' | 'DESC'): string => (direction === 'DESC' ? `-${name}` : name);
 
 type ExpressionKey = {
   selector: string;
@@ -323,7 +340,7 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
 ): Promise<ListWithCursor<Row>> {
   const keys = getExpressionKeys(builder, options?.orderBy);
   const includeOrderBy = options?.includeOrderBy ?? false;
-  const fields = keys.map((key) => getExpressionKeyName(key.selector));
+  const fields = keys.map((key) => toCursorField(getExpressionKeyName(key.selector), key.direction));
   const pageSize = normalizePageSize(cursorFilter?.pageSize);
 
   const query = builder.clone();

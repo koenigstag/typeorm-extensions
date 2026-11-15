@@ -19,7 +19,7 @@ How it differs from `getManyWithCursor`:
 - A key is any expression valid in WHERE: a column (`member.createdAt`, `"member"."created_at"`), or a computed value such as a `CASE`. Not an aggregate: the cursor condition goes in WHERE, which runs before grouping.
 - The primary key of the main alias is appended when the query is on an entity and has no `GROUP BY` and no `DISTINCT`. Otherwise the last key has to be unique per row, e.g. the column a query is grouped by, or rows with equal keys may be skipped or repeated between pages. A query that joins a collection returns several rows per entity, so its keys need a column of the joined table too.
 - The page is paged with `LIMIT`: there is no `useTakeAndSkip`.
-- The cursor names its keys by a hash of their SQL (`sql:1f3a9c2e`), so it carries no SQL. Changing the SQL of a key makes earlier cursors invalid.
+- The cursor names its keys by a hash of their SQL (`sql:1f3a9c2e`, `-sql:1f3a9c2e` for a `DESC` key), so it carries no SQL. Changing the SQL or the direction of a key makes earlier cursors invalid.
 - Each key is also read as text, and the cursor takes the text when the driver returns a JS `Date`, so timestamps keep the database's precision (PostgreSQL microseconds).
 - The rows don't include the columns read for the cursor.
 

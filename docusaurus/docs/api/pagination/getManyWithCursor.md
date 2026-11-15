@@ -68,7 +68,7 @@ With `includeOrderBy: true`, `orderBy` is the order the cursors of these pages e
 
 ## Errors
 
-A cursor that can't be decoded, or that was made for another `orderBy`, throws `InvalidCursorError` (a `TypeError`, exported from the package), e.g. to answer with 400:
+A cursor that can't be decoded, that was made for another `orderBy` (other fields, or the same fields in another direction), or whose key values don't fit their columns, throws `InvalidCursorError` (a `TypeError`, exported from the package), e.g. to answer with 400:
 
 ```typescript
 import { InvalidCursorError } from 'typeorm-extensions';

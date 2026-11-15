@@ -12,6 +12,7 @@ import type {
 } from '../types/extensions';
 import { patchPrototype } from '../utils/prototype.utils';
 import { getAppliedOrderBy, getQueryRunner, withoutPaging } from '../utils/query-builder.utils';
+import { getDriverType, isMysqlLikeDriver } from '../utils/sql.utils';
 
 // declarations
 
@@ -256,6 +257,20 @@ async function countRawRows<Entity extends ObjectLiteral>(
     counter.expressionMap.havings = [];
     counting = counter.getRawOne<CountRow>();
   } else {
+    const { selectDistinct, selectDistinctOn, groupBys, havings } = unpaged.expressionMap;
+
+    // MySQL refuses a derived table with two columns of one name (`SELECT *` over a join); without
+    // DISTINCT, GROUP BY or HAVING the select list doesn't change the number of rows
+    if (
+      isMysqlLikeDriver(getDriverType(unpaged)) &&
+      !selectDistinct &&
+      !selectDistinctOn?.length &&
+      !groupBys.length &&
+      !havings.length
+    ) {
+      unpaged.select('1');
+    }
+
     // on the builder's query runner, if it has one: inside its transaction
     const counter = builder.connection
       .createQueryBuilder(getQueryRunner(builder))

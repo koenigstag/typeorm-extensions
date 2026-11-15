@@ -29,7 +29,7 @@ getManyWithTotals(
 
 ## Arguments
 
-- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Numeric strings, as an unparsed query parameter holds them, are read as numbers, and fractions are rounded down. Invalid or missing values fall back to page `1` and page size `10`.
+- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Numeric strings, as an unparsed query parameter holds them, are read as numbers, and fractions are rounded down. Invalid or missing values fall back to page `1` and page size `10`. A page past the last representable offset (`page: '1e21'`) reads as an empty page rather than a database error.
 - options?: [GetManyWithTotalsOptions](./types/GetManyWithTotalsOptions.md): Skip the count query, or load all rows without pagination.
 
 ## What the count counts
@@ -43,6 +43,7 @@ That makes one mistake easy to miss: a condition that belongs to a single page �
 - The count is often as expensive as the page itself — on a text search with `COUNT(DISTINCT …)` the two take about the same time — and the call can only be as fast as the slower of the two.
 - Running them together takes two connections from the pool instead of one, for the length of the call.
 - If the count fails, for instance on a statement timeout, the whole call fails, even though the page was already read; `Promise.all` reports the first error and the other result is dropped. Nothing is logged by the extension itself.
+- With `.cache(id, ms)` the page is cached under `id`, as TypeORM's `getManyAndCount` does, and the count under `${id}-count`. One fixed id therefore serves its first cached page for every page: give each page its own id (`` `tickets:${page}:${pageSize}` ``), or cache without an id, which TypeORM keys by the SQL and its parameters. The same holds for `getRawManyWithTotals` and `getManyWithCursor`.
 - `disableTotalsCalculation` costs nothing in information except `total` itself: `hasMore` is still known, from one row past the page. If the page only needs a "load more" control rather than a page count, this is the path to take — not a last resort for queries that turned out slow.
 
 :::tip Do you need the total, or only `hasMore`?

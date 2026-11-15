@@ -2,6 +2,12 @@ import { DatabaseType, ObjectLiteral } from 'typeorm';
 import { stringToSQLIdentifier } from './sql.utils';
 import { DeepUnwrapArray, KeyProxyCallback } from '../types/modules/proxy-callback.types';
 
+// the members read through a key proxy; any other name is a key, so an entity may have a `push` column
+const PROXIED_MEMBERS: readonly string[] = ['getKeys', 'toSql', 'toString', 'valueOf'];
+
+const isKeyName = (key: string | symbol): key is string =>
+  typeof key === 'string' && !PROXIED_MEMBERS.includes(key);
+
 export class KeyHolder {
   constructor(private _keys: string[] = []) {
     this._keys = [..._keys];
@@ -34,11 +40,7 @@ export class KeyHolder {
   }
 
   push(key: string | symbol) {
-    if (
-      typeof key !== 'symbol' &&
-      !Object.getOwnPropertyNames(this).includes(key) && // check of getOwnPropertyNames(this) is questionable
-      !Object.getOwnPropertyNames(KeyHolder.prototype).includes(key)
-    ) {
+    if (isKeyName(key)) {
       this._keys.push(key);
     }
 
@@ -46,11 +48,7 @@ export class KeyHolder {
   }
 
   unshift(key: string | symbol) {
-    if (
-      typeof key !== 'symbol' &&
-      !Object.getOwnPropertyNames(this).includes(key) && // check of getOwnPropertyNames(this) is questionable
-      !Object.getOwnPropertyNames(KeyHolder.prototype).includes(key)
-    ) {
+    if (isKeyName(key)) {
       this._keys.unshift(key);
     }
 
@@ -72,10 +70,11 @@ export class TypedProxy {
 export class KeyProxy {
   public static defaultHandler: ProxyHandler<KeyHolder> = {
     get(target, key, receiver) {
-      const value = Reflect.get(target, key, receiver);
+      if (!isKeyName(key)) {
+        const value: unknown = Reflect.get(target, key, receiver);
 
-      if (value) {
-        return value;
+        // called on the holder: through the proxy, `this._keys` would read a key named `_keys`
+        return typeof value === 'function' ? value.bind(target) : value;
       }
 
       // for each key create new independent layer of KeyProxy

@@ -2,6 +2,7 @@ import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { DriverUtils } from 'typeorm/driver/DriverUtils';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { createUniqueParameterName } from './sql.utils';
+import { detachedSubQuery, toSubQuerySql } from './parameter.utils';
 
 /** `addSelect`'s selection: an SQL expression, or a factory that builds a subquery on the builder it is given. */
 export type CalculatedSelection<SubEntity extends ObjectLiteral = ObjectLiteral> =
@@ -134,9 +135,12 @@ export function addSelectCalculatedColumn<Entity extends ObjectLiteral, SubEntit
 ): SelectQueryBuilder<Entity> {
   const { key } = resolveCalculatedColumn(builder, property, aliasName, methodName);
 
-  // two calls: addSelect's overloads take a string or a factory, not their union
   if (typeof selection === 'function') {
-    return builder.addSelect(selection, key);
+    // TypeORM's subQuery() would set its parameters on the outer query under their own names: two
+    // factories that both bind `:status` would read one value
+    const [sql, parameters] = toSubQuerySql(selection(detachedSubQuery(builder)));
+
+    return builder.addSelect(`(${sql})`, key).setParameters(parameters);
   }
 
   return builder.addSelect(selection, key);

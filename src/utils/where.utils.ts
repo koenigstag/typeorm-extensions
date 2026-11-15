@@ -177,10 +177,19 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   return builder;
 }
 
+// `||` is OR on MySQL; a match that is not an OR only adds parentheses
+const MAY_HOLD_OR = /\bor\b|\|\|/i;
+
+type WhereClause = QueryBuilder<ObjectLiteral>['expressionMap']['wheres'][number];
+
+const mayHoldOr = (where: WhereClause): boolean =>
+  where.type === 'or' || (typeof where.condition === 'string' && MAY_HOLD_OR.test(where.condition));
+
 /**
  * Adds an AND condition that narrows the whole WHERE clause. TypeORM's `andWhere` doesn't group
- * the conditions before it, so after `.where(a).orWhere(b)` it gives `a OR b AND c`, i.e.
- * `a OR (b AND c)`. Existing conditions with an OR are wrapped first: `(a OR b) AND c`.
+ * the conditions before it, so after `.where(a).orWhere(b)`, or `.where('a OR b')`, it gives
+ * `a OR b AND c`, i.e. `a OR (b AND c)`. Existing conditions that may hold an OR are wrapped first:
+ * `(a OR b) AND c`.
  */
 export function andWhereNarrowing<QB extends WhereExpressionBuilder>(
   builder: QB,
@@ -190,9 +199,9 @@ export function andWhereNarrowing<QB extends WhereExpressionBuilder>(
   const expressionMap = (builder as unknown as QueryBuilder<ObjectLiteral>).expressionMap;
   const wheres = expressionMap?.wheres;
 
-  if (wheres?.some((where) => where.type === 'or')) {
-    // a nested clause list is rendered in parentheses
-    expressionMap.wheres = [{ type: 'simple', condition: wheres }];
+  if (wheres?.some(mayHoldOr)) {
+    // `brackets` is always written in parentheses; a plain nested list of one clause is not
+    expressionMap.wheres = [{ type: 'simple', condition: { operator: 'brackets', condition: wheres } }];
   }
 
   return builder.andWhere(condition, parameters);
