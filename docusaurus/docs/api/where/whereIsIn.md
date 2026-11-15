@@ -12,6 +12,8 @@ An empty (or missing) array doesn't produce invalid SQL like `IN ()`:
 - `IN` with an empty array becomes `FALSE` (no rows match);
 - `NOT IN` with an empty array becomes `TRUE` (the condition doesn't filter anything).
 
+Values as a query string hands them over are read as a list too: one value (`?ids=2` gives `'2'`, `@Type(() => Number)` gives `2`) is a list of one, and an object with array-index keys (`{ 0: '1', 1: '2' }`, how a long list arrives) is the list of its values. `''` is an empty list. Anything else throws a `TypeError` rather than matching all rows or none.
+
 Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
