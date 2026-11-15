@@ -29,8 +29,13 @@ setupTest('query-string inputs', undefined, (context) => {
       const byAlias = users().applyOrder({ field: 'id', tableAlias: `${q}user${q}.${q}id${q} * (SELECT -1), ${q}user${q}` });
 
       expect(sqlOf(byField)).toContain('ORDER BY """id"" * (SELECT -1), ""id""" ASC');
-      await expect(byField.getMany()).rejects.toThrow();
-      await expect(byAlias.getMany()).rejects.toThrow();
+      expect(sqlOf(byAlias)).toContain('ORDER BY """user"".""id"" * (SELECT -1), ""user""".');
+
+      // SQLite builds that allow double-quoted strings read an unknown quoted name as a string: a constant order
+      if (!driverIn(sqliteDrivers)) {
+        await expect(byField.getMany()).rejects.toThrow();
+        await expect(byAlias.getMany()).rejects.toThrow();
+      }
     });
 
     it('SHOULD take only column names with useQuotes: false', () => {
