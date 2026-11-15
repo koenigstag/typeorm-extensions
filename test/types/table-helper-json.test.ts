@@ -82,3 +82,16 @@ job.jsonColumn('rules', '->>', 'threshold', 'value');
 job.jsonColumn('rules', '->>', 'remindOn');
 // @ts-expect-error a key of no member, one level down
 job.jsonColumn('rules', '->>', 'threshold', 'limit');
+
+class Tree {
+  root: { a: { b: { c: { d: { leaf: string } } } } };
+}
+
+const tree = tableHelper<Tree>('tree');
+
+// a path is checked to its end, however deep
+tree.jsonColumn('root', '->>', 'a', 'b', 'c', 'd', 'leaf');
+// @ts-expect-error a wrong key five levels down
+tree.jsonColumn('root', '->>', 'a', 'b', 'c', 'd', 'leaves');
+// @ts-expect-error a typed column needs a key
+person.jsonColumn('profile', '->>');

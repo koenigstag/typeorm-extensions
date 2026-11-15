@@ -22,6 +22,9 @@ type JsonPathLeaf = Date | ArrayBufferView | ArrayBuffer | readonly unknown[];
 /** The keys of every member of a union: a JSON value of a union type may be any of them. */
 type JsonKeys<T> = T extends JsonPathLeaf ? never : T extends object ? keyof T & string : never;
 
+/** The value under `Key` in the members of `V` that have it. */
+type JsonValueAt<V, Key> = V extends unknown ? (Key extends keyof V ? V[Key] : never) : never;
+
 /**
  * An object whose keys a JSON path names: a type alias, an interface or a class. `object` and `{}` have no keys to check;
  * `unknown` and `any` may hold any object, so the path goes on with any keys.
@@ -36,20 +39,33 @@ type JsonPathKind<V> = unknown extends V
 				: 'object'
 			: 'leaf';
 
-// distributes over a union, so a path takes the keys of any member (a discriminated union's variants)
+/**
+ * A JSON path checked one key at a time against the value each key is read from, so it costs the length of the path:
+ * listing every path of a wide class instead costs thousands of types per call. A key that doesn't fit is replaced by
+ * the keys that would, which is what the error names.
+ */
+type JsonPathRest<V, Path extends readonly string[]> = Path extends readonly [infer Head extends string, ...infer Rest extends string[]]
+	? JsonPathKind<V> extends 'untyped'
+		? Path
+		: JsonPathKind<V> extends 'object'
+			? Head extends JsonKeys<NonNullable<V>>
+				? [Head, ...JsonPathRest<JsonValueAt<NonNullable<V>, Head>, Rest>]
+				: [JsonKeys<NonNullable<V>>, ...Rest]
+			: []
+	: [];
+
+/** The keys of a JSON path into a column of type `V`: at least one, checked when `V` is an object type, any strings otherwise. */
+export type JsonPathArgs<V, Path extends readonly string[]> = JsonPathKind<V> extends 'object'
+	? Path extends readonly [] ? [JsonKeys<NonNullable<V>>] : JsonPathRest<V, Path>
+	: Path;
+
 type JsonFieldTuple<T, Depth extends 0[] = []> = Depth['length'] extends 4
 	? [string, ...string[]]
-	: T extends JsonPathLeaf
-		? never
-		: T extends object
-			? {
-				[K in keyof T & string]: JsonPathKind<T[K]> extends 'object'
-					? [K, ...JsonFieldTuple<NonNullable<T[K]>, [...Depth, 0]>] | [K]
-					: JsonPathKind<T[K]> extends 'untyped'
-						? [K, ...string[]]
-						: [K]
-			}[keyof T & string]
-			: never;
+	: {
+		[K in keyof T & string]: [NonNullable<T[K]>] extends [Record<string, unknown>]
+			? [K, ...JsonFieldTuple<NonNullable<T[K]>, [...Depth, 0]>] | [K]
+			: [K]
+	}[keyof T & string];
 
 export type TableHelperCountOptions = {
 	/** `COUNT(DISTINCT column)`: count the different values of the column. Needs a column. */
@@ -269,8 +285,8 @@ function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefi
 const sqlString = (value: string, driver?: DatabaseType) =>
 	`'${(isMysqlLikeDriver(driver) ? value.replace(/\\/g, '\\\\') : value).replace(/'/g, "''")}'`;
 
-/** The keys of a JSON path into a column of type `V`, checked against `V` when it is an object type. */
-export type JsonFieldRest<V> = JsonPathKind<V> extends 'object'
+/** Every JSON path into a type alias, up to 4 keys deep: `string[]` for other types. `jsonColumn` / `jsonPath` check a path with `JsonPathArgs`. */
+export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
@@ -513,10 +529,10 @@ const createTableHelper = <T extends ObjectLiteral>(
 	 * t.jsonColumn('metadata', '->>', 'role')             // → "user"."metadata" ->> 'role'
 	 * t.jsonColumn('metadata', '->>', 'settings', 'theme') // → "user"."metadata" -> 'settings' ->> 'theme'
 	 */
-	jsonColumn<K extends keyof T>(
+	jsonColumn<K extends keyof T, Path extends string[]>(
 		columnName: K,
 		jsonOperator: '->>' | '->',
-		...fieldNames: JsonFieldRest<T[K]>
+		...fieldNames: Path & JsonPathArgs<T[K], Path>
 	) {
 		const column = this.column(columnName);
 		const path = buildJsonPath(fieldNames, jsonOperator);
@@ -532,10 +548,10 @@ const createTableHelper = <T extends ObjectLiteral>(
 	 * // Combined with whereTyped:
 	 * qb.whereTyped(u => u.metadata, `${t.jsonPath('metadata', '->>', 'role')} =`, 'admin')
 	 */
-	jsonPath<K extends keyof T>(
+	jsonPath<K extends keyof T, Path extends string[]>(
 		_columnName: K,
 		jsonOperator: '->>' | '->',
-		...fieldNames: JsonFieldRest<T[K]>
+		...fieldNames: Path & JsonPathArgs<T[K], Path>
 	) {
 		return buildJsonPath(fieldNames, jsonOperator);
 	},
