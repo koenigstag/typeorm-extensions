@@ -276,7 +276,7 @@ const rows = await usersRepository
 Typed where methods go into JSON columns themselves (`user => user.metadata.settings.theme`, see [Paths into JSON columns](../typed/whereTyped.md#paths-into-json-columns)), so these helpers are for the places that take an expression: select, group by, order, untyped where.
 
 - `operator` is applied to the last key: `->>` returns text, `->` returns JSON. Keys before the last one always use `->`.
-- Keys are inferred from the column's TypeScript type (autocomplete up to 4 levels deep). For untyped JSON columns any strings are accepted.
+- Keys are inferred from the column's TypeScript type, whether it is a type alias, an interface or a class (autocomplete up to 4 levels deep). A union takes the keys of any of its members, so a discriminated union's variants can each be read. Dates and arrays end the path. For untyped JSON columns (`unknown`, `any`, `object`, `Record<string, unknown>`) any strings are accepted, at any depth below an `unknown` value.
 - Keys are escaped as SQL string literals (`o'brien` → `'o''brien'`, and on MySQL a backslash doubled, since it is an escape there), so a key can't break out of the literal.
 
 ```typescript

@@ -16,13 +16,40 @@ export type TableHelperOptions = {
 	driver?: DatabaseType;
 };
 
+/** Values a JSON path stops at, as typed callbacks read them: dates and binary data are values, an array's items have no keys. */
+type JsonPathLeaf = Date | ArrayBufferView | ArrayBuffer | readonly unknown[];
+
+/** The keys of every member of a union: a JSON value of a union type may be any of them. */
+type JsonKeys<T> = T extends JsonPathLeaf ? never : T extends object ? keyof T & string : never;
+
+/**
+ * An object whose keys a JSON path names: a type alias, an interface or a class. `object` and `{}` have no keys to check;
+ * `unknown` and `any` may hold any object, so the path goes on with any keys.
+ */
+type JsonPathKind<V> = unknown extends V
+	? 'untyped'
+	: [NonNullable<V>] extends [JsonPathLeaf]
+		? 'leaf'
+		: [NonNullable<V>] extends [object]
+			? [JsonKeys<NonNullable<V>>] extends [never]
+				? 'untyped'
+				: 'object'
+			: 'leaf';
+
+// distributes over a union, so a path takes the keys of any member (a discriminated union's variants)
 type JsonFieldTuple<T, Depth extends 0[] = []> = Depth['length'] extends 4
 	? [string, ...string[]]
-	: {
-		[K in keyof T & string]: [NonNullable<T[K]>] extends [Record<string, unknown>]
-			? [K, ...JsonFieldTuple<NonNullable<T[K]>, [...Depth, 0]>] | [K]
-			: [K]
-	}[keyof T & string];
+	: T extends JsonPathLeaf
+		? never
+		: T extends object
+			? {
+				[K in keyof T & string]: JsonPathKind<T[K]> extends 'object'
+					? [K, ...JsonFieldTuple<NonNullable<T[K]>, [...Depth, 0]>] | [K]
+					: JsonPathKind<T[K]> extends 'untyped'
+						? [K, ...string[]]
+						: [K]
+			}[keyof T & string]
+			: never;
 
 export type TableHelperCountOptions = {
 	/** `COUNT(DISTINCT column)`: count the different values of the column. Needs a column. */
@@ -242,7 +269,8 @@ function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefi
 const sqlString = (value: string, driver?: DatabaseType) =>
 	`'${(isMysqlLikeDriver(driver) ? value.replace(/\\/g, '\\\\') : value).replace(/'/g, "''")}'`;
 
-export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
+/** The keys of a JSON path into a column of type `V`, checked against `V` when it is an object type. */
+export type JsonFieldRest<V> = JsonPathKind<V> extends 'object'
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
