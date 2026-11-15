@@ -8,13 +8,21 @@ import { createUniqueParameterName } from './sql.utils';
 export function detachedSubQuery<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>
 ): SelectQueryBuilder<ObjectLiteral> {
-  // queryRunner is protected in TypeORM's types: the subquery runs inside the builder's transaction
-  const { queryRunner } = builder as unknown as { queryRunner?: QueryRunner };
-  const subQuery = builder.connection.createQueryBuilder(queryRunner);
+  const subQuery = detachedQueryBuilder(builder);
 
   subQuery.expressionMap.subQuery = true;
 
   return subQuery;
+}
+
+/** A query builder on the connection and in the transaction of `builder` (any kind of builder), without a parent. */
+export function detachedQueryBuilder(builder: object): SelectQueryBuilder<ObjectLiteral> {
+  // connection and queryRunner are not on every builder interface TypeORM declares (WhereExpressionBuilder)
+  const { connection, queryRunner } = builder as unknown as Pick<SelectQueryBuilder<ObjectLiteral>, 'connection'> & {
+    queryRunner?: QueryRunner;
+  };
+
+  return connection.createQueryBuilder(queryRunner);
 }
 
 // TypeORM's placeholder syntax, `:name` and `:...name`, as its drivers match it

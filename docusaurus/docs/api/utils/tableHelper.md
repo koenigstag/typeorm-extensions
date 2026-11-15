@@ -51,6 +51,10 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `joinOn(column, expression)` | `t.joinOn('id', '= ' + image.column('userId'))` | `"user"."id" = "images"."userId"` |
 | `isNull(column)` | `t.isNull('deletedAt')` | `"user"."deletedAt" IS NULL` |
 | `isNotNull(column)` | `t.isNotNull('email')` | `"user"."email" IS NOT NULL` |
+| `isIn(column, values, param)` | `t.isIn('id', ids, 'ids')` | `"user"."id" IN (:...ids)`, `FALSE` without ids |
+| `isNotIn(column, values, param)` | `t.isNotIn('id', ids, 'ids')` | `"user"."id" NOT IN (:...ids)`, `TRUE` without ids |
+| `isAny(column, values, param, arrayType?)` | `t.isAny('id', ids, 'ids', 'int[]')` | `"user"."id" = ANY(CAST(:ids AS int[]))`, `FALSE` without ids |
+| `isNotAny(column, values, param, arrayType?)` | `t.isNotAny('id', ids, 'ids')` | `"user"."id" <> ALL(:ids)`, `TRUE` without ids |
 | `count(column?, options?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
 | | `t.count()` | `CAST(COUNT(*) AS integer)` |
 | | `t.count('email', { distinct: true })` | `CAST(COUNT(DISTINCT "user"."email") AS integer)` |
@@ -88,6 +92,34 @@ cte.utm_id                // "cte"."utm_id"
 - An unknown name doesn't compile (`t.notAColumn`). The names are the keys of the entity type, as `column()` takes them, relations included.
 - Symbols and the keys that JavaScript and test tools read on any object (`then`, `toJSON`, `toString`, `valueOf`, `constructor`, `inspect`, `asymmetricMatch`, `$$typeof`, `nodeType`, and the other members of `Object.prototype`) are not columns: `await`, `JSON.stringify`, `String()`, `util.inspect` and Jest matchers treat the helper as a plain object.
 - `tableHelper<Entity>()` returns a `TableHelper<Entity>`, exported for code that keeps a helper in a variable or a field.
+
+## Value lists
+
+```typescript
+isIn(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string): string
+isNotIn(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string): string
+// PostgreSQL
+isAny(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string, arrayType?: string): string
+isNotAny(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string, arrayType?: string): string
+```
+
+The conditions of [`whereIsIn` / `whereIsNotIn`](../where/whereIsIn.md) and [`whereIsAny` / `whereIsNotAny`](../where/whereIsAny.md) as strings, for SQL those methods don't reach: a join condition, a `CASE`, a `filter` of `count`, a raw query.
+
+- values: Read only to see whether there are any. For an empty list, `null` or `undefined` the condition is `FALSE`, `TRUE` for `isNotIn` / `isNotAny`, as the query builder methods write it: `IN ()` is a syntax error.
+- param: The name the caller binds the values under, written into the SQL as `:param` (`:...param` for `isIn` / `isNotIn`). Letters, digits and `_` only. The query builder methods bind under a generated name; here the caller binds, so it names the parameter, and two conditions in one query need two names.
+- arrayType?: `isAny` / `isNotAny` bind the array as one parameter, cast to this type when given (`CAST(:ids AS uuid[])`), as `whereIsAny` does. `isIn` / `isNotIn` expand it into one parameter per value, on every database.
+
+```typescript
+const image = tableHelper(ImageEntity, 'image');
+
+userRepository
+  .createQueryBuilder('user')
+  .leftJoin('user.images', 'image', image.isIn('status', statuses, 'statuses'), { statuses })
+  .addSelect(t.count(undefined, { filter: t.isAny('id', vipIds, 'vipIds', 'int[]') }), 'vips')
+  .setParameter('vipIds', vipIds);
+```
+
+They throw a `TypeError` for a `param` that isn't a parameter name, an `arrayType` that isn't a type name, and `values` that are neither an array nor `null` / `undefined`.
 
 ## Counting
 

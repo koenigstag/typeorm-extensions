@@ -1,5 +1,12 @@
 import { DatabaseType, getMetadataArgsStorage, ObjectLiteral } from "typeorm";
-import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
+import {
+	assertArrayType,
+	isMysqlLikeDriver,
+	isPostgresLikeDriver,
+	isSqliteLikeDriver,
+	quoteIdentifier,
+	quoteIdentifierPath,
+} from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
 import { parseUtcOffset } from './time-zone.utils';
 
@@ -239,6 +246,35 @@ export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
+/** The values of an IN / ANY condition, read only to tell an empty list: the caller binds them. */
+type ValueList = readonly unknown[] | null | undefined;
+
+const PARAM_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+const hasValues = (values: ValueList): boolean => {
+	if (values === null || values === undefined) {
+		return false;
+	}
+
+	if (!Array.isArray(values)) {
+		throw new TypeError(`tableHelper: the values of an IN / ANY condition must be an array, got ${typeof values}`);
+	}
+
+	return values.length > 0;
+};
+
+// the name is written into the SQL as `:name`
+const assertParamName = (param: string): string => {
+	if (typeof param !== 'string' || !PARAM_NAME.test(param)) {
+		throw new TypeError(`tableHelper: "${param}" is not a parameter name (letters, digits and _)`);
+	}
+
+	return param;
+};
+
+const arrayParameter = (param: string, arrayType?: string): string =>
+	arrayType === undefined ? `:${assertParamName(param)}` : `CAST(:${assertParamName(param)} AS ${assertArrayType(arrayType)})`;
+
 const createTableHelper = <T extends ObjectLiteral>(
 	alias?: string,
 	options: TableHelperOptions = {},
@@ -296,6 +332,28 @@ const createTableHelper = <T extends ObjectLiteral>(
 	/** Returns `"alias"."column" IS NOT NULL`. */
 	isNotNull(columnName: keyof T) {
 		return this.where(columnName, 'IS NOT NULL');
+	},
+	/**
+	 * Returns `"alias"."column" IN (:...param)`, or `FALSE` for no values, as `whereIsIn` writes it. The values
+	 * are bound under `param` by the caller: `qb.andWhere(t.isIn('id', ids, 'ids'), { ids })`.
+	 */
+	isIn(columnName: keyof T, values: ValueList, param: string) {
+		return hasValues(values) ? this.where(columnName, `IN (:...${assertParamName(param)})`) : 'FALSE';
+	},
+	/** Returns `"alias"."column" NOT IN (:...param)`, or `TRUE` for no values, as `whereIsNotIn` writes it. */
+	isNotIn(columnName: keyof T, values: ValueList, param: string) {
+		return hasValues(values) ? this.where(columnName, `NOT IN (:...${assertParamName(param)})`) : 'TRUE';
+	},
+	/**
+	 * Returns `"alias"."column" = ANY(:param)`, or `FALSE` for no values, as `whereIsAny` writes it: the array is
+	 * bound as one parameter, cast to `arrayType` when given (`'uuid[]'`). PostgreSQL.
+	 */
+	isAny(columnName: keyof T, values: ValueList, param: string, arrayType?: string) {
+		return hasValues(values) ? this.where(columnName, `= ANY(${arrayParameter(param, arrayType)})`) : 'FALSE';
+	},
+	/** Returns `"alias"."column" <> ALL(:param)`, or `TRUE` for no values, as `whereIsNotAny` writes it. PostgreSQL. */
+	isNotAny(columnName: keyof T, values: ValueList, param: string, arrayType?: string) {
+		return hasValues(values) ? this.where(columnName, `<> ALL(${arrayParameter(param, arrayType)})`) : 'TRUE';
 	},
 	/**
 	 * Returns `CAST(COUNT("alias"."column") AS integer)`: the rows where the column isn't `NULL`. With the `driver` option

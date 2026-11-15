@@ -5,7 +5,7 @@ import {
 } from 'typeorm';
 import type { WhereMethods } from '../types/extensions';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
-import { withUniqueParameterNames } from '../utils/parameter.utils';
+import { detachedQueryBuilder, withUniqueParameterNames } from '../utils/parameter.utils';
 import { withoutPaging } from '../utils/query-builder.utils';
 
 // declarations
@@ -17,12 +17,23 @@ import { withoutPaging } from '../utils/query-builder.utils';
  */
 export interface WhereExistsMethods {
   /** Sets `WHERE EXISTS (subQuery)`, replacing the WHERE conditions set before. */
-  whereExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  whereExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQuery<SubEntity>): this;
   /** Adds `AND EXISTS (subQuery)`. */
-  andWhereExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  andWhereExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQuery<SubEntity>): this;
   /** Adds `OR EXISTS (subQuery)`. */
-  orWhereExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  orWhereExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQuery<SubEntity>): this;
 }
+
+/**
+ * The subquery of an EXISTS condition: a query builder, or a factory that builds it on the builder it is given
+ * (`sub => sub.select('1').from(Image, 'image').where(…)`), one of the same connection and transaction.
+ */
+export type ExistsSubQuery<SubEntity extends ObjectLiteral> =
+  | SelectQueryBuilder<SubEntity>
+  | ((subQuery: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<SubEntity>);
+
+/** The factory form of an `ExistsSubQuery`. */
+export type ExistsSubQueryFactory<SubEntity extends ObjectLiteral> = Extract<ExistsSubQuery<SubEntity>, (...args: never[]) => unknown>;
 
 /**
  * `NOT EXISTS` conditions: the negation of TypeORM's `whereExists`, with the same subquery SQL.
@@ -30,11 +41,11 @@ export interface WhereExistsMethods {
  */
 export interface WhereNotExistsMethods {
   /** Sets `WHERE NOT EXISTS (subQuery)`, replacing the WHERE conditions set before. */
-  whereNotExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  whereNotExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQuery<SubEntity>): this;
   /** Adds `AND NOT EXISTS (subQuery)`. */
-  andWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  andWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQuery<SubEntity>): this;
   /** Adds `OR NOT EXISTS (subQuery)`. */
-  orWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  orWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQuery<SubEntity>): this;
 }
 
 /* eslint-disable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
@@ -43,7 +54,12 @@ declare module 'typeorm/query-builder/WhereExpressionBuilder' {
 }
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity extends ObjectLiteral> extends WhereNotExistsMethods {}
+  interface SelectQueryBuilder<Entity extends ObjectLiteral> extends WhereNotExistsMethods {
+    // TypeORM's own EXISTS methods take a builder; these overloads add the factory form
+    whereExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQueryFactory<SubEntity>): this;
+    andWhereExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQueryFactory<SubEntity>): this;
+    orWhereExists<SubEntity extends ObjectLiteral>(subQuery: ExistsSubQueryFactory<SubEntity>): this;
+  }
 }
 
 declare module 'typeorm/query-builder/UpdateQueryBuilder' {
@@ -67,7 +83,7 @@ declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
 
 // patching
 
-type SubQuery = SelectQueryBuilder<ObjectLiteral>;
+type SubQuery = ExistsSubQuery<ObjectLiteral>;
 
 const existsMethods: { prototype: WhereExistsMethods } = {
   prototype: {
@@ -102,6 +118,18 @@ const notExistsMethods: { prototype: WhereNotExistsMethods } = {
 patchPrototypes(WHERE_QUERY_BUILDERS, existsMethods, { onlyMissing: true });
 patchPrototypes(WHERE_QUERY_BUILDERS, notExistsMethods, { onlyMissing: true });
 
+// TypeORM's own select EXISTS methods keep handling a builder; a factory goes through ours
+for (const [name, method] of [['whereExists', 'where'], ['andWhereExists', 'andWhere'], ['orWhereExists', 'orWhere']] as const) {
+  const prototype = SelectQueryBuilder.prototype as unknown as Record<string, (subQuery: SubQuery) => unknown>;
+  const own = prototype[name];
+
+  if (own !== existsMethods.prototype[name]) {
+    prototype[name] = function (this: SelectQueryBuilder<ObjectLiteral>, subQuery: SubQuery) {
+      return typeof subQuery === 'function' ? attachExists(this, method, subQuery, false) : own.call(this, subQuery);
+    };
+  }
+}
+
 // implementation
 
 export function attachExists<QB extends WhereExpressionBuilder>(
@@ -110,7 +138,8 @@ export function attachExists<QB extends WhereExpressionBuilder>(
   subQuery: SubQuery,
   negate: boolean
 ): QB {
-  const [condition, parameters] = withUniqueParameterNames(...getExistsCondition(subQuery));
+  const query = typeof subQuery === 'function' ? subQuery(detachedQueryBuilder(builder)) : subQuery;
+  const [condition, parameters] = withUniqueParameterNames(...getExistsCondition(query));
 
   return builder[method](negate ? `NOT ${condition}` : condition, parameters) as QB;
 }
@@ -121,7 +150,7 @@ export function attachExists<QB extends WhereExpressionBuilder>(
  * stays, and so do the aliased selections, which a HAVING may name on MySQL and SQLite (`cnt > 1`).
  * An entity's own columns go either way: next to a GROUP BY they would not be grouped.
  */
-function getExistsCondition(subQuery: SubQuery): [string, ObjectLiteral] {
+function getExistsCondition(subQuery: SelectQueryBuilder<ObjectLiteral>): [string, ObjectLiteral] {
   const query = withoutPaging(subQuery.clone());
   const aliased = query.expressionMap.selects.filter((select) => select.aliasName !== undefined);
 
