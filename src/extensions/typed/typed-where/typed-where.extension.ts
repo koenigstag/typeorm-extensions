@@ -5,11 +5,11 @@ import {
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { TypedWhereArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedSingleColumnKey, isTypedJsonPath } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
-import { attachWhere, getComparedValue } from '../../../utils/where.utils';
+import { attachWhere, getComparedValue, isParamsObject } from '../../../utils/where.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
@@ -133,15 +133,40 @@ function attachTypedWhere<
   const { addValue } = options || {};
 
   if (typeof where === 'function') {
+    // a JSON path compared by order with numeric text is compared as a number: as text '9' >= '10'
+    const params =
+      isOrderingCondition(conditions) && isTypedJsonPath<Type>(builder, where)
+        ? withNumericTextAsNumber(parameters)
+        : parameters;
     // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
     // a path into a JSON column is cast to the type of the value it is compared with
-    const value = getComparedValue(parameters);
+    const value = getComparedValue(params);
     const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
 
-    return attachWhere<QB>(builder, method, key, conditions, parameters, {
+    return attachWhere<QB>(builder, method, key, conditions, params, {
       addValue,
     });
   }
 
   return builder;
+}
+
+// `>=`, or `>= :min` with the value in a params object
+const ORDERING_CONDITION = /^\s*(?:<=|>=|<|>)\s*(?::\w+\s*)?$/;
+const NUMERIC_TEXT = /^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?\s*$/i;
+
+const isOrderingCondition = (conditions: string): boolean =>
+  typeof conditions === 'string' && ORDERING_CONDITION.test(conditions);
+
+const toNumberIfNumericText = (value: unknown): unknown =>
+  typeof value === 'string' && NUMERIC_TEXT.test(value) ? Number(value) : value;
+
+function withNumericTextAsNumber(parameters: unknown): unknown {
+  if (!isParamsObject(parameters)) {
+    return toNumberIfNumericText(parameters);
+  }
+
+  const entries = Object.entries(parameters);
+
+  return entries.length === 1 ? { [entries[0][0]]: toNumberIfNumericText(entries[0][1]) } : parameters;
 }
