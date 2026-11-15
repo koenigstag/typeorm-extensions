@@ -2,11 +2,11 @@
 
 ## [2.2.0] - Unreleased
 
-Published for testing as `2.2.0-rc.11` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+Published for testing as `2.2.0-rc.12` under the `next` dist-tag: `npm install typeorm-extensions@next`.
 
 A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore` and `pageSize`, and `page` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
-A few changes can make working code throw, see **Bug Fixes**: a params object that goes after the condition (`whereTyped(u => u.id, '=', { id })`) has to hold exactly one key; `applyOrder` with `useQuotes: false` takes column names only, not expressions; an order without a `field`, and a value list for `whereIsIn` / `whereIsAny` / `innerJoinUnnest` that is neither a list nor one value, throw a `TypeError`.
+A few changes can make working code throw, see **Bug Fixes**: a params object that goes after the condition (`whereTyped(u => u.id, '=', { id })`) has to hold exactly one key; `applyOrder` with `useQuotes: false` takes column names only, not expressions; an order without a `field`, and a value list for `whereIsIn` / `whereIsAny` / `innerJoinUnnest` that is neither a list nor one value, throw a `TypeError`; a descending cursor made by an earlier version throws `InvalidCursorError` once, since cursors now name the direction of their keys.
 
 ### New Features
 
