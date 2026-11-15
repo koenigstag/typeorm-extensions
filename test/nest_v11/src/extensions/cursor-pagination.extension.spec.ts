@@ -249,6 +249,14 @@ setupTest('cursor-pagination', undefined, (context) => {
     // a cursor of another order
     await expect(load(nextCursor as string, 'email')).rejects.toThrow(/not made for the order \(email, id\)/);
 
+    // values a client edited: the database would reject them for the column's type
+    const payload = JSON.parse(Buffer.from(nextCursor as string, 'base64url').toString());
+    const edited = (v: unknown[]) => Buffer.from(JSON.stringify({ ...payload, v })).toString('base64url');
+
+    await expect(load(edited([payload.v[0], 'abc']))).rejects.toBeInstanceOf(InvalidCursorError);
+    await expect(load(edited(['yesterday', payload.v[1]]))).rejects.toBeInstanceOf(InvalidCursorError);
+    await expect(load(edited([payload.v[0], String(payload.v[1])]))).resolves.toMatchObject({ pageSize: 10 });
+
     await expect(
       users()
         .createQueryBuilder('user')

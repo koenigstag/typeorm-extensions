@@ -16,10 +16,12 @@ import { getAppliedOrderBy } from '../utils/query-builder.utils';
 import { isDate } from '../utils/common.utils';
 import {
   buildKeysetCondition,
+  CursorValue,
   decodeCursor,
   encodeCursor,
   getExpressionKeyName,
   getTextCastType,
+  InvalidCursorError,
   supportsRowValueComparison,
 } from '../utils/cursor.utils';
 
@@ -99,6 +101,42 @@ type CursorKey = {
 const isDateColumn = (column: ColumnMetadata): boolean =>
   column.type === Date || (typeof column.type === 'string' && /date|time/i.test(column.type));
 
+const NUMERIC_TYPES: readonly string[] = [
+  'int', 'int2', 'int4', 'int8', 'integer', 'smallint', 'mediumint', 'bigint', 'tinyint',
+  'float', 'float4', 'float8', 'double', 'double precision', 'real', 'decimal', 'numeric', 'dec', 'number',
+];
+const NUMBER_TEXT = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
+const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// the text PostgreSQL, MySQL and SQLite give a date, a timestamp or a time
+const TEMPORAL_TEXT =
+  /^(?:\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?|\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:Z|[+-]\d{2}(?::?\d{2})?)?$/i;
+
+/**
+ * Whether a cursor value can be compared with its column, so a cursor edited by a client gives an
+ * `InvalidCursorError` rather than a database error (`invalid input syntax for type integer`).
+ */
+function fitsColumn(value: CursorValue | Date, column: ColumnMetadata, knownTextCast: boolean): boolean {
+  const type = typeof column.type === 'string' ? column.type.toLowerCase() : column.type;
+
+  if (type === Number || NUMERIC_TYPES.includes(type as string)) {
+    return typeof value === 'number' || (typeof value === 'string' && NUMBER_TEXT.test(value.trim()));
+  }
+
+  if (type === 'uuid' || column.generationStrategy === 'uuid') {
+    return typeof value === 'string' && UUID_TEXT.test(value);
+  }
+
+  if (isDateColumn(column)) {
+    return isDate(value) || (typeof value === 'string' && (!knownTextCast || TEMPORAL_TEXT.test(value.trim())));
+  }
+
+  if (type === Boolean || type === 'boolean' || type === 'bool') {
+    return typeof value === 'boolean' || value === 0 || value === 1;
+  }
+
+  return true;
+}
+
 /** The columns of `orderBy`, followed by the primary key columns that aren't among them. */
 function getCursorKeys<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
@@ -156,6 +194,13 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
 
   if (cursorFilter?.cursor) {
     const values = decodeCursor(cursorFilter.cursor, fields);
+    const knownTextCast = textCastType === 'text' || textCastType === 'char';
+
+    keys.forEach((key, i) => {
+      if (!fitsColumn(values[i], key.column, knownTextCast)) {
+        throw new InvalidCursorError(`Invalid cursor: its value of "${fields[i]}" doesn't fit the column`);
+      }
+    });
 
     const keysetColumns = keys.map((key, i) => {
       const paramName = createUniqueParameterName(`cursor${i}`);
