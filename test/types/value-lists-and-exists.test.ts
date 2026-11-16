@@ -1,4 +1,4 @@
-import { DataSource, SelectQueryBuilder } from 'typeorm';
+import { Brackets, DataSource, SelectQueryBuilder } from 'typeorm';
 import { tableHelper } from 'typeorm-extensions';
 
 class Ticket {
@@ -34,3 +34,15 @@ dataSource.createQueryBuilder().update(User).set({ name: 'x' }).whereNotExists((
 
 // @ts-expect-error a factory returns the subquery
 users.andWhereExists((sub) => 'EXISTS (SELECT 1)');
+
+const hasTicket: string = users.existsSql((sub) => sub.select('1').from(Ticket, 'ticket'));
+users.addSelect(users.notExistsSql(dataSource.getRepository(Ticket).createQueryBuilder('ticket')), 'ticketless');
+users.where((qb) => `${hasTicket} OR ${qb.notExistsSql((sub) => sub.select('1').from(Ticket, 'ticket'))}`);
+users.andWhere(new Brackets((qb) => qb.where(qb.existsSql((sub) => sub.select('1').from(Ticket, 'ticket')))));
+dataSource.createQueryBuilder().update(User).set({ name: 'x' }).where((qb) => qb.existsSql((sub) => sub.select('1').from(Ticket, 'ticket')));
+dataSource.createQueryBuilder().delete().from(User).where((qb) => qb.notExistsSql((sub) => sub.select('1').from(Ticket, 'ticket')));
+
+// @ts-expect-error a factory returns the subquery
+users.existsSql((sub) => 'EXISTS (SELECT 1)');
+// @ts-expect-error the subquery is required
+users.notExistsSql();

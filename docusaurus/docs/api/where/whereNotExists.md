@@ -2,7 +2,7 @@
 sidebar_position: 8
 ---
 
-# whereNotExists / whereExists
+# whereNotExists / whereExists / existsSql
 
 ## Description
 
@@ -90,3 +90,53 @@ userRepository
       .andWhere('ticket.status = :status', { status: 'open' })
   );
 ```
+
+## existsSql / notExistsSql
+
+`existsSql` and `notExistsSql` return `EXISTS (subquery)` and `NOT EXISTS (subquery)` as SQL, for a place the methods above don't reach: an `OR` group, a `CASE`, a selection, an ordering, a join condition or `FILTER (WHERE …)`. They are on the same builders, and on the builder `Brackets` passes.
+
+The subquery is built as for `whereExists`, from a query builder or a [factory](#a-factory). Its parameters get unique names and are set on the query when the method is called, so the SQL can go anywhere in that query without parameters of its own. A placeholder of the outer query, such as `:id` below, keeps its name: the outer call binds it.
+
+Inside a chain, TypeORM's `where` / `andWhere` / `orWhere` take a function that gets the query builder and returns the condition, which gives the builder to call the method on.
+
+```typescript
+existsSql<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): string
+notExistsSql<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): string
+```
+
+```typescript
+// users with an open ticket, and user 2
+// WHERE (EXISTS (SELECT 1 FROM "tickets" "ticket" WHERE … AND "ticket"."status" = :status_x7k2q) OR "user"."id" = :id)
+userRepository
+  .createQueryBuilder('user')
+  .where(
+    (qb) =>
+      `(${qb.existsSql((sub) =>
+        sub
+          .select('1')
+          .from(TicketEntity, 'ticket')
+          .where('ticket.ownerId = "user"."id"')
+          .andWhere('ticket.status = :status', { status: 'open' })
+      )} OR "user"."id" = :id)`,
+    { id: 2 }
+  );
+```
+
+```typescript
+// a flag in the selection, and users with a done ticket first
+const users = userRepository.createQueryBuilder('user');
+const hasDone = users.existsSql((sub) =>
+  sub
+    .select('1')
+    .from(TicketEntity, 'ticket')
+    .where('ticket.ownerId = "user"."id"')
+    .andWhere('ticket.status = :status', { status: 'done' })
+);
+
+users
+  .select('user.id', 'id')
+  .addSelect(hasDone, 'hasDone')
+  .orderBy(`CASE WHEN ${hasDone} THEN 0 ELSE 1 END`, 'ASC');
+```
+
+The parameters are set when the method is called: SQL that is called for and then not used leaves its parameters on the query, unread.

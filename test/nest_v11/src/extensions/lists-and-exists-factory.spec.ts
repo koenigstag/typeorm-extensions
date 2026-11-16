@@ -1,3 +1,4 @@
+import { Brackets } from 'typeorm';
 import 'typeorm-extensions/extensions/where-exists.extension';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 import { postgresLikeDrivers } from '../constants/database';
@@ -90,6 +91,42 @@ setupTest('whereExists with a factory', undefined, (context) => {
     expect(Object.values(query.getParameters()).sort()).toEqual(['done', 'open']);
   });
 
+  it('SHOULD write existsSql / notExistsSql into an OR group, Brackets, a selection and an ordering', async () => {
+    await seed();
+
+    const openOrSecond = users().where((qb) => `(${qb.existsSql(ownTickets('open') as never)} OR user.id = :second)`, { second: 2 });
+    expect(await ids(openOrSecond)).toEqual([1, 2]);
+
+    const withoutOpen = users().where(new Brackets((qb) => qb.where(qb.notExistsSql(ownTickets('open') as never)).andWhere('user.id <> :third', { third: 3 })));
+    expect(await ids(withoutOpen)).toEqual([2]);
+
+    const flagged = users();
+    const rows = await flagged
+      .select('user.id', 'id')
+      .addSelect(flagged.existsSql(ownTickets('done') as never), 'hasDone')
+      .getRawMany<{ id: number; hasDone: unknown }>();
+    expect(rows.map((row) => [Number(row.id), Number(row.hasDone) === 1 || row.hasDone === true])).toEqual([
+      [1, false],
+      [2, true],
+      [3, false],
+    ]);
+
+    const ordered = context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+    ordered.orderBy(`CASE WHEN ${ordered.existsSql(ownTickets('done') as never)} THEN 0 ELSE 1 END`, 'ASC').addOrderBy('user.id', 'ASC');
+    expect((await ordered.getMany()).map((user) => user.id)).toEqual([2, 1, 3]);
+  });
+
+  it('SHOULD keep the parameters of two existsSql calls apart, set on the query when called', async () => {
+    await seed();
+
+    const query = users();
+    const open = query.existsSql(ownTickets('open') as never);
+    const done = query.notExistsSql(ownTickets('done') as never);
+
+    expect(Object.values(query.getParameters()).sort()).toEqual(['done', 'open']);
+    expect(await ids(query.where(`${open} OR ${done}`))).toEqual([1, 3]);
+  });
+
   it('SHOULD take a factory on an update builder', async () => {
     await seed();
 
@@ -107,5 +144,23 @@ setupTest('whereExists with a factory', undefined, (context) => {
 
     const rows = await context.dataSource.getRepository(UserEntity).find({ order: { id: 'ASC' } });
     expect(rows.filter((user) => user.lastName === 'ticketless').map((user) => user.id)).toEqual([3]);
+  });
+
+  it('SHOULD write existsSql into an update condition', async () => {
+    await seed();
+
+    const usersTable = context.dataSource.getMetadata(UserEntity).tableName;
+    await context.dataSource
+      .createQueryBuilder()
+      .update(UserEntity)
+      .set({ lastName: 'flagged' })
+      .where((qb) =>
+        `(${qb.existsSql((sub) => sub.select('1').from(TicketEntity, 'ticket').where(`ticket.ownerId = ${nativeSql(`"${usersTable}"."id"`)}`).andWhere('ticket.status = :status', { status: 'done' }))} OR ${nativeSql(`"${usersTable}"."id"`)} = :first)`,
+        { first: 1 },
+      )
+      .execute();
+
+    const rows = await context.dataSource.getRepository(UserEntity).find({ order: { id: 'ASC' } });
+    expect(rows.filter((user) => user.lastName === 'flagged').map((user) => user.id)).toEqual([1, 2]);
   });
 });
