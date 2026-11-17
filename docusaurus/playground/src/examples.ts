@@ -161,7 +161,7 @@ export default dataSource
   .update()
   .set({ status: 'closed' })
   .whereIsNotDistinctFromTyped((t) => t.ownerId, null)
-  .returningTyped((t) => [t.id, t.status]);
+  .returningTyped((t) => ({ id: t.id, status: t.status }));
 `,
   ),
   example(

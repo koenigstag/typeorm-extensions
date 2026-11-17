@@ -13,11 +13,14 @@ setupTest('returning-typed', undefined, (context) => {
     }
 
     expect(() =>
-      tickets().createQueryBuilder().delete().returningTyped((t) => t.id),
+      tickets()
+        .createQueryBuilder()
+        .delete()
+        .returningTyped((t) => ({ id: t.id })),
     ).toThrow(/RETURNING clause only supported/);
   });
 
-  it('SHOULD set returning to the property paths, embedded and relation ones included', () => {
+  it('SHOULD write the database columns under the output names', () => {
     if (!isPostgres()) {
       return;
     }
@@ -26,23 +29,41 @@ setupTest('returning-typed', undefined, (context) => {
       .createQueryBuilder()
       .update()
       .set({ status: 'done' })
-      .returningTyped((t) => [t.id, t.status]);
-    expect(update.expressionMap.returning).toEqual(['id', 'status']);
+      .returningTyped((t) => ({ id: t.id, status: t.status, owner: `${t.ownerId} + 1` }));
+    expect(update.expressionMap.returning).toBe('"ticket_id" AS "id", "ticket_status" AS "status", "owner_id" + 1 AS "owner"');
 
     const insert = context.dataSource
       .getRepository(PersonEntity)
       .createQueryBuilder()
       .insert()
       .values({ name: 'Ann' })
-      .returningTyped((p) => p.address.city);
-    expect(insert.expressionMap.returning).toEqual(['address.city']);
+      .returningTyped((p) => ({ city: p.address.city }));
+    expect(insert.expressionMap.returning).toBe('"addressCity" AS "city"');
 
     const del = context.dataSource
       .getRepository(ImageEntity)
       .createQueryBuilder()
       .delete()
-      .returningTyped((i) => [i.id, i.user]);
-    expect(del.expressionMap.returning).toEqual(['id', 'user']);
+      .returningTyped((i) => ({ id: i.id, userId: i.user }));
+    expect(del.expressionMap.returning).toBe('"id" AS "id", "userId" AS "userId"');
+  });
+
+  it('SHOULD write the rows before and after the write', () => {
+    if (!isPostgres()) {
+      return;
+    }
+
+    const update = tickets()
+      .createQueryBuilder()
+      .update()
+      .set({ status: 'done' })
+      .returningTyped(({ old, new: next }) => ({
+        before: old.status,
+        changed: `${old.status} IS DISTINCT FROM ${next.status}`,
+      }));
+    expect(update.expressionMap.returning).toBe(
+      'old."ticket_status" AS "before", old."ticket_status" IS DISTINCT FROM new."ticket_status" AS "changed"',
+    );
   });
 
   it('SHOULD throw for properties that are not columns', () => {
@@ -51,8 +72,29 @@ setupTest('returning-typed', undefined, (context) => {
         .getRepository(ImageEntity)
         .createQueryBuilder()
         .delete()
-        .returningTyped((i) => i.user.email),
+        .returningTyped((i) => ({ email: i.user.email })),
     ).toThrow(/returningTyped: "user\.email" is not a column of ImageEntity/);
+  });
+
+  it('SHOULD throw for a selection that is not an object of outputs', () => {
+    const builder = () => tickets().createQueryBuilder().delete();
+
+    expect(() => builder().returningTyped((t) => [t.id] as never)).toThrow(/return an object of output names/);
+    expect(() => builder().returningTyped(() => ({}))).toThrow(/return at least one output/);
+    expect(() => builder().returningTyped(() => ({ id: 1 as never }))).toThrow(/"id" must be a column or an SQL expression/);
+  });
+
+  it('SHOULD allow old and new on PostgreSQL only', () => {
+    if (context.typeormOptions.type === 'postgres') {
+      return;
+    }
+
+    expect(() =>
+      tickets()
+        .createQueryBuilder()
+        .delete()
+        .returningTyped(({ old }) => ({ id: old.id })),
+    ).toThrow(/"old" is supported on PostgreSQL 18\+ only/);
   });
 });
 
@@ -67,7 +109,7 @@ setupTest('returning-typed.postgres', undefined, (context) => {
 
   const tickets = () => context.dataSource.getRepository(TicketEntity);
 
-  it('SHOULD return the database columns of the properties', async () => {
+  it('SHOULD return exactly the outputs, under their names', async () => {
     const inserted = await tickets()
       .createQueryBuilder()
       .insert()
@@ -75,12 +117,12 @@ setupTest('returning-typed.postgres', undefined, (context) => {
         { status: 'open', ownerId: 1 },
         { status: 'open', ownerId: 2 },
       ])
-      .returningTyped((t) => [t.id, t.status])
+      .returningTyped((t) => ({ id: t.id, status: t.status }))
       .execute();
 
     expect(inserted.raw).toEqual([
-      { ticket_id: expect.any(Number), ticket_status: 'open' },
-      { ticket_id: expect.any(Number), ticket_status: 'open' },
+      { id: expect.any(Number), status: 'open' },
+      { id: expect.any(Number), status: 'open' },
     ]);
 
     const updated = await tickets()
@@ -88,19 +130,19 @@ setupTest('returning-typed.postgres', undefined, (context) => {
       .update()
       .set({ status: 'done' })
       .where('owner_id = :ownerId', { ownerId: 2 })
-      .returningTyped((t) => [t.status, t.ownerId])
+      .returningTyped((t) => ({ status: t.status, ownerId: t.ownerId, isDone: `${t.status} = 'done'` }))
       .execute();
 
-    expect(updated.raw).toEqual([{ ticket_status: 'done', owner_id: 2 }]);
+    expect(updated.raw).toEqual([{ status: 'done', ownerId: 2, isDone: true }]);
 
     const deleted = await tickets()
       .createQueryBuilder()
       .delete()
       .where('owner_id = :ownerId', { ownerId: 1 })
-      .returningTyped((t) => t.id)
+      .returningTyped((t) => ({ id: t.id }))
       .execute();
 
-    expect(deleted.raw).toEqual([{ ticket_id: inserted.raw[0].ticket_id }]);
+    expect(deleted.raw).toEqual([{ id: inserted.raw[0].id }]);
   });
 
   it('SHOULD return embedded columns', async () => {
@@ -109,10 +151,44 @@ setupTest('returning-typed.postgres', undefined, (context) => {
       .createQueryBuilder()
       .insert()
       .values({ name: 'Ann', address: { city: 'Kyiv', street: 'Main' } })
-      .returningTyped((p) => [p.address.city, p.address.street])
+      .returningTyped((p) => ({ city: p.address.city, street: p.address.street }))
       .execute();
 
-    // TypeORM adds the generated id to RETURNING of an INSERT
-    expect(result.raw).toEqual([{ addressCity: 'Kyiv', addressStreet_name: 'Main', id: expect.any(Number) }]);
+    expect(result.raw).toEqual([{ city: 'Kyiv', street: 'Main' }]);
+  });
+
+  it('SHOULD return the row before and after the write on PostgreSQL 18+', async () => {
+    const [{ supported }] = await context.dataSource.query(
+      `SELECT current_setting('server_version_num')::int >= 180000 AS "supported"`,
+    );
+
+    if (!supported) {
+      return;
+    }
+
+    await tickets().insert({ status: 'open', ownerId: 3 });
+
+    const updated = await tickets()
+      .createQueryBuilder()
+      .update()
+      .set({ status: 'done' })
+      .where('owner_id = :ownerId', { ownerId: 3 })
+      .returningTyped(({ old, new: next }) => ({
+        before: old.status,
+        after: next.status,
+        changed: `${old.status} IS DISTINCT FROM ${next.status}`,
+      }))
+      .execute();
+
+    expect(updated.raw).toEqual([{ before: 'open', after: 'done', changed: true }]);
+
+    const inserted = await tickets()
+      .createQueryBuilder()
+      .insert()
+      .values({ status: 'open', ownerId: 4 })
+      .returningTyped(({ old, new: next }) => ({ before: old.status, after: next.status }))
+      .execute();
+
+    expect(inserted.raw).toEqual([{ before: null, after: 'open' }]);
   });
 });
