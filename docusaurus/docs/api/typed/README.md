@@ -32,6 +32,7 @@ Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see 
 - [orderByArrayPositionTyped](./orderByArrayPositionTyped): order by the position of a property's value in an array (only PostgreSQL).
 - [addSelectCalculatedTyped](../columns/calculatedColumn#typed-callbacks): select into a `@CalculatedColumn` picked by a typed callback; `orderByTyped` / `addOrderByTyped` then order by it.
 - [returningTyped](./returningTyped): return typesafe columns from INSERT / UPDATE / DELETE (PostgreSQL, MariaDB, SQL Server).
+- [onConflictTyped](./onConflictTyped): `ON CONFLICT … DO UPDATE` / `DO NOTHING` with typesafe columns (PostgreSQL, SQLite).
 
 ### Types:
 - [KeyProxyCallback](./types/KeyProxyCallback): the callback that selects entity properties, and how it maps to SQL keys.

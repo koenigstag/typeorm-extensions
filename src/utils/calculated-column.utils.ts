@@ -105,12 +105,21 @@ export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
     throw new TypeError(`${methodName}: ${label} isn't selected: select it with addSelectCalculated first`);
   }
 
+  // TypeORM keeps a subquery selection as its SQL, with its parameters already on the builder
+  return selectForOrder(builder, select.selection);
+}
+
+/**
+ * Selects `selection` under a generated lower-case alias, once per builder, and returns the alias
+ * ORDER BY and DISTINCT ON refer to it by; see `selectCalculatedForOrder` for why not the alias it was selected under.
+ */
+export function selectForOrder<Entity extends ObjectLiteral>(builder: SelectQueryBuilder<Entity>, selection: string): string {
   // found by its SQL rather than kept aside, so a clone of the builder finds it too
   const selectedForOrder = builder.expressionMap.selects.find(
     (candidate) =>
       candidate.aliasName !== undefined &&
       ORDER_ALIAS_PATTERN.test(candidate.aliasName) &&
-      candidate.selection === select.selection
+      candidate.selection === selection
   );
 
   if (selectedForOrder?.aliasName) {
@@ -119,8 +128,7 @@ export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
 
   const orderAlias = createUniqueParameterName(ORDER_ALIAS_PREFIX).toLowerCase();
 
-  // TypeORM keeps a subquery selection as its SQL, with its parameters already on the builder
-  builder.addSelect(select.selection, orderAlias);
+  builder.addSelect(selection, orderAlias);
 
   return orderAlias;
 }

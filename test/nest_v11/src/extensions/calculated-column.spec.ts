@@ -6,6 +6,7 @@ import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extens
 import 'typeorm-extensions/extensions/typed/typed-calculated/typed-calculated-column.extension';
 import 'typeorm-extensions/extensions/typed/typed-root.extension';
 import 'typeorm-extensions/extensions/typed/typed-distinct/typed-distinct.extension';
+import { selectExpression } from 'typeorm-extensions/helpers';
 import { setupTest, createFakeUsers, createFakeImages, nativeSql } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
@@ -231,6 +232,50 @@ setupTest('CalculatedColumn', undefined, (context) => {
             [3, 0],
           ]);
         }
+      },
+    );
+
+    it('SHOULD order by a selectExpression without a property to select it into, also when take / skip page through a join', async () => {
+      await seedCounts();
+      const count = selectExpression(imagesCount());
+
+      const page = (skip: number) =>
+        users()
+          .leftJoinAndSelect('user.images', 'images')
+          .orderByTyped(count, 'DESC')
+          .addOrderBy('user.id')
+          .skip(skip)
+          .take(2)
+          .getMany();
+
+      const [first, second] = [await page(0), await page(2)];
+
+      expect(first.map(({ id, imagesCount, images }) => [id, imagesCount, images?.length])).toEqual([
+        [2, undefined, 3],
+        [1, undefined, 1],
+      ]);
+      expect(second.map(({ id }) => id)).toEqual([3]);
+    });
+
+    (postgresLikeDrivers.includes(context.typeormOptions.type as never) ? it : it.skip)(
+      'SHOULD put a selectExpression into DISTINCT ON under the alias it is ordered by (PostgreSQL)',
+      async () => {
+        // users 1 and 2 have two images each, user 3 none
+        await seed();
+        const count = selectExpression(imagesCount());
+
+        const query = context.dataSource
+          .getRepository(UserEntity)
+          .createQueryBuilder('user')
+          .distinctOnTyped(count)
+          .orderByTyped(count, 'DESC')
+          .addOrderBy('user.id');
+
+        expect(query.expressionMap.selects.filter(({ aliasName }) => aliasName?.startsWith('calculated_'))).toHaveLength(1);
+        expect((await query.getMany()).map(({ id, imagesCount }) => [id, imagesCount])).toEqual([
+          [1, undefined],
+          [3, undefined],
+        ]);
       },
     );
 

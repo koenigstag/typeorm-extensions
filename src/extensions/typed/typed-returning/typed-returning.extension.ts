@@ -6,6 +6,7 @@ import {
 } from 'typeorm';
 import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
 import { patchPrototypes } from '../../../utils/prototype.utils';
+import { columnProxy, isColumnRef } from '../../../utils/column-proxy.utils';
 
 // declarations
 
@@ -66,40 +67,6 @@ declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
   interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedReturningMethods<Entity> {}
 }
 /* eslint-enable @typescript-eslint/no-empty-interface */
-
-// implementation
-
-const COLUMN_REF = Symbol('returningTyped column');
-
-type ColumnRef = { readonly [COLUMN_REF]: true };
-
-const isColumnRef = (value: unknown): value is ColumnRef =>
-  (typeof value === 'function' || typeof value === 'object') && value !== null && COLUMN_REF in value;
-
-/** A property path read lazily: it becomes SQL when it is used as a string. */
-const columnProxy = (path: string[], toSql: (path: string[]) => string, members: Record<string, unknown> = {}): unknown =>
-  new Proxy(() => undefined, {
-    has: (_target, key) => key === COLUMN_REF,
-    get: (_target, key) => {
-      if (key === COLUMN_REF) {
-        return true;
-      }
-
-      if (key === Symbol.toPrimitive || key === 'toString' || key === 'valueOf') {
-        return () => toSql(path);
-      }
-
-      if (typeof key !== 'string' || key === 'then') {
-        return undefined;
-      }
-
-      if (key in members) {
-        return members[key];
-      }
-
-      return columnProxy([...path, key], toSql);
-    },
-  });
 
 // patching
 
