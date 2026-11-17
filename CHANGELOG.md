@@ -1,12 +1,12 @@
 # Changelog
 
-## [2.2.0] - Unreleased
+## [3.0.0] - Unreleased
 
-Published for testing as `2.2.0-rc.17` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+Published for testing as `2.2.0-rc.17` under the `next` dist-tag: `npm install typeorm-extensions@next`. The release candidates up to rc.17 carry the 2.2.0 number; the release is 3.0.0 because `returningTyped` changed shape.
 
-A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore` and `pageSize`, and `page` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
+A major version: `returningTyped` takes an object of output names instead of a list of properties, see **Breaking Changes**. It also carries the MIT license prepared for 2.1.1, which was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore` and `pageSize`, and `page` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
-`returningTyped` takes an object of output names instead of a list of properties, see **Breaking Changes**. A few changes can make working code throw, see **Bug Fixes**: a params object that goes after the condition (`whereTyped(u => u.id, '=', { id })`) has to hold exactly one key; `applyOrder` with `useQuotes: false` takes column names only, not expressions; an order without a `field`, and a value list for `whereIsIn` / `whereIsAny` / `innerJoinUnnest` that is neither a list nor one value, throw a `TypeError`; a descending cursor made by an earlier version throws `InvalidCursorError` once, since cursors now name the direction of their keys.
+A few changes can make working code throw, see **Bug Fixes**: a params object that goes after the condition (`whereTyped(u => u.id, '=', { id })`) has to hold exactly one key; `applyOrder` with `useQuotes: false` takes column names only, not expressions; an order without a `field`, and a value list for `whereIsIn` / `whereIsAny` / `innerJoinUnnest` that is neither a list nor one value, throw a `TypeError`; a descending cursor made by an earlier version throws `InvalidCursorError` once, since cursors now name the direction of their keys.
 
 ### Breaking Changes
 
@@ -46,7 +46,7 @@ A minor version, which also carries the MIT license prepared for 2.1.1: 2.1.1 wa
 
 ### Improvements
 
-- **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 2.2.0 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
+- **Licensed under MIT, and the package ships the license text**: `package.json` said ISC, but there was no `LICENSE` file in the repository or the npm package. From 3.0.0 on the license is MIT, with the text in `LICENSE`; versions up to 2.1.0 stay ISC.
 - **`whereIsIn` / `whereIsAny` and their variants return `this` on every builder**: on update, delete and soft delete builders they were declared to return `UpdateQueryBuilder<Entity>` and the like, which dropped the mark of `typed<Root>()`; they are declared once now, as the other where methods are (`WhereIsInMethods`, `WhereIsAnyMethods`).
 - **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
 - **`tableHelper` takes a `driver` option**: `tableHelper('user', { driver: 'mysql' })` quotes with backticks.
