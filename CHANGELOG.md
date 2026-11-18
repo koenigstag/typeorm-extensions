@@ -54,6 +54,7 @@ A few changes can make working code throw, see **Bug Fixes**: a params object th
 - **`getManyWithTotals` runs its count and its page query at the same time**, so the call takes as long as the slower one instead of their sum. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — the two still run one after another: there is a single connection, on which the driver would serialise them anyway.
 - **`tableHelper` takes a `driver` option**: `tableHelper('user', { driver: 'mysql' })` quotes with backticks.
 - **`selectTyped` / `addSelectTyped` take `useQuotes` right after a callback**: `selectTyped(user => [user.id, user.name], true)`, as an array of callbacks already did. The second argument after a callback was typed as the alias only, so quoting a callback that selects several fields needed `selectTyped(cb, undefined, true)`. A string there is still the alias. Types only: the method already read a boolean in that place.
+- **`whereSearchTyped` and its variants take one callback selecting the columns**: `andWhereSearchTyped(user => [user.firstName, user.email], search)`, the same SQL as `[user => user.firstName, user => user.email]`. A raw `{ sql }` expression still goes in the array form. A callback that selects no column throws, as an empty array does.
 
 ### Deprecations
 

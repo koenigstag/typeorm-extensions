@@ -24,6 +24,9 @@ typed.selectTyped((q) => q.checkin.customerId, 'customerId');
 typed.selectTyped((q) => [q.checkin.customerId, q.event.id], true).addSelectTyped((q) => [q.event.eventType], true);
 // @ts-expect-error a key outside the root
 typed.selectTyped((q) => [q.checkin.customerId, q.event.missing], true);
+typed.andWhereSearchTyped((q) => [q.checkin.customerId, q.event.eventType], 'a', { minLength: 2 });
+// @ts-expect-error a key outside the root
+typed.orWhereSearchTyped((q) => [q.event.missing], 'a');
 // TypeORM's own methods keep the root for the calls after them
 typed.andWhere('TRUE').orderByTyped((q) => q.checkin.customerId);
 typed.leftJoin('checkin.event', 'e').andWhereTyped((q) => q.checkin.id, '=', 'c');

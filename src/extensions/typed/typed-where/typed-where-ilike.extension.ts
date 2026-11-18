@@ -6,6 +6,7 @@ import {
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import type {
   SearchSelector,
+  SearchSelectors,
   TypedILikeOptions,
   TypedSearchOptions,
 } from '../../../types/extensions/search.types';
@@ -63,14 +64,15 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
 
   /**
    * Sets WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder:
-   * one group, one parameter for every column. A selector is a typed callback (it may select
-   * several columns) or a raw expression `{ sql: '…' }`, which is put in parentheses.
+   * one group, one parameter for every column. Takes one callback, `q => [q.name, q.email]`, or a list
+   * of selectors: a typed callback (it may select several columns) or a raw expression `{ sql: '…' }`,
+   * which is put in parentheses.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
   whereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): this;
@@ -80,7 +82,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
   andWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): this;
@@ -90,7 +92,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
   orWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): this;
@@ -146,7 +148,7 @@ const createWhereILikeTypedMethod = (method: WhereMethods) =>
 const createWhereSearchTypedMethod = (method: WhereMethods) =>
   function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): SelectQueryBuilder<Entity> {
@@ -181,15 +183,18 @@ patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 /** Quoted columns and raw expressions of the search selectors, in order. */
 function getSearchColumns<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
-  selectors: ReadonlyArray<SearchSelector<Type>>,
+  selectors: SearchSelectors<Type>,
   methodName: string
 ): string[] {
-  if (!Array.isArray(selectors) || selectors.length === 0) {
-    // no columns to search in: matching nothing or everything silently would hide the bug
-    throw new TypeError(`${methodName} expects a non-empty array of columns to search in`);
+  const list: ReadonlyArray<SearchSelector<Type>> = typeof selectors === 'function' ? [selectors] : selectors;
+  // no columns to search in: matching nothing or everything silently would hide the bug
+  const emptyError = new TypeError(`${methodName} expects a non-empty array of columns to search in`);
+
+  if (!Array.isArray(list) || list.length === 0) {
+    throw emptyError;
   }
 
-  return selectors.flatMap((selector) => {
+  const columns = list.flatMap((selector) => {
     if (typeof selector === 'function') {
       return getTypedColumnKey<Type>(builder, selector);
     }
@@ -201,6 +206,12 @@ function getSearchColumns<Type extends ObjectLiteral>(
 
     throw new TypeError(`${methodName} expects a typed callback or { sql: string }, got ${JSON.stringify(selector)}`);
   });
+
+  if (columns.length === 0) {
+    throw emptyError;
+  }
+
+  return columns;
 }
 
 /**
