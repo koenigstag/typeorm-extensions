@@ -126,7 +126,7 @@ export type TableHelperArrayAggOptions<T> = {
  * The argument of an aggregate and the clause after it for a `filter` written with `syntax`:
  * `CASE WHEN filter THEN argument END`, or `argument` and ` FILTER (WHERE filter)`.
  */
-function filtered(
+export function filtered(
 	method: string,
 	argument: string,
 	filter: string | undefined,
@@ -134,11 +134,11 @@ function filtered(
 	driver?: DatabaseType
 ) {
 	if (syntax !== 'case' && syntax !== 'filter') {
-		throw new TypeError(`tableHelper.${method}(): syntax is 'case' or 'filter', got "${String(syntax)}"`);
+		throw new TypeError(`${method}(): syntax is 'case' or 'filter', got "${String(syntax)}"`);
 	}
 
 	if (filter && syntax === 'filter' && isMysqlLikeDriver(driver)) {
-		throw new TypeError(`tableHelper.${method}(): MySQL / MariaDB have no FILTER (WHERE …), use syntax 'case'`);
+		throw new TypeError(`${method}(): MySQL / MariaDB have no FILTER (WHERE …), use syntax 'case'`);
 	}
 
 	if (!filter) {
@@ -427,7 +427,7 @@ const createTableHelper = <T extends ObjectLiteral>(
 
 		// `COUNT(*)`, not `COUNT("alias".*)`, which only PostgreSQL accepts;
 		// a CASE can't return `*`: without a column, it counts 1 per matching row
-		const { argument, suffix } = filtered('count', column ?? (filter && syntax === 'case' ? '1' : '*'), filter, syntax, options.driver);
+		const { argument, suffix } = filtered('tableHelper.count', column ?? (filter && syntax === 'case' ? '1' : '*'), filter, syntax, options.driver);
 
 		// `CAST(… AS integer)` is a syntax error on MySQL
 		return this.cast(
@@ -444,7 +444,7 @@ const createTableHelper = <T extends ObjectLiteral>(
 	 * // COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
 	 */
 	sum(columnName: NumericColumnName<T>, sumOptions: TableHelperSumOptions = {}) {
-		const { argument, suffix } = filtered('sum', this.column(columnName), sumOptions.filter, sumOptions.syntax, options.driver);
+		const { argument, suffix } = filtered('tableHelper.sum', this.column(columnName), sumOptions.filter, sumOptions.syntax, options.driver);
 
 		return `COALESCE(SUM(${argument})${suffix}, 0)`;
 	},
