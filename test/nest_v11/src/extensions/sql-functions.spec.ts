@@ -1,7 +1,7 @@
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
 import { Sql } from 'typeorm-extensions/utils/sql-functions.utils';
 import { setupTest, createFakeUsers } from '../test-utils';
-import { postgresLikeDrivers } from '../constants/database';
+import { databaseDriver, mysqlLikeDrivers, postgresLikeDrivers, sqliteDrivers } from '../constants/database';
 import { UserEntity } from '../models';
 
 const u = tableHelper<UserEntity>('user');
@@ -203,6 +203,13 @@ setupTest('Sql functions in queries', undefined, (context) => {
   };
   // the entity's default ORDER BY "user"."id" is not valid next to an aggregate on PostgreSQL
   const users = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user').setOption('disable-global-order');
+  // quoted for the database under test: MySQL reads "user" as a string
+  const u = tableHelper<UserEntity>('user', { driver: databaseDriver });
+  const sql = Sql.for(databaseDriver);
+  const mysqlLike = mysqlLikeDrivers.includes(databaseDriver as never);
+  const sqliteLike = sqliteDrivers.includes(databaseDriver as never);
+  // MySQL casts to CHAR, it has no TEXT target
+  const textType = mysqlLike ? 'char' : 'text';
 
   it('SHOULD give what the database gives for the aggregates, NULL for no rows', async () => {
     await seed();
@@ -212,7 +219,7 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(Sql.count(u.metadata), 'withMetadata')
       .addSelect(Sql.count(u.firstName, { distinct: true }), 'names')
       .addSelect(Sql.count(undefined, { filter: `${u.id} > 2` }), 'late')
-      .addSelect(Sql.count(undefined, { filter: `${u.id} > 2`, syntax: 'filter' }), 'lateFilter')
+      .addSelect(sql.count(undefined, { filter: `${u.id} > 2`, syntax: mysqlLike ? 'case' : 'filter' }), 'lateFilter')
       .addSelect(Sql.sum(u.id), 'sum')
       .addSelect(Sql.sum(u.id, { filter: `${u.id} > 2` }), 'lateSum')
       .addSelect(Sql.min(u.id), 'min')
@@ -247,9 +254,7 @@ setupTest('Sql functions in queries', undefined, (context) => {
   it('SHOULD run the functions written for the database under test', async () => {
     await seed();
 
-    const sql = Sql.for(context.typeormOptions.type);
-    const sqliteLike = ['sqlite', 'better-sqlite3'].includes(context.typeormOptions.type);
-    const at = `${sqliteLike ? '' : 'TIMESTAMP '}'2026-03-04 05:06:07'`;
+    const at =`${sqliteLike ? '' : 'TIMESTAMP '}'2026-03-04 05:06:07'`;
 
     const rows = await users()
       .select(u.id, 'id')
@@ -304,11 +309,9 @@ setupTest('Sql functions in queries', undefined, (context) => {
   it('SHOULD read and build JSON and round numbers on the database under test', async () => {
     await seed();
 
-    const sql = Sql.for(context.typeormOptions.type);
-    const sqliteLike = ['sqlite', 'better-sqlite3'].includes(context.typeormOptions.type);
     const text = `'{"a":{"b":[10,"x"]},"n":null}'`;
-    const doc = sqliteLike ? text : sql.cast(text, 'jsonb');
-    // the pg driver parses json values, SQLite returns them as text
+    const doc = sqliteLike || mysqlLike ? text : sql.cast(text, 'jsonb');
+    // the pg and mysql2 drivers parse json values, SQLite returns them as text
     const parsed = (value: unknown) => (typeof value === 'string' ? JSON.parse(value) : value);
 
     const row = await users()
@@ -316,9 +319,13 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(sql.jsonText(doc, 'a', 'b', 0), 'first')
       .addSelect(sql.jsonText(doc, 'missing', 'key'), 'missing')
       .addSelect(sql.jsonText(doc, 'n'), 'jsonNull')
-      .addSelect(sql.cast(sql.json(doc, 'a', 'b'), 'text'), 'array')
+      .addSelect(sql.cast(sql.json(doc, 'a', 'b'), textType), 'array')
       .addSelect(sql.jsonBuildObject({ second: sql.jsonText(doc, 'a', 'b', 1), "it's": '1' }), 'object')
-      .addSelect(sql.jsonAgg(u.firstName, { orderBy: `${u.id} DESC`, filter: u.isNotNull('metadata') }), 'withMetadata')
+      // MySQL's JSON_ARRAYAGG takes no ORDER BY and no FILTER
+      .addSelect(
+        mysqlLike ? sql.jsonAgg(u.firstName) : sql.jsonAgg(u.firstName, { orderBy: `${u.id} DESC`, filter: u.isNotNull('metadata') }),
+        'withMetadata'
+      )
       .addSelect(sql.round('2.567', 2), 'rounded')
       .addSelect(sql.abs('-3'), 'abs')
       .addSelect(sql.floor('-2.5'), 'floor')
@@ -330,7 +337,7 @@ setupTest('Sql functions in queries', undefined, (context) => {
       first: String(row?.first),
       array: parsed(row?.array),
       object: parsed(row?.object),
-      withMetadata: parsed(row?.withMetadata),
+      withMetadata: mysqlLike ? [...parsed(row?.withMetadata)].sort() : parsed(row?.withMetadata),
       rounded: Number(row?.rounded),
       abs: Number(row?.abs),
       floor: Number(row?.floor),
@@ -339,10 +346,11 @@ setupTest('Sql functions in queries', undefined, (context) => {
       second: 'x',
       first: '10',
       missing: null,
-      jsonNull: null,
+      // JSON_UNQUOTE reads a JSON null as the string 'null'
+      jsonNull: mysqlLike ? 'null' : null,
       array: [10, 'x'],
       object: { second: 'x', "it's": 1 },
-      withMetadata: ['Dave', 'Bob'],
+      withMetadata: mysqlLike ? ['Alice', 'Bob', 'Carol', 'Dave'] : ['Dave', 'Bob'],
       rounded: 2.57,
       abs: 3,
       floor: -3,
@@ -417,11 +425,11 @@ setupTest('Sql functions in queries', undefined, (context) => {
 
     const rows = await users()
       .select(u.id, 'id')
-      .addSelect(Sql.coalesce(Sql.cast(u.metadata, 'text'), "'none'"), 'metadata')
+      .addSelect(Sql.coalesce(Sql.cast(u.metadata, textType), "'none'"), 'metadata')
       .addSelect(Sql.nullif(u.firstName, "'Bob'"), 'notBob')
       .addSelect(Sql.lower(u.firstName), 'lower')
       .addSelect(Sql.upper(u.firstName), 'upper')
-      .addSelect(Sql.cast(u.id, 'text'), 'idText')
+      .addSelect(Sql.cast(u.id, textType), 'idText')
       .orderBy(u.id)
       .getRawMany<{ id: number; metadata: string; notBob: string | null; lower: string; upper: string; idText: string }>();
 
