@@ -40,7 +40,7 @@ setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
 
     const query = users().whereTyped((u) => u.firstName, Equal('Bob'));
 
-    expect(sqlOf(query)).toMatch(/WHERE "user"\."firstName" = :orm_param_\d+/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."firstName" = :op_\w+/);
     expect(Object.values(query.getParameters())).toEqual(['Bob']);
   });
 
@@ -86,7 +86,7 @@ setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
       .whereTyped((u) => u.firstName, Any(['Alice', 'Dave']))
       .andWhereTyped((u) => u.id, Not(Any([4])));
 
-    expect(sqlOf(query)).toMatch(/"user"\."firstName" = ANY\(:orm_param_\d+\) AND NOT\("user"\."id" = ANY\(:orm_param_\d+\)\)/);
+    expect(sqlOf(query)).toMatch(/"user"\."firstName" = ANY\(:op_\w+\) AND NOT\("user"\."id" = ANY\(:op_\w+\)\)/);
     // TypeORM's Not() also sets an unused parameter with its operator's value: only the bound ones count
     expect(query.getQueryAndParameters()[1]).toEqual([['Alice', 'Dave'], [4]]);
     expect(await ids(query)).toEqual([1]);
@@ -147,6 +147,28 @@ setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
           .from(TicketEntity, 'ticket')
           .where(`ticket.ownerId = ${nativeSql('"user"."id"')}`)
           .andWhereTyped((t) => t.status, In(['open']))) as never);
+
+    expect(await ids(query)).toEqual([1]);
+  });
+
+  it('SHOULD keep the values apart when a query takes the parameters of a subquery built on its own', async () => {
+    await seed();
+    await context.dataSource.getRepository(TicketEntity).save([
+      new TicketEntity({ status: 'open', ownerId: 1 }),
+      new TicketEntity({ status: 'done', ownerId: 2 }),
+      new TicketEntity({ status: 'open', ownerId: 4 }),
+    ]);
+
+    // a separate builder numbers its parameters from orm_param_0 too
+    const owners = context.dataSource
+      .getRepository(TicketEntity)
+      .createQueryBuilder('ticket')
+      .select('ticket.ownerId')
+      .whereTyped((t) => t.status, Equal('open'));
+    const query = users()
+      .whereTyped((u) => u.firstName, Not(Equal('Dave')))
+      .andWhere(`${nativeSql('"user"."id"')} IN (${owners.getQuery()})`)
+      .setParameters(owners.getParameters());
 
     expect(await ids(query)).toEqual([1]);
   });

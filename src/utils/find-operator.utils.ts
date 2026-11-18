@@ -1,4 +1,5 @@
-import { FindOperator, In, Raw, WhereExpressionBuilder } from 'typeorm';
+import { FindOperator, In, ObjectLiteral, Raw, WhereExpressionBuilder } from 'typeorm';
+import { createUniqueParameterName } from './sql.utils';
 
 // TypeORM marks its operators with a symbol instead of relying on `instanceof`, so an operator built by a second copy
 // of TypeORM is recognized too; `Equal()` builds a subclass with a marker of its own
@@ -14,31 +15,56 @@ export function isFindOperator(value: unknown): value is FindOperator<unknown> {
 }
 
 type PredicateRenderer = {
+  connection: { createQueryBuilder(): unknown };
   getWherePredicateCondition(aliasPath: string, parameterValue: unknown): unknown;
   createWhereConditionExpression(condition: unknown): string;
+  getParameters(): ObjectLiteral;
 };
+
+const isPredicateRenderer = (value: unknown): value is PredicateRenderer => {
+  const renderer = value as Partial<PredicateRenderer> | null;
+
+  return (
+    typeof renderer?.getWherePredicateCondition === 'function' &&
+    typeof renderer.createWhereConditionExpression === 'function' &&
+    typeof renderer.getParameters === 'function'
+  );
+};
+
+const ORM_PARAMETER = /:orm_param_\d+\b/g;
 
 /**
  * The condition TypeORM's `find({ where })` writes for `operator` on `field`, with the operator's values set as
- * parameters of `builder`.
+ * parameters of `builder`. TypeORM names them `orm_param_0`, `orm_param_1`… per builder, so a query that takes the
+ * parameters of a subquery built on its own would get two `orm_param_0`: the operator is rendered on a builder of
+ * its own and its values are set under unique names.
  */
 export function renderFindOperator(
   builder: WhereExpressionBuilder,
   field: string,
   operator: FindOperator<unknown>
 ): string {
-  const renderer = builder as unknown as Partial<PredicateRenderer>;
+  const renderer = (builder as unknown as { connection?: { createQueryBuilder?: () => unknown } }).connection?.createQueryBuilder?.();
 
-  if (
-    typeof renderer.getWherePredicateCondition !== 'function' ||
-    typeof renderer.createWhereConditionExpression !== 'function'
-  ) {
+  if (!isPredicateRenderer(renderer)) {
     throw new TypeError(
       `This TypeORM version doesn't render find operators in a query builder; write the condition on "${field}" as SQL`
     );
   }
 
-  return renderer.createWhereConditionExpression(renderer.getWherePredicateCondition(field, operator));
+  const condition = renderer.createWhereConditionExpression(renderer.getWherePredicateCondition(field, operator));
+  const parameters = renderer.getParameters();
+  const names = new Map<string, string>();
+
+  for (const name of Object.keys(parameters)) {
+    names.set(name, /^orm_param_\d+$/.test(name) ? createUniqueParameterName('op') : name);
+  }
+
+  for (const [name, unique] of names) {
+    (builder as unknown as { setParameter(key: string, value: unknown): void }).setParameter(unique, parameters[name]);
+  }
+
+  return condition.replace(ORM_PARAMETER, (placeholder) => `:${names.get(placeholder.slice(1)) ?? placeholder.slice(1)}`);
 }
 
 /** The value a find operator compares with: the first one of a list, none for `IsNull()` or `Raw()`. */

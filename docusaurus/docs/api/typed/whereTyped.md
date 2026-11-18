@@ -33,7 +33,7 @@ Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; u
 
 ## Find operators
 
-The condition may be one of TypeORM's find operators instead of SQL, written as `find({ where })` writes it, its values bound as parameters. It takes no `params`.
+The condition may be one of TypeORM's find operators instead of SQL, written as `find({ where })` writes it, its values bound as parameters. It takes no `params`. The parameters get unique names (`:op_…`), not TypeORM's `orm_param_0`, `orm_param_1`… which each builder numbers from 0: a query can take the parameters of a subquery built on its own (`.setParameters(sub.getParameters())`) without the two overwriting each other.
 
 ```typescript
 import { Any, Equal, IsNull, MoreThanOrEqual, Not } from 'typeorm';
@@ -42,13 +42,13 @@ import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from 'typeorm-exte
 query
   .whereTyped((o) => o.deletedAt, IsNull())                         // "o"."deletedAt" IS NULL
   .andWhereTyped((o) => o.paidAt, Not(IsNull()))                    // NOT("o"."paidAt" IS NULL)
-  .andWhereTyped((o) => o.status, Equal(OrderStatus.Successful))    // "o"."status" = :orm_param_0
-  .andWhereTyped((o) => o.status, IsIn([OrderStatus.Refunded]))     // "o"."status" IN (:orm_param_1)
-  .andWhereTyped((o) => o.type, Not(IsIn([OrderType.Gift])))       // NOT("o"."type" IN (:orm_param_2))
+  .andWhereTyped((o) => o.status, Equal(OrderStatus.Successful))    // "o"."status" = :op_k2x9q
+  .andWhereTyped((o) => o.status, IsIn([OrderStatus.Refunded]))     // "o"."status" IN (:op_m4w1z)
+  .andWhereTyped((o) => o.type, Not(IsIn([OrderType.Gift])))       // NOT("o"."type" IN (:op_c8r3t))
   .andWhereTyped((o) => o.createdAt, MoreThanOrEqual(since))
   .andWhereTyped((o) => o.isGift, IsTrue())                         // "o"."isGift" IS TRUE
   .andWhereTyped((o) => o.isArchived, Not(IsTrue()))                // NOT("o"."isArchived" IS TRUE): IS NOT TRUE, NULL too
-  .andWhereTyped((o) => o.id, Any(orderIds))                        // "o"."id" = ANY(:orm_param_3): one array parameter
+  .andWhereTyped((o) => o.id, Any(orderIds))                        // "o"."id" = ANY(:op_p5n7h): one array parameter
   .andWhereTyped((o) => o.note, IsDistinctFrom(note))               // "o"."note" IS DISTINCT FROM :isDistinctFrom_1
   .andWhereTyped((o) => o.userId, EqualColumn(users.id));           // "o"."userId" = "users"."id"
 ```
