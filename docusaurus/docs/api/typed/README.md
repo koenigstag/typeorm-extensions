@@ -13,6 +13,7 @@ Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see 
 ### Methods:
 - [typed](./typedRoot): set the root of the typed callbacks once for the query, e.g. its aliases. `from()` and `addFrom()` keep it.
 - [selectTyped](./selectTyped): add typesafe select to a query.
+- [selectRow / unnestRows](./selectRow): the body of a CTE or subquery, checked against the row type of the `tableHelper` that reads it.
 - [joinTyped](./joinTyped): add typesafe join to a query, and map joined data to a typed property (`leftJoinAndMapOneTyped`, `leftJoinAndMapManyTyped`, …).
 - [whereTyped](./whereTyped): add typesafe condition to a query.
 - [whereIsInTyped](./whereIsInTyped): add typesafe IN / NOT IN condition to a query.

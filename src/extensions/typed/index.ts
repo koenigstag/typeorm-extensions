@@ -6,6 +6,7 @@ export * from './typed-joins/typed-joins.extension';
 export * from './typed-joins/typed-join-and-map.extension';
 export * from './typed-order-by/typed-order-by.extension';
 export * from './typed-select/typed-select.extension';
+export * from './typed-select/select-row.extension';
 export * from './typed-where/typed-where.extension';
 export * from './typed-where/typed-where-is-in.extension';
 export * from './typed-where/typed-where-is-any.extension';

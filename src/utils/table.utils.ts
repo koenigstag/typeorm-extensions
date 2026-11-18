@@ -601,7 +601,12 @@ type TableHelperMemberName = keyof ReturnType<typeof createTableHelper>;
  */
 export type TableHelper<T extends ObjectLiteral> = ReturnType<typeof createTableHelper<T>> & {
 	readonly [K in Exclude<ColumnName<T>, TableHelperMemberName>]: string;
-};
+} & TableRow<T>;
+
+declare const tableRow: unique symbol;
+
+/** The row a helper reads, type only: `selectRow(helper, …)` selects exactly its columns. */
+export type TableRow<T extends ObjectLiteral> = { readonly [tableRow]?: T };
 
 // keys that JavaScript, Node and test tools read on any object (await, JSON.stringify, util.inspect, Jest): they
 // must stay undefined, as must symbols. The members of Object.prototype are in the target already

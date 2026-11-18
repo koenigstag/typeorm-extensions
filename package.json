@@ -1,10 +1,16 @@
 {
   "name": "typeorm-extensions",
-  "version": "3.0.0-rc.0",
+  "version": "3.0.0-rc.1",
   "description": "typeorm commonly used extensions",
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "helpers", "LICENSE", "README.md", "package.json"],
+  "files": [
+    "dist",
+    "helpers",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
   "type": "commonjs",
   "homepage": "https://koenigstag.github.io/typeorm-extensions/",
   "repository": {

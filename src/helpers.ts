@@ -5,6 +5,8 @@ export * from './utils/table.utils';
 export * from './decorators/generated-column.decorator';
 export { escapeLikePattern } from './utils/search.utils';
 export { selectExpression, SelectExpression } from './utils/select-expression.utils';
+export { unnestRows } from './utils/unnest-rows.utils';
+export type { UnnestColumns, UnnestRowsOptions } from './utils/unnest-rows.utils';
 export {
   COCKROACHDB_RESERVED_KEY_WORDS,
   findBareReservedQualifiers,

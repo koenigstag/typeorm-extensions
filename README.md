@@ -54,6 +54,7 @@ npm install typeorm-extensions
 **Typed queries** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/typed/))
 - `selectTyped`, `whereTyped` (keys inside JSON columns too; `strictParams` checks the parameter against the column type), `orderByTyped`, `groupByTyped` / `havingTyped`, `distinctOnTyped`, `returningTyped`
 - typed joins and map joins (`leftJoinTyped`, `innerJoinAndMapOneTyped`, …), `typed<Root>()` for the aliases a query joins, `whereRelationExists` built from the relation metadata
+- `selectRow` / `unnestRows`: the body of a CTE checked against the row type of the `tableHelper` that reads it
 
 **Pagination** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/pagination/))
 - `getManyWithTotals` and `getRawManyWithTotals`: the rows of a page, the total, `page` / `pageSize`, `hasMore` and the order it was read in
