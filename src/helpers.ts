@@ -6,7 +6,14 @@ export * from './decorators/generated-column.decorator';
 export { escapeLikePattern } from './utils/search.utils';
 export { EqualColumn, IsFalse, IsIn, IsTrue } from './utils/find-operator.utils';
 export { Sql } from './utils/sql-functions.utils';
-export type { SqlAggregateOptions } from './utils/sql-functions.utils';
+export type {
+  SqlAggregateOptions,
+  SqlDatePart,
+  SqlFunctions,
+  SqlIntervalUnit,
+  SqlStringAggOptions,
+  SqlWindow,
+} from './utils/sql-functions.utils';
 export { selectExpression, SelectExpression } from './utils/select-expression.utils';
 export { unnestRows } from './utils/unnest-rows.utils';
 export type { UnnestColumns, UnnestRowsOptions } from './utils/unnest-rows.utils';

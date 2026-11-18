@@ -18,30 +18,67 @@ query
   .addSelect(Sql.count(o.userId, { distinct: true }), 'buyers')           // COUNT(DISTINCT "o"."userId")
   .addSelect(Sql.coalesce(Sql.sum(o.total), '0'), 'revenue')              // COALESCE(SUM("o"."total"), 0)
   .addSelect(Sql.max(o.paidAt, { filter: o.isNotNull('paidAt') }), 'lastPaid')
-  .addSelect(Sql.greatest(o.updatedAt, o.paidAt), 'touched');             // GREATEST("o"."updatedAt", "o"."paidAt")
+  .andWhere(`${o.createdAt} >= ${Sql.ago(30, 'days')}`);                  // (NOW() - INTERVAL '30 days')
 ```
+
+## Databases: `Sql.for(driver)`
+
+Where the databases write a function differently, `Sql` writes PostgreSQL. `Sql.for(driver)` returns the same functions for another database, by TypeORM's database type: `Sql.for('mysql')`, `Sql.for('better-sqlite3')`, `Sql.for(dataSource.options.type)`.
+
+```typescript
+const sql = Sql.for('mysql');
+
+sql.length(u.name);         // CHAR_LENGTH("u"."name"): MySQL's LENGTH counts bytes
+sql.ago(30, 'days');        // (NOW() - INTERVAL 30 DAY)
+Sql.for('sqlite').ago(30, 'days'); // datetime('now', '-30 days')
+```
+
+A function a database has no form of throws a `TypeError` naming it: `Sql.for('mysql').boolOr(…)`, `Sql.for('sqlite').interval(…)`.
 
 ## Functions
 
-| Function | Result |
-|---|---|
-| `Sql.count(expression?, options?)` | `COUNT(expression)`, `COUNT(*)` without one |
-| `Sql.sum(expression, options?)` | `SUM(expression)` |
-| `Sql.min(expression, options?)` | `MIN(expression)` |
-| `Sql.max(expression, options?)` | `MAX(expression)` |
-| `Sql.avg(expression, options?)` | `AVG(expression)` |
-| `Sql.boolOr(condition, options?)` | `BOOL_OR(condition)`, PostgreSQL |
-| `Sql.boolAnd(condition, options?)` | `BOOL_AND(condition)`, PostgreSQL |
-| `Sql.coalesce(a, b, …)` | `COALESCE(a, b, …)`, two expressions or more |
-| `Sql.nullif(a, b)` | `NULLIF(a, b)` |
-| `Sql.greatest(a, b, …)` | `GREATEST(a, b, …)`, two expressions or more |
-| `Sql.least(a, b, …)` | `LEAST(a, b, …)`, two expressions or more |
-| `Sql.lower(expression)` | `LOWER(expression)` |
-| `Sql.upper(expression)` | `UPPER(expression)` |
-| `Sql.cast(expression, type)` | `CAST(expression AS type)`; `type` is a type name with an optional size and `[]` (`'numeric(10, 2)'`, `'uuid[]'`), anything else throws |
-| `Sql.distinctOn(a, …)` | `DISTINCT ON (a, …)` for a SELECT written as SQL, PostgreSQL; a query builder has [`distinctOnTyped`](../typed/distinctOnTyped.md) |
+Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `syntax`.
 
-The options of the aggregates:
+| Function | PostgreSQL (`Sql`) | MySQL / MariaDB | SQLite |
+|---|---|---|---|
+| `count(expression?)` | `COUNT(expression)`, `COUNT(*)` without one | same | same |
+| `sum`, `min`, `max`, `avg(expression)` | `SUM(…)`, `MIN(…)`, `MAX(…)`, `AVG(…)` | same | same |
+| `boolOr`, `boolAnd(condition)` | `BOOL_OR(…)`, `BOOL_AND(…)` | — | — |
+| `stringAgg(expression, separator, { orderBy? })` | `STRING_AGG(expression, ', ' ORDER BY …)` | `GROUP_CONCAT(expression ORDER BY … SEPARATOR ', ')` | `GROUP_CONCAT(expression, ', ')`; no `distinct`, `orderBy` from 3.44 |
+| `coalesce(a, b, …)` | `COALESCE(a, b, …)` | same | same |
+| `nullif(a, b)` | `NULLIF(a, b)` | same | same |
+| `greatest`, `least(a, b, …)` | `GREATEST(…)`, `LEAST(…)`, NULL arguments skipped | same, NULL for any NULL | `MAX(…)`, `MIN(…)`, NULL for any NULL |
+| `case([[condition, value], …], otherwise?)` | `CASE WHEN … THEN … ELSE … END` | same | same |
+| `lower`, `upper`, `trim(expression)` | `LOWER(…)`, `UPPER(…)`, `TRIM(…)` | same | same |
+| `length(expression)` | `LENGTH(…)`, characters | `CHAR_LENGTH(…)` | `LENGTH(…)` |
+| `concat(a, b, …)` | `CONCAT(a, b)`, NULL read as empty | `CONCAT_WS('', a, b)`, NULL read as empty | `COALESCE(a, '') \|\| COALESCE(b, '')` |
+| `substring(expression, start, length?)` | `SUBSTRING(expression, start, length)` | same | `SUBSTR(…)` |
+| `splitPart(expression, delimiter, n)` | `SPLIT_PART(expression, '@', 2)` | — | — |
+| `cast(expression, type)` | `CAST(expression AS type)`; a type name with an optional size and `[]`, anything else throws | same | same |
+| `now()` | `NOW()` | `NOW()` | `CURRENT_TIMESTAMP` |
+| `interval(amount, unit)` | `INTERVAL '30 days'` | `INTERVAL 30 DAY` | — |
+| `addInterval(expression, amount, unit)` | `(expression + INTERVAL '30 days')`, `-` for a negative amount | `(expression + INTERVAL 30 DAY)` | `datetime(expression, '+30 days')`, text |
+| `ago(amount, unit)` | `(NOW() - INTERVAL '30 days')` | `(NOW() - INTERVAL 30 DAY)` | `datetime('now', '-30 days')`, text |
+| `extract(part, expression)` | `EXTRACT(YEAR FROM …)`, a `numeric` | `EXTRACT(…)`; `UNIX_TIMESTAMP(…)` for `'epoch'`, `DAYOFWEEK(…) - 1` for `'dow'` | `CAST(strftime('%Y', …) AS integer)` |
+| `toChar(expression, format)` | `TO_CHAR(expression, 'YYYY-MM-DD')` | — | — |
+| `rowNumber()`, `rank()`, `denseRank()` | `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()` | same (8+) | same (3.25+) |
+| `lag`, `lead(expression, offset?, default?)` | `LAG(…)`, `LEAD(…)` | same (8+) | same (3.25+) |
+| `over(fn, { partitionBy?, orderBy? })` | `fn OVER (PARTITION BY … ORDER BY …)` | same (8+) | same (3.25+) |
+| `distinctOn(a, …)` | `DISTINCT ON (a, …)`, for a SELECT written as SQL; a query builder has [`distinctOnTyped`](../typed/distinctOnTyped.md) | — | — |
+| `jsonbSet(target, ['a', 'b'], value, { createMissing? })` | `jsonb_set(target, ARRAY['a', 'b'], value)` | — | — |
+| `toJsonb`, `jsonbTypeof`, `jsonbArrayElements(expression)` | `to_jsonb(…)`, `jsonb_typeof(…)`, `jsonb_array_elements(…)` | — | — |
+
+Units of `interval`, `addInterval` and `ago`: `'seconds'`, `'minutes'`, `'hours'`, `'days'`, `'weeks'`, `'months'`, `'years'`, an integer amount. Parts of `extract`: `'year'`, `'month'`, `'day'`, `'hour'`, `'minute'`, `'second'`, `'epoch'` (seconds since 1970) and `'dow'` (day of the week from 0, Sunday). The amount, the unit, the part, the separator, the delimiter, the format and the keys of a JSON path are checked or written as SQL strings, so they can't carry SQL.
+
+```typescript
+Sql.over(Sql.rowNumber(), { partitionBy: o.userId, orderBy: `${o.createdAt} DESC` })
+// ROW_NUMBER() OVER (PARTITION BY "o"."userId" ORDER BY "o"."createdAt" DESC)
+
+Sql.case([[o.where('total', '> 100'), "'big'"]], "'small'")
+// CASE WHEN "o"."total" > 100 THEN 'big' ELSE 'small' END
+```
+
+## Aggregate options
 
 - `distinct?: boolean`: each value once, `COUNT(DISTINCT expression)`. `Sql.count()` needs an expression for it.
 - `filter?: string`: aggregates only the rows that match the condition.
@@ -49,6 +86,5 @@ The options of the aggregates:
 
 ## Notes
 
-- **The function's own result.** `Sql.count` and `Sql.sum` write the function and nothing else, so they replace a hand-written `COUNT(…)` / `SUM(…)` without changing what the query returns: the `pg` driver returns a count as a string, and `SUM`, `MIN`, `MAX` and `AVG` give NULL for no rows. `tableHelper`'s [`count`](./tableHelper.md#counting) casts to an integer and its [`sum`](./tableHelper.md#sums) gives 0 instead of NULL; `Sql.coalesce(Sql.sum(…), '0')` does the same by hand.
-- **NULL arguments of `greatest` / `least`.** PostgreSQL skips them, MySQL returns NULL when any is NULL. SQLite has neither function: its `MAX(a, b)` / `MIN(a, b)` return NULL for any NULL argument.
+- **The function's own result.** `Sql.count` and `Sql.sum` write the function and nothing else, so they replace a hand-written `COUNT(…)` / `SUM(…)` without changing what the query returns: the `pg` driver returns a count, a `bigint` sum and a `numeric` as strings, and `SUM`, `MIN`, `MAX` and `AVG` give NULL for no rows. `tableHelper`'s [`count`](./tableHelper.md#counting) casts to an integer and its [`sum`](./tableHelper.md#sums) gives 0 instead of NULL; `Sql.coalesce(Sql.sum(…), '0')` does the same by hand.
 - **Values.** Expressions are written as they are, so a value from a user goes into a parameter (`':since'`), never into the string.
