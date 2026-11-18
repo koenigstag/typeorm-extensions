@@ -1,5 +1,5 @@
 import { Equal, ILike, In, IsNull, LessThan, MoreThanOrEqual, Not, SelectQueryBuilder } from 'typeorm';
-import { EqualColumn } from 'typeorm-extensions';
+import { EqualColumn, IsIn, IsNotIn } from 'typeorm-extensions';
 
 enum OrderStatus {
   Successful = 'successful',
@@ -49,6 +49,27 @@ orders.andWhereTyped((o) => o.total, MoreThanOrEqual('100'));
 
 // @ts-expect-error a boolean column compared with a string
 orders.orWhereTyped((o) => o.isGift, Not(Equal('true')));
+
+orders
+  .whereTyped((o) => o.status, IsIn([OrderStatus.Successful, OrderStatus.Failed]))
+  .andWhereTyped((o) => o.status, IsNotIn([OrderStatus.Failed]))
+  .andWhereTyped((o) => o.paidAt, IsIn([new Date(), '2026-01-01']))
+  .andWhereTyped((o) => o.total, IsIn([] as number[]));
+
+const statuses: readonly OrderStatus[] = [OrderStatus.Successful];
+orders.whereTyped((o) => o.status, IsIn(statuses));
+
+// TypeORM's In() is FindOperator<any> and fits any column
+orders.whereTyped((o) => o.status, In(['successful']));
+
+// @ts-expect-error a string literal is not a member of the column's enum
+orders.whereTyped((o) => o.status, IsIn(['successful']));
+
+// @ts-expect-error a string literal is not a member of the column's enum
+orders.andWhereTyped((o) => o.status, IsNotIn([OrderStatus.Failed, 'deleted']));
+
+// @ts-expect-error strings for a number column
+orders.orWhereTyped((o) => o.total, IsIn(['1', '2']));
 
 // @ts-expect-error an operator takes no parameters
 orders.whereTyped((o) => o.deletedAt, IsNull(), {});

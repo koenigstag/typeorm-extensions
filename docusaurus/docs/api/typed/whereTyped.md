@@ -36,21 +36,22 @@ Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; u
 The condition may be one of TypeORM's find operators instead of SQL, written as `find({ where })` writes it, its values bound as parameters. It takes no `params`.
 
 ```typescript
-import { Equal, In, IsNull, MoreThanOrEqual, Not } from 'typeorm';
-import { EqualColumn } from 'typeorm-extensions';
+import { Equal, IsNull, MoreThanOrEqual, Not } from 'typeorm';
+import { EqualColumn, IsIn, IsNotIn } from 'typeorm-extensions';
 
 query
   .whereTyped((o) => o.deletedAt, IsNull())                         // "o"."deletedAt" IS NULL
   .andWhereTyped((o) => o.paidAt, Not(IsNull()))                    // NOT("o"."paidAt" IS NULL)
   .andWhereTyped((o) => o.status, Equal(OrderStatus.Successful))    // "o"."status" = :orm_param_0
-  .andWhereTyped((o) => o.status, In([OrderStatus.Refunded]))       // "o"."status" IN (:orm_param_1)
+  .andWhereTyped((o) => o.status, IsIn([OrderStatus.Refunded]))     // "o"."status" IN (:orm_param_1)
+  .andWhereTyped((o) => o.type, IsNotIn([OrderType.Gift]))          // NOT("o"."type" IN (:orm_param_2))
   .andWhereTyped((o) => o.createdAt, MoreThanOrEqual(since))
   .andWhereTyped((o) => o.userId, EqualColumn(users.id));           // "o"."userId" = "users"."id"
 ```
 
-- **Checked values.** The value of `Equal`, `Not`, `MoreThan`, `MoreThanOrEqual`, `LessThan`, `LessThanOrEqual`, `Between`, `Like`, `ILike` and `Any` is checked against the column's type, without `strictParams`: `Equal('successful')` on an enum column fails type-check. TypeORM types `In()`, `IsNull()`, `Raw()` and the `Array…` operators as `FindOperator<any>`, so they fit any column; `whereIsInTyped` checks its list with `strictParams`. With an explicit type argument (`whereTyped<Joins>(…)`) TypeScript can't infer the column, and nothing is checked: set the root with [`typed<Root>()`](./typedRoot.md) instead.
+- **Checked values.** The value of `Equal`, `Not`, `MoreThan`, `MoreThanOrEqual`, `LessThan`, `LessThanOrEqual`, `Between`, `Like`, `ILike` and `Any` is checked against the column's type, without `strictParams`: `Equal('successful')` on an enum column fails type-check. TypeORM types `In()`, `IsNull()`, `Raw()` and the `Array…` operators as `FindOperator<any>`, so they fit any column: use **`IsIn([…])`** and **`IsNotIn([…])`**, the same operators with their values typed (`IsIn(['successful'])` on an enum column fails type-check). With an explicit type argument (`whereTyped<Joins>(…)`) TypeScript can't infer the column, and nothing is checked: set the root with [`typed<Root>()`](./typedRoot.md) instead.
 - **`EqualColumn(sql)`** compares the column with another column or an SQL expression, written as is; `Not(EqualColumn(…))` negates it.
-- An empty `In([])` matches no row (`0=1`), as in `find()`.
+- An empty `IsIn([])` / `In([])` matches no row (`0=1`), as in `find()`; an empty `IsNotIn([])` matches every row. Like SQL `NOT IN`, `IsNotIn` never matches a row whose column is NULL.
 
 ## Paths into JSON columns
 
