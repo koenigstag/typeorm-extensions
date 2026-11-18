@@ -13,7 +13,7 @@ Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` an
 ```typescript
 whereTyped(
   selection: KeyProxyCallback<Entity>,
-  condition?: string,
+  condition?: string | FindOperator<Value>,
   params?: unknown,
   options?: { addValue?: boolean }
 ): SelectQueryBuilder<Entity>
@@ -24,12 +24,33 @@ orWhereTyped(selection, condition?, params?, options?): SelectQueryBuilder<Entit
 
 ## Arguments
 - selection: [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md): The callback which selects a field of entity. A callback that selects several columns (`u => [u.id, u.email]`) throws a `TypeError`: add one condition per column, or use [whereSearchTyped](./whereSearchTyped.md) to search several columns.
-- condition?: string: Operator for the query. It may reference a key of `params` as a placeholder (`:key` or `(:...keys)`); then the value is not appended automatically.
+- condition?: string | FindOperator: Operator for the query, or a TypeORM find operator (see [Find operators](#find-operators)). A string may reference a key of `params` as a placeholder (`:key` or `(:...keys)`); then the value is not appended automatically.
 - params?: unknown: Parameter for the condition. This can be an object `{ someValue: 'value' }` or the value itself `'value'`. A `Date`, a `Buffer` or a typed array is a value too: `whereTyped(u => u.createdAt, '>', since)` binds `since`. An object whose value goes after the condition holds exactly one key: with more, or none, it throws a `TypeError` (only the first value used to be bound). An object whose keys the condition names can have any number: `whereTyped(u => u.id, 'BETWEEN :from AND :to', { from, to })`.
 - options?: \{ addValue?: boolean \}: Options for where logic.
 - options.addValue?: boolean: The `addValue` option is controlling whether it will paste **random uniq placeholder** to condition (if true) or work as default requiring you to pass placeholder yourself (if false). Supports primitive values (placeholder `:key`), array (placeholder `(:...key)`) and a params object with one entry. Defaults to `true`, or to `false` when `condition` already references a key of `params` (e.g. `'LIKE :search'` with `{ search: '%John%' }`).
 
 Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; use `andWhereTyped` / `orWhereTyped` to add to them.
+
+## Find operators
+
+The condition may be one of TypeORM's find operators instead of SQL, written as `find({ where })` writes it, its values bound as parameters. It takes no `params`.
+
+```typescript
+import { Equal, In, IsNull, MoreThanOrEqual, Not } from 'typeorm';
+import { EqualColumn } from 'typeorm-extensions';
+
+query
+  .whereTyped((o) => o.deletedAt, IsNull())                         // "o"."deletedAt" IS NULL
+  .andWhereTyped((o) => o.paidAt, Not(IsNull()))                    // NOT("o"."paidAt" IS NULL)
+  .andWhereTyped((o) => o.status, Equal(OrderStatus.Successful))    // "o"."status" = :orm_param_0
+  .andWhereTyped((o) => o.status, In([OrderStatus.Refunded]))       // "o"."status" IN (:orm_param_1)
+  .andWhereTyped((o) => o.createdAt, MoreThanOrEqual(since))
+  .andWhereTyped((o) => o.userId, EqualColumn(users.id));           // "o"."userId" = "users"."id"
+```
+
+- **Checked values.** The value of `Equal`, `Not`, `MoreThan`, `MoreThanOrEqual`, `LessThan`, `LessThanOrEqual`, `Between`, `Like`, `ILike` and `Any` is checked against the column's type, without `strictParams`: `Equal('successful')` on an enum column fails type-check. TypeORM types `In()`, `IsNull()`, `Raw()` and the `Array…` operators as `FindOperator<any>`, so they fit any column; `whereIsInTyped` checks its list with `strictParams`. With an explicit type argument (`whereTyped<Joins>(…)`) TypeScript can't infer the column, and nothing is checked: set the root with [`typed<Root>()`](./typedRoot.md) instead.
+- **`EqualColumn(sql)`** compares the column with another column or an SQL expression, written as is; `Not(EqualColumn(…))` negates it.
+- An empty `In([])` matches no row (`0=1`), as in `find()`.
 
 ## Paths into JSON columns
 

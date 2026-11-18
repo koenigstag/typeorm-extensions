@@ -1,15 +1,17 @@
 import {
+  FindOperator,
   ObjectLiteral,
   SelectQueryBuilder,
   WhereExpressionBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { TypedWhereArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import { getTypedSingleColumnKey, isTypedJsonPath } from '../../../utils/query-builder.utils';
+import { TypedWhereCondition, TypedWhereConditionArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
+import { getTypedSingleColumnKey, isTypedJsonPath, toFieldSql } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
-import { attachWhere, getComparedValue, isParamsObject } from '../../../utils/where.utils';
+import { addCondition, attachWhere, getComparedValue, isParamsObject } from '../../../utils/where.utils';
+import { getFindOperatorValue, isFindOperator, renderFindOperator } from '../../../utils/find-operator.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
@@ -18,6 +20,10 @@ import type { TypedRoot } from '../../../types/modules/typed-root.types';
  * Typesafe WHERE conditions: the column comes from an entity property.
  * `Type` defaults to the query builder's entity; with the `strictParams` option (see `TypeormExtensionsConfig`)
  * the parameter is checked against the type of the selected column.
+ *
+ * The condition is SQL (`'IS NULL'`, `'>='` with a value) or a TypeORM find operator (`IsNull()`, `Not(IsNull())`,
+ * `MoreThanOrEqual(date)`, `In([…])`, `EqualColumn(…)`), written as `find({ where })` writes it. An operator's value
+ * is always checked against the column's type, except when `Type` is given: TypeScript then can't infer the column.
  */
 export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   /**
@@ -29,11 +35,11 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   whereTyped<
     Type extends ObjectLiteral = UnsetType,
     Value extends ProxyColumnValueType = ProxyColumnValueType,
-    Operator extends string = string,
+    Condition extends TypedWhereCondition<Value> = TypedWhereCondition<Value>,
   >(
     where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
-    conditions: Operator,
-    ...args: TypedWhereArgs<Type, Operator, Value>
+    conditions: Condition,
+    ...args: TypedWhereConditionArgs<Type, Condition, Value>
   ): this;
 
   /**
@@ -43,11 +49,11 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   andWhereTyped<
     Type extends ObjectLiteral = UnsetType,
     Value extends ProxyColumnValueType = ProxyColumnValueType,
-    Operator extends string = string,
+    Condition extends TypedWhereCondition<Value> = TypedWhereCondition<Value>,
   >(
     where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
-    conditions: Operator,
-    ...args: TypedWhereArgs<Type, Operator, Value>
+    conditions: Condition,
+    ...args: TypedWhereConditionArgs<Type, Condition, Value>
   ): this;
 
   /**
@@ -57,11 +63,11 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   orWhereTyped<
     Type extends ObjectLiteral = UnsetType,
     Value extends ProxyColumnValueType = ProxyColumnValueType,
-    Operator extends string = string,
+    Condition extends TypedWhereCondition<Value> = TypedWhereCondition<Value>,
   >(
     where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
-    conditions: Operator,
-    ...args: TypedWhereArgs<Type, Operator, Value>
+    conditions: Condition,
+    ...args: TypedWhereConditionArgs<Type, Condition, Value>
   ): this;
 }
 
@@ -93,7 +99,7 @@ const createWhereTypedMethod = (method: WhereMethods) =>
   function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-    conditions: string,
+    conditions: string | FindOperator<unknown>,
     parameters?: unknown,
     options?: TypedWhereOptions
   ): SelectQueryBuilder<Entity> {
@@ -126,13 +132,20 @@ function attachTypedWhere<
   builder: QB,
   method: WhereMethods,
   where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  conditions: string,
+  conditions: string | FindOperator<unknown>,
   parameters?: unknown,
   options?: TypedWhereOptions
 ): QB {
   const { addValue } = options || {};
 
-  if (typeof where === 'function') {
+  if (typeof where === 'function' && isFindOperator(conditions)) {
+    const value = getFindOperatorValue(conditions);
+    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
+
+    return addCondition(builder, method)(renderFindOperator(builder, toFieldSql(builder, key), conditions));
+  }
+
+  if (typeof where === 'function' && typeof conditions === 'string') {
     // a JSON path compared by order with numeric text is compared as a number: as text '9' >= '10'
     const params =
       isOrderingCondition(conditions) && isTypedJsonPath<Type>(builder, where)

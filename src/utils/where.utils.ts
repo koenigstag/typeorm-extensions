@@ -116,7 +116,7 @@ function assertSingleValueParams(field: string, params: unknown): void {
 }
 
 /** The builder's `where` / `having` method, bound to it: only a SelectQueryBuilder has `having`. */
-function addCondition<QB extends WhereExpressionBuilder>(builder: QB, method: WhereMethods | HavingMethods) {
+export function addCondition<QB extends WhereExpressionBuilder>(builder: QB, method: WhereMethods | HavingMethods) {
   const add = (builder as unknown as Record<WhereMethods | HavingMethods, (condition: string, parameters?: ObjectLiteral) => QB>)[method];
 
   return (condition: string, parameters?: ObjectLiteral): QB => add.call(builder, condition, parameters);
