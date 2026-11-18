@@ -1,5 +1,5 @@
 import { Equal, ILike, In, IsNull, LessThan, MoreThanOrEqual, Not, SelectQueryBuilder } from 'typeorm';
-import { EqualColumn, IsIn } from 'typeorm-extensions';
+import { EqualColumn, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
 
 enum OrderStatus {
   Successful = 'successful',
@@ -19,6 +19,7 @@ class Order {
   deletedAt: Date | null;
   note: string | null;
   isGift: boolean;
+  isArchived: boolean | null;
   customerId: string;
   customer: Customer;
 }
@@ -70,6 +71,18 @@ orders.andWhereTyped((o) => o.status, Not(IsIn([OrderStatus.Failed, 'deleted']))
 
 // @ts-expect-error strings for a number column
 orders.orWhereTyped((o) => o.total, IsIn(['1', '2']));
+
+orders
+  .whereTyped((o) => o.isGift, IsTrue())
+  .andWhereTyped((o) => o.isGift, Not(IsFalse()))
+  .andWhereTyped((o) => o.isArchived, Not(IsTrue()))
+  .orWhereTyped((o) => o.isArchived, IsFalse());
+
+// @ts-expect-error IS TRUE on a string column
+orders.whereTyped((o) => o.note, IsTrue());
+
+// @ts-expect-error IS FALSE on a number column
+orders.andWhereTyped((o) => o.total, Not(IsFalse()));
 
 // @ts-expect-error an operator takes no parameters
 orders.whereTyped((o) => o.deletedAt, IsNull(), {});

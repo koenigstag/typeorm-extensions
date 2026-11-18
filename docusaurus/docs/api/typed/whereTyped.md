@@ -37,7 +37,7 @@ The condition may be one of TypeORM's find operators instead of SQL, written as 
 
 ```typescript
 import { Equal, IsNull, MoreThanOrEqual, Not } from 'typeorm';
-import { EqualColumn, IsIn } from 'typeorm-extensions';
+import { EqualColumn, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
 
 query
   .whereTyped((o) => o.deletedAt, IsNull())                         // "o"."deletedAt" IS NULL
@@ -46,10 +46,13 @@ query
   .andWhereTyped((o) => o.status, IsIn([OrderStatus.Refunded]))     // "o"."status" IN (:orm_param_1)
   .andWhereTyped((o) => o.type, Not(IsIn([OrderType.Gift])))       // NOT("o"."type" IN (:orm_param_2))
   .andWhereTyped((o) => o.createdAt, MoreThanOrEqual(since))
+  .andWhereTyped((o) => o.isGift, IsTrue())                         // "o"."isGift" IS TRUE
+  .andWhereTyped((o) => o.isArchived, Not(IsTrue()))                // NOT("o"."isArchived" IS TRUE): IS NOT TRUE, NULL too
   .andWhereTyped((o) => o.userId, EqualColumn(users.id));           // "o"."userId" = "users"."id"
 ```
 
 - **Checked values.** The value of `Equal`, `Not`, `MoreThan`, `MoreThanOrEqual`, `LessThan`, `LessThanOrEqual`, `Between`, `Like`, `ILike` and `Any` is checked against the column's type, without `strictParams`: `Equal('successful')` on an enum column fails type-check. TypeORM types `In()`, `IsNull()`, `Raw()` and the `Array…` operators as `FindOperator<any>`, so they fit any column: use **`IsIn([…])`**, the same operator with its values typed, and `Not(IsIn([…]))` (`IsIn(['successful'])` on an enum column fails type-check). With an explicit type argument (`whereTyped<Joins>(…)`) TypeScript can't infer the column, and nothing is checked: set the root with [`typed<Root>()`](./typedRoot.md) instead.
+- **`IsTrue()` / `IsFalse()`** test a boolean column with `IS TRUE` / `IS FALSE` and fit only boolean columns. They are never NULL, so `Not(IsTrue())` is `IS NOT TRUE` and matches a NULL column too, while `Not(Equal(true))` (`NOT(col = true)`) skips it. PostgreSQL rewrites `NOT(col IS TRUE)` to `col IS NOT TRUE` and plans it the same, a partial index included; `IS TRUE` / `IS FALSE` use a btree index on the column like `= true` / `= false`. PostgreSQL, SQLite 3.23+ and MySQL.
 - **`EqualColumn(sql)`** compares the column with another column or an SQL expression, written as is; `Not(EqualColumn(…))` negates it.
 - An empty `IsIn([])` / `In([])` matches no row (`0=1`), as in `find()`; an empty `Not(IsIn([]))` matches every row. Like SQL `NOT IN`, `Not(IsIn(…))` never matches a row whose column is NULL.
 

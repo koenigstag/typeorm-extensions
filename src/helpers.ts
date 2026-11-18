@@ -4,7 +4,7 @@
 export * from './utils/table.utils';
 export * from './decorators/generated-column.decorator';
 export { escapeLikePattern } from './utils/search.utils';
-export { EqualColumn, IsIn } from './utils/find-operator.utils';
+export { EqualColumn, IsFalse, IsIn, IsTrue } from './utils/find-operator.utils';
 export { selectExpression, SelectExpression } from './utils/select-expression.utils';
 export { unnestRows } from './utils/unnest-rows.utils';
 export type { UnnestColumns, UnnestRowsOptions } from './utils/unnest-rows.utils';

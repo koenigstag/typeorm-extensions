@@ -61,6 +61,19 @@ export function IsIn<T>(values: readonly T[]): FindOperator<T> {
 }
 
 /**
+ * `IS TRUE` on a boolean column. Unlike `= true` it is never NULL, so `Not(IsTrue())` is `IS NOT TRUE` and
+ * matches NULL too, while `Not(Equal(true))` skips it. PostgreSQL, SQLite 3.23+, MySQL.
+ */
+export function IsTrue(): FindOperator<boolean> {
+  return Raw((field) => `${field} IS TRUE`) as FindOperator<boolean>;
+}
+
+/** `IS FALSE` on a boolean column; `Not(IsFalse())` is `IS NOT FALSE` and matches NULL too, see `IsTrue`. */
+export function IsFalse(): FindOperator<boolean> {
+  return Raw((field) => `${field} IS FALSE`) as FindOperator<boolean>;
+}
+
+/**
  * Compares the column with another column or SQL expression, which is written as is:
  * `whereTyped((o) => o.userId, EqualColumn(users.id))` → `"o"."userId" = "users"."id"`.
  * `Not(EqualColumn(…))` negates it.

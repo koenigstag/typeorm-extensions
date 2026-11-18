@@ -1,7 +1,8 @@
 import { Brackets, Equal, In, IsNull, LessThan, MoreThanOrEqual, Not } from 'typeorm';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/where-exists.extension';
-import { EqualColumn, IsIn } from 'typeorm-extensions/utils/find-operator.utils';
+import { EqualColumn, IsFalse, IsIn, IsTrue } from 'typeorm-extensions/utils/find-operator.utils';
+import 'typeorm-extensions/extensions/typed/typed-root.extension';
 import { setupTest, createFakeUsers, nativeSql, sqlOf } from '../test-utils';
 import { TicketEntity, UserEntity } from '../models';
 
@@ -49,6 +50,28 @@ setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
     expect(await ids(users().whereTyped((u) => u.firstName, Not(IsIn(['Alice', 'Dave']))))).toEqual([2, 3]);
     expect(await ids(users().whereTyped((u) => u.id, IsIn([] as number[])))).toEqual([]);
     expect(await ids(users().whereTyped((u) => u.id, Not(IsIn([] as number[]))))).toEqual([1, 2, 3, 4]);
+  });
+
+  it('SHOULD test a boolean with IsTrue / IsFalse, and match NULL too when negated, unlike Not(Equal())', async () => {
+    type Flags = { f: { id: number; flag: boolean | null } };
+
+    const flags = () =>
+      context.dataSource
+        .createQueryBuilder()
+        .addCommonTableExpression('SELECT 1 AS id, TRUE AS flag UNION ALL SELECT 2, FALSE UNION ALL SELECT 3, NULL', 'f')
+        .select(nativeSql('"f"."id"'), 'id')
+        .from('f', 'f')
+        .orderBy(nativeSql('"f"."id"'))
+        .typed<Flags>();
+    const flagIds = async (query: ReturnType<typeof flags>) =>
+      (await query.getRawMany<{ id: number | string }>()).map((row) => Number(row.id));
+
+    expect(await flagIds(flags().whereTyped((q) => q.f.flag, IsTrue()))).toEqual([1]);
+    expect(await flagIds(flags().whereTyped((q) => q.f.flag, IsFalse()))).toEqual([2]);
+    expect(await flagIds(flags().whereTyped((q) => q.f.flag, Not(IsTrue())))).toEqual([2, 3]);
+    expect(await flagIds(flags().whereTyped((q) => q.f.flag, Not(IsFalse())))).toEqual([1, 3]);
+    expect(await flagIds(flags().whereTyped((q) => q.f.flag, Not(Equal(true))))).toEqual([2]);
+    expect(sqlOf(flags().whereTyped((q) => q.f.flag, Not(IsTrue())))).toMatch(/WHERE NOT\("f"\."flag" IS TRUE\)/);
   });
 
   it('SHOULD compare with another column through EqualColumn, and negate it with Not', async () => {
