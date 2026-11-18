@@ -75,6 +75,19 @@ setupTest('select-typed.where', undefined, (context) => {
     expect(result[0]?.lastName).toBeUndefined();
   });
 
+  it('SHOULD read a boolean after a callback as useQuotes', async () => {
+    const legacy = context.dataSource.getRepository(LegacyColumnsEntity);
+    await legacy.save([new LegacyColumnsEntity({ firstName: 'Bob' })]);
+
+    const selected = legacy.createQueryBuilder('legacy').selectTyped((l) => [l.id, l.firstName], true);
+    const added = legacy.createQueryBuilder('legacy').select('legacy.id', 'id').addSelectTyped((l) => [l.firstName], true);
+
+    expect(sqlOf(selected)).toEqual(sqlOf(legacy.createQueryBuilder('legacy').selectTyped([(l) => l.id, (l) => l.firstName], true)));
+    expect(sqlOf(added)).toEqual(sqlOf(legacy.createQueryBuilder('legacy').select('legacy.id', 'id').addSelectTyped([(l) => l.firstName], true)));
+    expect(sqlOf(selected)).not.toContain('legacy.firstName');
+    expect(await selected.getRawMany()).toEqual([{ id: expect.anything(), 'first-name': 'Bob' }]);
+  });
+
   it('SHOULD select empty list if quotes are applied', async () => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 

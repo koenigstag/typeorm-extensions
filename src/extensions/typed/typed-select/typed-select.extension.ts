@@ -12,11 +12,12 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     /**
      * Creates SELECT query.
      * Replaces all previous selections if they exist.
+     * A boolean in place of the alias is `useQuotes`: `selectTyped(q => [q.id, q.name], true)`.
      */
     selectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
-      selectionAliasName?: string,
+      selectionAliasName?: string | boolean,
       useQuotes?: boolean
     ): this;
     /**
@@ -41,11 +42,12 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 
     /**
      * Adds new selection to the SELECT query.
+     * A boolean in place of the alias is `useQuotes`: `addSelectTyped(q => [q.id, q.name], true)`.
      */
     addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
-      selectionAliasName?: string,
+      selectionAliasName?: string | boolean,
       useQuotes?: boolean
     ): this;
     /**
