@@ -1,4 +1,4 @@
-import { FindOperator, In, Not, Raw, WhereExpressionBuilder } from 'typeorm';
+import { FindOperator, In, Raw, WhereExpressionBuilder } from 'typeorm';
 
 // TypeORM marks its operators with a symbol instead of relying on `instanceof`, so an operator built by a second copy
 // of TypeORM is recognized too; `Equal()` builds a subclass with a marker of its own
@@ -54,18 +54,10 @@ export function getFindOperatorValue(operator: FindOperator<unknown>): unknown {
 
 /**
  * TypeORM's `In([…])` with its values typed: TypeORM types `In()` as `FindOperator<any>`, so `In(['active'])` fits an
- * enum column and `IsIn(['active'])` doesn't. An empty list matches no row.
+ * enum column and `IsIn(['active'])` doesn't. An empty list matches no row; `Not(IsIn([…]))` negates it, typed too.
  */
 export function IsIn<T>(values: readonly T[]): FindOperator<T> {
   return In(values) as FindOperator<T>;
-}
-
-/**
- * `Not(In([…]))` with its values typed, see `IsIn`. An empty list matches every row; like SQL `NOT IN`,
- * a row whose column is NULL never matches.
- */
-export function IsNotIn<T>(values: readonly T[]): FindOperator<T> {
-  return Not(In(values)) as FindOperator<T>;
 }
 
 /**

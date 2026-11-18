@@ -1,5 +1,5 @@
 import { Equal, ILike, In, IsNull, LessThan, MoreThanOrEqual, Not, SelectQueryBuilder } from 'typeorm';
-import { EqualColumn, IsIn, IsNotIn } from 'typeorm-extensions';
+import { EqualColumn, IsIn } from 'typeorm-extensions';
 
 enum OrderStatus {
   Successful = 'successful',
@@ -52,7 +52,7 @@ orders.orWhereTyped((o) => o.isGift, Not(Equal('true')));
 
 orders
   .whereTyped((o) => o.status, IsIn([OrderStatus.Successful, OrderStatus.Failed]))
-  .andWhereTyped((o) => o.status, IsNotIn([OrderStatus.Failed]))
+  .andWhereTyped((o) => o.status, Not(IsIn([OrderStatus.Failed])))
   .andWhereTyped((o) => o.paidAt, IsIn([new Date(), '2026-01-01']))
   .andWhereTyped((o) => o.total, IsIn([] as number[]));
 
@@ -66,7 +66,7 @@ orders.whereTyped((o) => o.status, In(['successful']));
 orders.whereTyped((o) => o.status, IsIn(['successful']));
 
 // @ts-expect-error a string literal is not a member of the column's enum
-orders.andWhereTyped((o) => o.status, IsNotIn([OrderStatus.Failed, 'deleted']));
+orders.andWhereTyped((o) => o.status, Not(IsIn([OrderStatus.Failed, 'deleted'])));
 
 // @ts-expect-error strings for a number column
 orders.orWhereTyped((o) => o.total, IsIn(['1', '2']));

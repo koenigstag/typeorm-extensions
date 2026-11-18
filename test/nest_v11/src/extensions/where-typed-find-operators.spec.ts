@@ -1,7 +1,7 @@
 import { Brackets, Equal, In, IsNull, LessThan, MoreThanOrEqual, Not } from 'typeorm';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/where-exists.extension';
-import { EqualColumn, IsIn, IsNotIn } from 'typeorm-extensions/utils/find-operator.utils';
+import { EqualColumn, IsIn } from 'typeorm-extensions/utils/find-operator.utils';
 import { setupTest, createFakeUsers, nativeSql, sqlOf } from '../test-utils';
 import { TicketEntity, UserEntity } from '../models';
 
@@ -42,13 +42,13 @@ setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
     expect(Object.values(query.getParameters())).toEqual(['Bob']);
   });
 
-  it('SHOULD match a list through IsIn / IsNotIn, none or all rows for an empty one', async () => {
+  it('SHOULD match a list through IsIn and Not(IsIn), none or all rows for an empty one', async () => {
     await seed();
 
     expect(await ids(users().whereTyped((u) => u.firstName, IsIn(['Alice', 'Dave'])))).toEqual([1, 4]);
-    expect(await ids(users().whereTyped((u) => u.firstName, IsNotIn(['Alice', 'Dave'])))).toEqual([2, 3]);
+    expect(await ids(users().whereTyped((u) => u.firstName, Not(IsIn(['Alice', 'Dave']))))).toEqual([2, 3]);
     expect(await ids(users().whereTyped((u) => u.id, IsIn([] as number[])))).toEqual([]);
-    expect(await ids(users().whereTyped((u) => u.id, IsNotIn([] as number[])))).toEqual([1, 2, 3, 4]);
+    expect(await ids(users().whereTyped((u) => u.id, Not(IsIn([] as number[]))))).toEqual([1, 2, 3, 4]);
   });
 
   it('SHOULD compare with another column through EqualColumn, and negate it with Not', async () => {
