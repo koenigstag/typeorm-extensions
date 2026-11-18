@@ -116,7 +116,60 @@ describe('Sql.for(driver)', () => {
     expect(mysql.stringAgg(u.firstName, `a\\b'`)).toBe(`GROUP_CONCAT("user"."firstName" SEPARATOR 'a\\\\b''')`);
   });
 
+  it('SHOULD write the JSON, array, numeric and time functions', () => {
+    expect(pg.json(u.metadata, 'a', 0)).toBe(`("user"."metadata" -> 'a' -> 0)`);
+    expect(pg.jsonText(u.metadata, "it's", 'b')).toBe(`("user"."metadata" -> 'it''s' ->> 'b')`);
+    expect(mysql.json(u.metadata, 'a', 0)).toBe(`JSON_EXTRACT("user"."metadata", '$."a"[0]')`);
+    expect(mysql.jsonText(u.metadata, "it's")).toBe(`JSON_UNQUOTE(JSON_EXTRACT("user"."metadata", '$."it''s"'))`);
+    expect(sqlite.jsonText(u.metadata, 'a', 1)).toBe(`("user"."metadata" ->> '$."a"[1]')`);
+    expect([pg, mysql, sqlite].map((sql) => sql.jsonBuildObject({ id: u.id, "it's": u.email }))).toEqual([
+      `json_build_object('id', "user"."id", 'it''s', "user"."email")`,
+      `JSON_OBJECT('id', "user"."id", 'it''s', "user"."email")`,
+      `json_object('id', "user"."id", 'it''s', "user"."email")`,
+    ]);
+    expect(pg.jsonbBuildObject({ id: u.id })).toBe(`jsonb_build_object('id', "user"."id")`);
+    expect(pg.arrayAgg(u.id, { distinct: true, orderBy: `${u.id} DESC`, filter: u.isNotNull('email') })).toBe(
+      'ARRAY_AGG(DISTINCT "user"."id" ORDER BY "user"."id" DESC) FILTER (WHERE "user"."email" IS NOT NULL)'
+    );
+    expect([pg.jsonAgg(u.id, { orderBy: [u.lastName, u.id] }), mysql.jsonAgg(u.id), sqlite.jsonAgg(u.id, { filter: 'TRUE' })]).toEqual([
+      'json_agg("user"."id" ORDER BY "user"."lastName", "user"."id")',
+      'JSON_ARRAYAGG("user"."id")',
+      'json_group_array("user"."id") FILTER (WHERE TRUE)',
+    ]);
+    expect(pg.jsonbAgg(u.id)).toBe('jsonb_agg("user"."id")');
+    expect(pg.stringAgg(u.firstName, ',', { orderBy: [u.lastName, u.id] })).toBe(
+      `STRING_AGG("user"."firstName", ',' ORDER BY "user"."lastName", "user"."id")`
+    );
+    expect([pg.round(u.id), mysql.round(u.id, -2), sqlite.abs(u.id), pg.floor(u.id), pg.ceil(u.id)]).toEqual([
+      'ROUND("user"."id")',
+      'ROUND("user"."id", -2)',
+      'ABS("user"."id")',
+      'FLOOR("user"."id")',
+      'CEIL("user"."id")',
+    ]);
+    expect(pg.atTimeZone(u.createdAt, "Europe/Kyiv'")).toBe(`("user"."createdAt" AT TIME ZONE 'Europe/Kyiv''')`);
+    expect(pg.atTimeZone(u.createdAt, '+02:00')).toBe(`("user"."createdAt" AT TIME ZONE '<+0200>-02:00')`);
+    expect(pg.atTimeZone(u.createdAt, { sql: u.lastName })).toBe(`("user"."createdAt" AT TIME ZONE "user"."lastName")`);
+    expect(pg.dateTrunc('day', u.createdAt)).toBe(`DATE_TRUNC('day', "user"."createdAt")`);
+    expect(pg.dateTrunc('month', u.createdAt, 'UTC')).toBe(`DATE_TRUNC('month', "user"."createdAt", 'UTC')`);
+  });
+
   it('SHOULD refuse a function the database has no form of, and a unit, part or amount it does not know', () => {
+    expect(() => mysql.arrayAgg(u.id)).toThrow('Sql.arrayAgg() has no equivalent on mysql');
+    expect(() => sqlite.jsonbBuildObject({ id: u.id })).toThrow('Sql.jsonbBuildObject() has no equivalent on better-sqlite3');
+    expect(() => sqlite.atTimeZone(u.createdAt, 'UTC')).toThrow(/no equivalent on better-sqlite3/);
+    expect(() => mysql.dateTrunc('day', u.createdAt)).toThrow(/no equivalent on mysql/);
+    expect(() => Sql.for('mssql').json(u.metadata, 'a')).toThrow(/no equivalent on mssql/);
+    expect(() => mysql.jsonAgg(u.id, { orderBy: u.id })).toThrow(/JSON_ARRAYAGG takes no distinct, orderBy or filter/);
+    expect(() => mysql.json(u.metadata, 'a"b')).toThrow(/a key of a mysql JSON path has no " or \\/);
+    expect(() => pg.json(u.metadata, -1)).toThrow(/a string or an array index from 0/);
+    expect(() => (pg.jsonText as (value: string) => string)(u.metadata)).toThrow(/needs at least one key/);
+    expect(() => pg.jsonBuildObject({})).toThrow(/needs at least one key/);
+    expect(() => pg.jsonBuildObject({ id: ' ' })).toThrow(/the value of "id" is an SQL expression/);
+    expect(() => pg.dateTrunc('days' as never, u.createdAt)).toThrow(/the unit is one of microseconds/);
+    expect(() => pg.atTimeZone(u.createdAt, ' ')).toThrow(/the time zone is empty/);
+    expect(() => pg.atTimeZone(u.createdAt, '+25:00')).toThrow('Sql.atTimeZone(): "+25:00" is not a UTC offset');
+    expect(() => pg.round(u.id, 1.5)).toThrow(/the digits is an integer/);
     expect(() => mysql.boolOr(`${u.id} > 1`)).toThrow('Sql.boolOr() has no equivalent on mysql');
     expect(() => sqlite.interval(1, 'days')).toThrow('Sql.interval() has no equivalent on better-sqlite3');
     expect(() => mysql.jsonbSet(u.metadata, ['a'], '1')).toThrow(/no equivalent on mysql/);
@@ -248,6 +301,55 @@ setupTest('Sql functions in queries', undefined, (context) => {
     });
   });
 
+  it('SHOULD read and build JSON and round numbers on the database under test', async () => {
+    await seed();
+
+    const sql = Sql.for(context.typeormOptions.type);
+    const sqliteLike = ['sqlite', 'better-sqlite3'].includes(context.typeormOptions.type);
+    const text = `'{"a":{"b":[10,"x"]},"n":null}'`;
+    const doc = sqliteLike ? text : sql.cast(text, 'jsonb');
+    // the pg driver parses json values, SQLite returns them as text
+    const parsed = (value: unknown) => (typeof value === 'string' ? JSON.parse(value) : value);
+
+    const row = await users()
+      .select(sql.jsonText(doc, 'a', 'b', 1), 'second')
+      .addSelect(sql.jsonText(doc, 'a', 'b', 0), 'first')
+      .addSelect(sql.jsonText(doc, 'missing', 'key'), 'missing')
+      .addSelect(sql.jsonText(doc, 'n'), 'jsonNull')
+      .addSelect(sql.cast(sql.json(doc, 'a', 'b'), 'text'), 'array')
+      .addSelect(sql.jsonBuildObject({ second: sql.jsonText(doc, 'a', 'b', 1), "it's": '1' }), 'object')
+      .addSelect(sql.jsonAgg(u.firstName, { orderBy: `${u.id} DESC`, filter: u.isNotNull('metadata') }), 'withMetadata')
+      .addSelect(sql.round('2.567', 2), 'rounded')
+      .addSelect(sql.abs('-3'), 'abs')
+      .addSelect(sql.floor('-2.5'), 'floor')
+      .addSelect(sql.ceil('2.1'), 'ceil')
+      .getRawOne<Record<string, unknown>>();
+
+    expect({
+      ...row,
+      first: String(row?.first),
+      array: parsed(row?.array),
+      object: parsed(row?.object),
+      withMetadata: parsed(row?.withMetadata),
+      rounded: Number(row?.rounded),
+      abs: Number(row?.abs),
+      floor: Number(row?.floor),
+      ceil: Number(row?.ceil),
+    }).toEqual({
+      second: 'x',
+      first: '10',
+      missing: null,
+      jsonNull: null,
+      array: [10, 'x'],
+      object: { second: 'x', "it's": 1 },
+      withMetadata: ['Dave', 'Bob'],
+      rounded: 2.57,
+      abs: 3,
+      floor: -3,
+      ceil: 3,
+    });
+  });
+
   it('SHOULD run the PostgreSQL-only functions on PostgreSQL', async () => {
     if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
       return;
@@ -265,9 +367,26 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(Sql.jsonbTypeof(`'[1]'::jsonb`), 'jsonType')
       .addSelect(Sql.case([[`${Sql.addInterval(Sql.now(), -1, 'days')} < ${Sql.now()}`, 'true']], 'false'), 'shifted')
       .addSelect(Sql.case([[`${Sql.now()} - ${Sql.interval(1, 'hours')} < ${Sql.now()}`, 'true']], 'false'), 'interval')
+      .addSelect(Sql.arrayAgg(u.firstName, { orderBy: `${u.id} DESC`, filter: u.isNotNull('metadata') }), 'withMetadata')
+      .addSelect(Sql.jsonbAgg(u.id, { distinct: true, orderBy: u.id }), 'ids')
+      .addSelect(Sql.jsonbBuildObject({ a: '1' }), 'jsonbObject')
+      .addSelect(Sql.cast(Sql.atTimeZone(`TIMESTAMPTZ '2026-03-04 23:30:00+00'`, '+02:00'), 'text'), 'plusTwo')
+      .addSelect(Sql.cast(Sql.atTimeZone(`TIMESTAMPTZ '2026-03-04 23:30:00+00'`, { sql: "'America/New_York'" }), 'text'), 'newYork')
+      .addSelect(Sql.extract('epoch', Sql.dateTrunc('day', `TIMESTAMPTZ '2026-03-04 23:30:00+00'`, 'Europe/Kyiv')), 'kyivMidnight')
+      .addSelect(Sql.cast(Sql.dateTrunc('month', `TIMESTAMP '2026-03-04 23:30:00'`), 'text'), 'month')
       .getRawOne<Record<string, unknown>>();
 
-    expect(row).toEqual({
+    expect({ ...row, kyivMidnight: Number(row?.kyivMidnight) }).toMatchObject({
+      withMetadata: ['Dave', 'Bob'],
+      ids: [1, 2, 3, 4],
+      jsonbObject: { a: 1 },
+      plusTwo: '2026-03-05 01:30:00',
+      newYork: '2026-03-04 18:30:00',
+      kyivMidnight: Date.UTC(2026, 2, 4, 22) / 1000,
+      month: '2026-03-01 00:00:00',
+    });
+
+    expect(row).toMatchObject({
       someLate: true,
       allLate: false,
       names: 'Dave, Carol, Bob, Alice',

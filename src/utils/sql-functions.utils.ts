@@ -1,6 +1,8 @@
 import type { DatabaseType } from 'typeorm';
 import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver } from './sql.utils';
 import { filtered, sqlString } from './aggregate.utils';
+import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
+import type { DateTruncUnit } from './time-zone.utils';
 
 export type SqlAggregateOptions = {
   /** Each value once: `COUNT(DISTINCT expression)`. */
@@ -16,9 +18,30 @@ export type SqlAggregateOptions = {
 };
 
 export type SqlStringAggOptions = SqlAggregateOptions & {
-  /** Orders the values: an SQL expression, with `ASC` / `DESC` if needed. On SQLite, 3.44+. */
-  orderBy?: string;
+  /** Orders the values: one expression or several, each with `ASC` / `DESC` if needed. On SQLite, 3.44+. */
+  orderBy?: string | readonly string[];
 };
+
+export type SqlArrayAggOptions = {
+  /** Each value once. PostgreSQL then orders only by the aggregated expression. */
+  distinct?: boolean;
+  /** Orders the values: one expression or several, each with `ASC` / `DESC` if needed. On SQLite, 3.44+. */
+  orderBy?: string | readonly string[];
+  /**
+   * Aggregates only the rows that match, as `FILTER (WHERE …)`: a CASE would leave a NULL in the array for each
+   * skipped row. PostgreSQL and SQLite 3.30+.
+   */
+  filter?: string;
+};
+
+/**
+ * A time zone: a name or an ISO 8601 offset (`'Europe/Kyiv'`, `'+02:00'` = UTC+2), written as an escaped string;
+ * or an SQL expression, `{ sql: e.timezone }`.
+ */
+export type SqlTimeZone = string | { sql: string };
+
+/** A key of a JSON object, or the index of an array item from 0. */
+export type SqlJsonKey = string | number;
 
 export type SqlWindow = {
   /** `PARTITION BY`: one expression or several. */
@@ -145,6 +168,100 @@ function createFunctions(driver?: DatabaseType) {
     return `(${value} ${sign} ${dialect === 'mysql' ? `INTERVAL ${size} ${MYSQL_UNITS[unit]}` : `INTERVAL '${size} ${unit}'`})`;
   };
 
+  // ARRAY_AGG and the JSON arrays: FILTER, since a CASE would add a NULL item for each skipped row
+  const collect = (fn: string, method: string, value: string, aggOptions: SqlArrayAggOptions = {}): string => {
+    if (typeof aggOptions !== 'object' || aggOptions === null) {
+      throw new TypeError(`Sql.${method}(): the second argument is an options object, e.g. { orderBy: "…" }`);
+    }
+
+    const { distinct = false, orderBy, filter } = aggOptions;
+    const order = orderBy === undefined ? '' : ` ORDER BY ${list(method, orderBy, 'orderBy')}`;
+    const where = filter === undefined ? '' : ` FILTER (WHERE ${expression(method, filter, 'filter')})`;
+
+    return `${fn}(${distinct ? 'DISTINCT ' : ''}${expression(method, value)}${order})${where}`;
+  };
+
+  const jsonObject = (method: string, fn: string, fields: Readonly<Record<string, string>>): string => {
+    if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) {
+      throw new TypeError(`Sql.${method}() takes an object of keys and SQL expressions, e.g. { id: t.id }`);
+    }
+
+    const entries = Object.entries(fields);
+
+    if (!entries.length) {
+      throw new TypeError(`Sql.${method}() needs at least one key`);
+    }
+
+    const pairs = entries.map(([key, value]) => `${sqlString(key, driver)}, ${expression(method, value, `value of "${key}"`)}`);
+
+    return `${fn}(${pairs.join(', ')})`;
+  };
+
+  // `->` / `->>` key by key on PostgreSQL; a `$."a"[0]` path on MySQL (JSON_EXTRACT) and SQLite 3.38+ (`->`, `->>`)
+  const jsonAccess = (method: string, value: string, path: readonly SqlJsonKey[], asText: boolean): string => {
+    only(method, 'postgres', 'mysql', 'sqlite');
+
+    const target = expression(method, value);
+
+    if (!Array.isArray(path) || !path.length) {
+      throw new TypeError(`Sql.${method}() needs at least one key`);
+    }
+
+    for (const key of path) {
+      if (typeof key === 'number' ? !Number.isInteger(key) || key < 0 : typeof key !== 'string') {
+        throw new TypeError(`Sql.${method}(): a key is a string or an array index from 0, got ${String(key)}`);
+      }
+    }
+
+    if (dialect === 'postgres') {
+      const steps = path.map(
+        (key, index) => `${asText && index === path.length - 1 ? '->>' : '->'} ${typeof key === 'number' ? key : sqlString(key)}`
+      );
+
+      return `(${target} ${steps.join(' ')})`;
+    }
+
+    const jsonPath = path
+      .map((key) => {
+        if (typeof key === 'number') {
+          return `[${key}]`;
+        }
+
+        // a quoted key of a JSON path ends at the next quote on SQLite
+        if (/["\\]/.test(key)) {
+          throw new TypeError(`Sql.${method}(): a key of a ${name} JSON path has no " or \\, got ${JSON.stringify(key)}`);
+        }
+
+        return `."${key}"`;
+      })
+      .join('');
+    const literal = sqlString(`$${jsonPath}`, driver);
+
+    if (dialect === 'sqlite') {
+      return `(${target} ${asText ? '->>' : '->'} ${literal})`;
+    }
+
+    const extracted = `JSON_EXTRACT(${target}, ${literal})`;
+
+    return asText ? `JSON_UNQUOTE(${extracted})` : extracted;
+  };
+
+  const timeZone = (method: string, zone: SqlTimeZone): string => {
+    if (typeof zone === 'string') {
+      if (!zone.trim()) {
+        throw new TypeError(`Sql.${method}(): the time zone is empty`);
+      }
+
+      return sqlString(toPostgresZone(`Sql.${method}`, zone));
+    }
+
+    if (typeof zone !== 'object' || zone === null) {
+      throw new TypeError(`Sql.${method}(): the time zone is a name, an offset or { sql: … }, got ${String(zone)}`);
+    }
+
+    return expression(method, zone.sql, 'time zone');
+  };
+
   const now = (): string => (dialect === 'postgres' || dialect === 'mysql' ? 'NOW()' : 'CURRENT_TIMESTAMP');
 
   return {
@@ -205,7 +322,7 @@ function createFunctions(driver?: DatabaseType) {
 
       const { distinct = false, orderBy, filter, syntax } = aggregateOptions;
       const { argument, suffix } = filtered('Sql.stringAgg', expression('stringAgg', value), filter, syntax, driver);
-      const order = orderBy === undefined ? '' : ` ORDER BY ${expression('stringAgg', orderBy, 'orderBy')}`;
+      const order = orderBy === undefined ? '' : ` ORDER BY ${list('stringAgg', orderBy, 'orderBy')}`;
       const each = distinct ? 'DISTINCT ' : '';
       const literal = sqlString(separator, driver);
 
@@ -222,6 +339,33 @@ function createFunctions(driver?: DatabaseType) {
       }
 
       return `STRING_AGG(${each}${argument}, ${literal}${order})${suffix}`;
+    },
+    /** `ARRAY_AGG(expression)`: the values of a group as an array, NULL for no rows. PostgreSQL. */
+    arrayAgg(value: string, aggOptions?: SqlArrayAggOptions): string {
+      only('arrayAgg', 'postgres');
+      return collect('ARRAY_AGG', 'arrayAgg', value, aggOptions);
+    },
+    /**
+     * The values of a group as a JSON array, NULL for no rows: `json_agg(…)`, `json_group_array(…)` on SQLite and
+     * `JSON_ARRAYAGG(…)` on MySQL, which takes no options.
+     */
+    jsonAgg(value: string, aggOptions: SqlArrayAggOptions = {}): string {
+      only('jsonAgg', 'postgres', 'mysql', 'sqlite');
+
+      if (dialect !== 'mysql') {
+        return collect(dialect === 'sqlite' ? 'json_group_array' : 'json_agg', 'jsonAgg', value, aggOptions);
+      }
+
+      if (aggOptions.distinct || aggOptions.orderBy !== undefined || aggOptions.filter !== undefined) {
+        throw new TypeError("Sql.jsonAgg(): MySQL's JSON_ARRAYAGG takes no distinct, orderBy or filter");
+      }
+
+      return `JSON_ARRAYAGG(${expression('jsonAgg', value)})`;
+    },
+    /** `jsonb_agg(expression)`: the values of a group as a JSONB array, NULL for no rows. PostgreSQL. */
+    jsonbAgg(value: string, aggOptions?: SqlArrayAggOptions): string {
+      only('jsonbAgg', 'postgres');
+      return collect('jsonb_agg', 'jsonbAgg', value, aggOptions);
     },
 
     /** `COALESCE(a, b, …)`: the first argument that isn't NULL. */
@@ -316,6 +460,28 @@ function createFunctions(driver?: DatabaseType) {
       return `CAST(${expression('cast', value)} AS ${type.trim()})`;
     },
 
+    /**
+     * `ROUND(expression[, digits])`, digits after the point, before it when negative (SQLite takes a negative
+     * as 0). PostgreSQL rounds to digits only a `numeric`: `Sql.round(Sql.cast(x, 'numeric'), 2)`.
+     */
+    round(value: string, digits?: number): string {
+      const places = digits === undefined ? '' : `, ${integer('round', digits, 'digits')}`;
+
+      return `ROUND(${expression('round', value)}${places})`;
+    },
+    /** `ABS(expression)`. */
+    abs(value: string): string {
+      return `ABS(${expression('abs', value)})`;
+    },
+    /** `FLOOR(expression)`; SQLite 3.35+ built with its math functions. */
+    floor(value: string): string {
+      return `FLOOR(${expression('floor', value)})`;
+    },
+    /** `CEIL(expression)`; SQLite 3.35+ built with its math functions. */
+    ceil(value: string): string {
+      return `CEIL(${expression('ceil', value)})`;
+    },
+
     /** The time the transaction (PostgreSQL) or the statement started: `NOW()`, `CURRENT_TIMESTAMP` on SQLite. */
     now,
     /**
@@ -377,6 +543,29 @@ function createFunctions(driver?: DatabaseType) {
       only('toChar', 'postgres');
       return `TO_CHAR(${expression('toChar', value)}, ${sqlString(expression('toChar', format, 'format'))})`;
     },
+    /**
+     * `(expression AT TIME ZONE zone)`: a `timestamptz` as the wall clock of the zone, a `timestamp` read as that wall
+     * clock. A zone name or offset is an escaped string; a column is `{ sql: e.timezone }`. PostgreSQL.
+     */
+    atTimeZone(value: string, zone: SqlTimeZone): string {
+      only('atTimeZone', 'postgres');
+      return `(${expression('atTimeZone', value)} AT TIME ZONE ${timeZone('atTimeZone', zone)})`;
+    },
+    /**
+     * `DATE_TRUNC('day', expression)`: the time cut down to the unit. With a zone (PostgreSQL 12+) a `timestamptz` is
+     * cut at that zone's boundaries, e.g. its local midnight. PostgreSQL.
+     */
+    dateTrunc(unit: DateTruncUnit, value: string, zone?: SqlTimeZone): string {
+      only('dateTrunc', 'postgres');
+
+      if (!DATE_TRUNC_UNITS.includes(unit)) {
+        throw new TypeError(`Sql.dateTrunc(): the unit is one of ${DATE_TRUNC_UNITS.join(', ')}, got "${String(unit)}"`);
+      }
+
+      const zoneSql = zone === undefined ? '' : `, ${timeZone('dateTrunc', zone)}`;
+
+      return `DATE_TRUNC('${unit}', ${expression('dateTrunc', value)}${zoneSql})`;
+    },
 
     /** `ROW_NUMBER()`, for `over`. */
     rowNumber: (): string => 'ROW_NUMBER()',
@@ -412,6 +601,36 @@ function createFunctions(driver?: DatabaseType) {
       return `DISTINCT ON (${expressions('distinctOn', values, 1)})`;
     },
 
+    /**
+     * The JSON value at a path, NULL where it has none: `(t.data -> 'a' -> 0)`. MySQL: `JSON_EXTRACT(t.data, '$."a"[0]')`;
+     * SQLite 3.38+: `(t.data -> '$."a"[0]')`. Keys are escaped strings; on MySQL and SQLite they have no `"` or `\`.
+     */
+    json(value: string, ...path: [SqlJsonKey, ...SqlJsonKey[]]): string {
+      return jsonAccess('json', value, path, false);
+    },
+    /**
+     * The value at a path as text (as an SQL value on SQLite), NULL where it has none: `(t.data -> 'a' ->> 'b')`.
+     * MySQL: `JSON_UNQUOTE(JSON_EXTRACT(…))`, which reads a JSON `null` as the string `'null'`.
+     */
+    jsonText(value: string, ...path: [SqlJsonKey, ...SqlJsonKey[]]): string {
+      return jsonAccess('jsonText', value, path, true);
+    },
+    /**
+     * A JSON object of SQL expressions: `Sql.jsonBuildObject({ id: t.id, name: u.name })` →
+     * `json_build_object('id', "t"."id", 'name', "u"."name")`; `JSON_OBJECT(…)` on MySQL, `json_object(…)` on SQLite.
+     */
+    jsonBuildObject(fields: Readonly<Record<string, string>>): string {
+      only('jsonBuildObject', 'postgres', 'mysql', 'sqlite');
+
+      const fn = dialect === 'mysql' ? 'JSON_OBJECT' : dialect === 'sqlite' ? 'json_object' : 'json_build_object';
+
+      return jsonObject('jsonBuildObject', fn, fields);
+    },
+    /** `jsonb_build_object(…)`: `jsonBuildObject` as JSONB. PostgreSQL. */
+    jsonbBuildObject(fields: Readonly<Record<string, string>>): string {
+      only('jsonbBuildObject', 'postgres');
+      return jsonObject('jsonbBuildObject', 'jsonb_build_object', fields);
+    },
     /**
      * `jsonb_set(target, ARRAY['a', 'b'], value)`: the JSONB with the value at the path replaced, or added unless
      * `createMissing` is false. The value is JSONB SQL (`to_jsonb(:name)`, `'"x"'::jsonb`). PostgreSQL.

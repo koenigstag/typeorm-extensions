@@ -9,7 +9,10 @@ import {
 } from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
 import { filtered, sqlString } from './aggregate.utils';
-import { parseUtcOffset } from './time-zone.utils';
+import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
+import type { DateTruncUnit } from './time-zone.utils';
+
+export type { DateTruncUnit } from './time-zone.utils';
 
 export type TableHelperOptions = {
 	useQuotes?: boolean;
@@ -149,38 +152,6 @@ export type TableHelperExpression<T> = DateColumnName<T> | { sql: string };
  */
 export type TableHelperTimeZone<T> = string | { column: ColumnName<T>; fallback?: string } | { sql: string };
 
-/** The units of PostgreSQL's `date_trunc`. */
-export type DateTruncUnit =
-	| 'microseconds'
-	| 'milliseconds'
-	| 'second'
-	| 'minute'
-	| 'hour'
-	| 'day'
-	| 'week'
-	| 'month'
-	| 'quarter'
-	| 'year'
-	| 'decade'
-	| 'century'
-	| 'millennium';
-
-const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
-	'microseconds',
-	'milliseconds',
-	'second',
-	'minute',
-	'hour',
-	'day',
-	'week',
-	'month',
-	'quarter',
-	'year',
-	'decade',
-	'century',
-	'millennium',
-];
-
 function assertPostgres(method: string, driver: DatabaseType | undefined, hint?: string) {
 	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
 		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"${hint ? `: ${hint}` : ''}`);
@@ -197,7 +168,7 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 			throw new TypeError(`tableHelper.${method}(): the time zone is empty`);
 		}
 
-		return sqlString(toPostgresZone(method, timeZone));
+		return sqlString(toPostgresZone(`tableHelper.${method}`, timeZone));
 	}
 
 	if ('sql' in timeZone) {
@@ -208,23 +179,7 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 
 	return timeZone.fallback === undefined
 		? column
-		: `COALESCE(${column}, ${sqlString(toPostgresZone(method, timeZone.fallback))})`;
-}
-
-/**
- * PostgreSQL reads `'+02:00'` as a POSIX zone, whose offsets count west: UTC−2. An ISO 8601 offset is
- * written as the POSIX zone of the same offset, `'<+0200>-02:00'`, so `'+02:00'` is UTC+2 as everywhere else.
- */
-function toPostgresZone(method: string, timeZone: string): string {
-	const offset = parseUtcOffset(timeZone.trim(), `tableHelper.${method}(): "${timeZone}" is not a UTC offset`);
-
-	if (offset === null) {
-		return timeZone;
-	}
-
-	const { sign, hours, minutes } = offset;
-
-	return `<${sign}${hours}${minutes}>${sign === '+' ? '-' : '+'}${hours}:${minutes}`;
+		: `COALESCE(${column}, ${sqlString(toPostgresZone(`tableHelper.${method}`, timeZone.fallback))})`;
 }
 
 /** The JSON functions of a database: PostgreSQL's unless the driver is MySQL / MariaDB or SQLite. */

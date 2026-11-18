@@ -59,3 +59,31 @@ Sql.max(o.updatedAt);
 
 // @ts-expect-error syntax is 'case' or 'filter'
 Sql.min(o.total, { syntax: 'where' });
+
+Sql.json(o.note, 'a', 0);
+Sql.jsonText(o.note, 'a', 'b');
+Sql.jsonBuildObject({ id: o.id, total: Sql.round(o.total, 2) });
+Sql.jsonbBuildObject({ id: o.id });
+Sql.arrayAgg(o.id, { distinct: true, orderBy: [o.id], filter: o.where('note', 'IS NULL') });
+Sql.jsonAgg(Sql.jsonbBuildObject({ id: o.id }), { orderBy: `${o.createdAt} DESC` });
+Sql.jsonbAgg(o.id);
+Sql.abs(o.total);
+Sql.floor(Sql.ceil(o.total));
+Sql.atTimeZone(o.createdAt, 'Europe/Kyiv');
+Sql.atTimeZone(o.createdAt, { sql: o.note });
+Sql.dateTrunc('day', o.createdAt, '+02:00');
+
+// @ts-expect-error a path has at least one key
+Sql.jsonText(o.note);
+
+// @ts-expect-error a key is a string or an index
+Sql.json(o.note, true);
+
+// @ts-expect-error not a date_trunc unit
+Sql.dateTrunc('days', o.createdAt);
+
+// @ts-expect-error a zone column is { sql }
+Sql.atTimeZone(o.createdAt, { column: 'note' });
+
+// @ts-expect-error jsonAgg has no syntax option
+Sql.jsonAgg(o.id, { syntax: 'case' });

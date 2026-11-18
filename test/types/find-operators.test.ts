@@ -1,5 +1,5 @@
-import { Equal, ILike, In, IsNull, LessThan, MoreThanOrEqual, Not, SelectQueryBuilder } from 'typeorm';
-import { EqualColumn, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
+import { Any, Equal, ILike, In, IsNull, LessThan, MoreThanOrEqual, Not, SelectQueryBuilder } from 'typeorm';
+import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
 
 enum OrderStatus {
   Successful = 'successful',
@@ -89,3 +89,25 @@ orders.whereTyped((o) => o.deletedAt, IsNull(), {});
 
 // with an explicit `Type` the column can't be inferred, and the operator isn't checked
 orders.whereTyped<{ o: Order }>((q) => q.o.status, Equal('successful'));
+
+orders
+  .whereTyped((o) => o.status, Any([OrderStatus.Successful, OrderStatus.Failed]))
+  .andWhereTyped((o) => o.customerId, Not(Any(['a', 'b'])))
+  .andWhereTyped((o) => o.note, IsDistinctFrom(null))
+  .andWhereTyped((o) => o.status, Not(IsDistinctFrom(OrderStatus.Failed)))
+  .orWhereTyped((o) => o.isArchived, IsDistinctFrom(true));
+
+declare const maybeNote: string | null;
+orders.whereTyped((o) => o.note, Not(IsDistinctFrom(maybeNote)));
+
+// @ts-expect-error a string literal is not a member of the column's enum
+orders.whereTyped((o) => o.status, Any(['successful']));
+
+// @ts-expect-error strings for a number column
+orders.andWhereTyped((o) => o.total, Not(Any(['1'])));
+
+// @ts-expect-error a string literal is not a member of the column's enum
+orders.whereTyped((o) => o.status, IsDistinctFrom('failed'));
+
+// @ts-expect-error a string for a number column
+orders.orWhereTyped((o) => o.total, Not(IsDistinctFrom('1')));

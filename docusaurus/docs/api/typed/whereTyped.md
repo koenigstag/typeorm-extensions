@@ -36,8 +36,8 @@ Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; u
 The condition may be one of TypeORM's find operators instead of SQL, written as `find({ where })` writes it, its values bound as parameters. It takes no `params`.
 
 ```typescript
-import { Equal, IsNull, MoreThanOrEqual, Not } from 'typeorm';
-import { EqualColumn, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
+import { Any, Equal, IsNull, MoreThanOrEqual, Not } from 'typeorm';
+import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
 
 query
   .whereTyped((o) => o.deletedAt, IsNull())                         // "o"."deletedAt" IS NULL
@@ -48,11 +48,15 @@ query
   .andWhereTyped((o) => o.createdAt, MoreThanOrEqual(since))
   .andWhereTyped((o) => o.isGift, IsTrue())                         // "o"."isGift" IS TRUE
   .andWhereTyped((o) => o.isArchived, Not(IsTrue()))                // NOT("o"."isArchived" IS TRUE): IS NOT TRUE, NULL too
+  .andWhereTyped((o) => o.id, Any(orderIds))                        // "o"."id" = ANY(:orm_param_3): one array parameter
+  .andWhereTyped((o) => o.note, IsDistinctFrom(note))               // "o"."note" IS DISTINCT FROM :isDistinctFrom_1
   .andWhereTyped((o) => o.userId, EqualColumn(users.id));           // "o"."userId" = "users"."id"
 ```
 
 - **Checked values.** The value of `Equal`, `Not`, `MoreThan`, `MoreThanOrEqual`, `LessThan`, `LessThanOrEqual`, `Between`, `Like`, `ILike` and `Any` is checked against the column's type, without `strictParams`: `Equal('successful')` on an enum column fails type-check. TypeORM types `In()`, `IsNull()`, `Raw()` and the `Array…` operators as `FindOperator<any>`, so they fit any column: use **`IsIn([…])`**, the same operator with its values typed, and `Not(IsIn([…]))` (`IsIn(['successful'])` on an enum column fails type-check). With an explicit type argument (`whereTyped<Joins>(…)`) TypeScript can't infer the column, and nothing is checked: set the root with [`typed<Root>()`](./typedRoot.md) instead.
 - **`IsTrue()` / `IsFalse()`** test a boolean column with `IS TRUE` / `IS FALSE` and fit only boolean columns. They are never NULL, so `Not(IsTrue())` is `IS NOT TRUE` and matches a NULL column too, while `Not(Equal(true))` (`NOT(col = true)`) skips it. PostgreSQL rewrites `NOT(col IS TRUE)` to `col IS NOT TRUE` and plans it the same, a partial index included; `IS TRUE` / `IS FALSE` use a btree index on the column like `= true` / `= false`. PostgreSQL, SQLite 3.23+ and MySQL.
+- **`Any([…])`**, TypeORM's, binds the list as one array parameter, `= ANY(:param)`, where `IsIn` binds a parameter per value: for long lists, past the database's limit of bound parameters. Its values are checked like `IsIn`'s; an empty list matches no row. PostgreSQL.
+- **`IsDistinctFrom(value)`** is `IS DISTINCT FROM`: unlike `Not(Equal(…))`, it matches a NULL column too, and `IsDistinctFrom(null)` matches the rows that aren't NULL. `Not(IsDistinctFrom(value))` is an `=` that matches NULL to NULL. The value may be `null` for any column. PostgreSQL and SQLite 3.39+; on MySQL / MariaDB use [`whereIsDistinctFrom`](../where/whereIsDistinctFrom.md), which writes `<=>`.
 - **`EqualColumn(sql)`** compares the column with another column or an SQL expression, written as is; `Not(EqualColumn(…))` negates it.
 - An empty `IsIn([])` / `In([])` matches no row (`0=1`), as in `find()`; an empty `Not(IsIn([]))` matches every row. Like SQL `NOT IN`, `Not(IsIn(…))` never matches a row whose column is NULL.
 

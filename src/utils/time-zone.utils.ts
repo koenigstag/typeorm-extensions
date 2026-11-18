@@ -24,6 +24,54 @@ export function parseUtcOffset(text: string, errorMessage: string): UtcOffset | 
   return { sign: sign as UtcOffset['sign'], hours, minutes };
 }
 
+/**
+ * PostgreSQL reads `'+02:00'` as a POSIX zone, whose offsets count west: UTC−2. An ISO 8601 offset is
+ * written as the POSIX zone of the same offset, `'<+0200>-02:00'`, so `'+02:00'` is UTC+2 as everywhere else.
+ */
+export function toPostgresZone(method: string, timeZone: string): string {
+  const offset = parseUtcOffset(timeZone.trim(), `${method}(): "${timeZone}" is not a UTC offset`);
+
+  if (offset === null) {
+    return timeZone;
+  }
+
+  const { sign, hours, minutes } = offset;
+
+  return `<${sign}${hours}${minutes}>${sign === '+' ? '-' : '+'}${hours}:${minutes}`;
+}
+
+/** The units of PostgreSQL's `date_trunc`. */
+export type DateTruncUnit =
+  | 'microseconds'
+  | 'milliseconds'
+  | 'second'
+  | 'minute'
+  | 'hour'
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'year'
+  | 'decade'
+  | 'century'
+  | 'millennium';
+
+export const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
+  'microseconds',
+  'milliseconds',
+  'second',
+  'minute',
+  'hour',
+  'day',
+  'week',
+  'month',
+  'quarter',
+  'year',
+  'decade',
+  'century',
+  'millennium',
+];
+
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
 function getFormatter(timeZone: string): Intl.DateTimeFormat {

@@ -44,6 +44,9 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 | `count(expression?)` | `COUNT(expression)`, `COUNT(*)` without one | same | same |
 | `sum`, `min`, `max`, `avg(expression)` | `SUM(…)`, `MIN(…)`, `MAX(…)`, `AVG(…)` | same | same |
 | `boolOr`, `boolAnd(condition)` | `BOOL_OR(…)`, `BOOL_AND(…)` | — | — |
+| `arrayAgg(expression, { distinct?, orderBy?, filter? })` | `ARRAY_AGG(DISTINCT … ORDER BY …) FILTER (WHERE …)` | — | — |
+| `jsonAgg(expression, { distinct?, orderBy?, filter? })` | `json_agg(…)` | `JSON_ARRAYAGG(…)`, no options | `json_group_array(…)`; `orderBy` from 3.44, `filter` from 3.30 |
+| `jsonbAgg(expression, { … })` | `jsonb_agg(…)` | — | — |
 | `stringAgg(expression, separator, { orderBy? })` | `STRING_AGG(expression, ', ' ORDER BY …)` | `GROUP_CONCAT(expression ORDER BY … SEPARATOR ', ')` | `GROUP_CONCAT(expression, ', ')`; no `distinct`, `orderBy` from 3.44 |
 | `coalesce(a, b, …)` | `COALESCE(a, b, …)` | same | same |
 | `nullif(a, b)` | `NULLIF(a, b)` | same | same |
@@ -54,21 +57,31 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 | `concat(a, b, …)` | `CONCAT(a, b)`, NULL read as empty | `CONCAT_WS('', a, b)`, NULL read as empty | `COALESCE(a, '') \|\| COALESCE(b, '')` |
 | `substring(expression, start, length?)` | `SUBSTRING(expression, start, length)` | same | `SUBSTR(…)` |
 | `splitPart(expression, delimiter, n)` | `SPLIT_PART(expression, '@', 2)` | — | — |
+| `round(expression, digits?)` | `ROUND(…)`; digits only for a `numeric`: `Sql.round(Sql.cast(x, 'numeric'), 2)` | same | same, a negative digits read as 0 |
+| `abs`, `floor`, `ceil(expression)` | `ABS(…)`, `FLOOR(…)`, `CEIL(…)` | same | same (3.35+ with math functions) |
 | `cast(expression, type)` | `CAST(expression AS type)`; a type name with an optional size and `[]`, anything else throws | same | same |
 | `now()` | `NOW()` | `NOW()` | `CURRENT_TIMESTAMP` |
 | `interval(amount, unit)` | `INTERVAL '30 days'` | `INTERVAL 30 DAY` | — |
 | `addInterval(expression, amount, unit)` | `(expression + INTERVAL '30 days')`, `-` for a negative amount | `(expression + INTERVAL 30 DAY)` | `datetime(expression, '+30 days')`, text |
 | `ago(amount, unit)` | `(NOW() - INTERVAL '30 days')` | `(NOW() - INTERVAL 30 DAY)` | `datetime('now', '-30 days')`, text |
 | `extract(part, expression)` | `EXTRACT(YEAR FROM …)`, a `numeric` | `EXTRACT(…)`; `UNIX_TIMESTAMP(…)` for `'epoch'`, `DAYOFWEEK(…) - 1` for `'dow'` | `CAST(strftime('%Y', …) AS integer)` |
+| `atTimeZone(expression, zone)` | `(expression AT TIME ZONE 'Europe/Kyiv')`; an offset `'+02:00'` is UTC+2; a column is `{ sql: e.timezone }` | — | — |
+| `dateTrunc(unit, expression, zone?)` | `DATE_TRUNC('day', expression[, 'Europe/Kyiv'])`, the zone from PostgreSQL 12 | — | — |
 | `toChar(expression, format)` | `TO_CHAR(expression, 'YYYY-MM-DD')` | — | — |
 | `rowNumber()`, `rank()`, `denseRank()` | `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()` | same (8+) | same (3.25+) |
 | `lag`, `lead(expression, offset?, default?)` | `LAG(…)`, `LEAD(…)` | same (8+) | same (3.25+) |
 | `over(fn, { partitionBy?, orderBy? })` | `fn OVER (PARTITION BY … ORDER BY …)` | same (8+) | same (3.25+) |
 | `distinctOn(a, …)` | `DISTINCT ON (a, …)`, for a SELECT written as SQL; a query builder has [`distinctOnTyped`](../typed/distinctOnTyped.md) | — | — |
+| `json(expression, 'a', 0, …)` | `(expression -> 'a' -> 0)` | `JSON_EXTRACT(expression, '$."a"[0]')` | `(expression -> '$."a"[0]')`, 3.38+ |
+| `jsonText(expression, 'a', 'b', …)` | `(expression -> 'a' ->> 'b')`, text | `JSON_UNQUOTE(JSON_EXTRACT(…))`; a JSON `null` gives `'null'` | `(expression ->> '$."a"."b"')`, an SQL value, 3.38+ |
+| `jsonBuildObject({ key: expression, … })` | `json_build_object('key', expression, …)` | `JSON_OBJECT(…)` | `json_object(…)` |
+| `jsonbBuildObject({ key: expression, … })` | `jsonb_build_object(…)` | — | — |
 | `jsonbSet(target, ['a', 'b'], value, { createMissing? })` | `jsonb_set(target, ARRAY['a', 'b'], value)` | — | — |
 | `toJsonb`, `jsonbTypeof`, `jsonbArrayElements(expression)` | `to_jsonb(…)`, `jsonb_typeof(…)`, `jsonb_array_elements(…)` | — | — |
 
-Units of `interval`, `addInterval` and `ago`: `'seconds'`, `'minutes'`, `'hours'`, `'days'`, `'weeks'`, `'months'`, `'years'`, an integer amount. Parts of `extract`: `'year'`, `'month'`, `'day'`, `'hour'`, `'minute'`, `'second'`, `'epoch'` (seconds since 1970) and `'dow'` (day of the week from 0, Sunday). The amount, the unit, the part, the separator, the delimiter, the format and the keys of a JSON path are checked or written as SQL strings, so they can't carry SQL.
+Units of `interval`, `addInterval` and `ago`: `'seconds'`, `'minutes'`, `'hours'`, `'days'`, `'weeks'`, `'months'`, `'years'`, an integer amount. Parts of `extract`: `'year'`, `'month'`, `'day'`, `'hour'`, `'minute'`, `'second'`, `'epoch'` (seconds since 1970) and `'dow'` (day of the week from 0, Sunday). The amount, the unit, the part, the separator, the delimiter, the format, a time zone name and the keys of a JSON path or object are checked or written as SQL strings, so they can't carry SQL; on MySQL and SQLite a key of a JSON path has no `"` or `\`.
+
+A [`tableHelper`](./tableHelper.md) has forms of `arrayAgg` and `jsonAgg` over a column of its table that give an empty array instead of NULL for no rows, and `jsonColumn` reads a path typed against the entity; `Sql` takes any expression and writes the function alone. `arrayAgg` and the JSON arrays write `filter` as `FILTER (WHERE …)`: a CASE would leave a NULL in the array for each skipped row.
 
 ```typescript
 Sql.over(Sql.rowNumber(), { partitionBy: o.userId, orderBy: `${o.createdAt} DESC` })

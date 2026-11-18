@@ -1,9 +1,10 @@
-import { Brackets, Equal, In, IsNull, LessThan, MoreThanOrEqual, Not } from 'typeorm';
+import { Any, Brackets, Equal, In, IsNull, LessThan, MoreThanOrEqual, Not } from 'typeorm';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/where-exists.extension';
-import { EqualColumn, IsFalse, IsIn, IsTrue } from 'typeorm-extensions/utils/find-operator.utils';
+import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from 'typeorm-extensions/utils/find-operator.utils';
 import 'typeorm-extensions/extensions/typed/typed-root.extension';
 import { setupTest, createFakeUsers, nativeSql, sqlOf } from '../test-utils';
+import { mysqlLikeDrivers, postgresLikeDrivers } from '../constants/database';
 import { TicketEntity, UserEntity } from '../models';
 
 setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
@@ -72,6 +73,50 @@ setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
     expect(await flagIds(flags().whereTyped((q) => q.f.flag, Not(IsFalse())))).toEqual([1, 3]);
     expect(await flagIds(flags().whereTyped((q) => q.f.flag, Not(Equal(true))))).toEqual([2]);
     expect(sqlOf(flags().whereTyped((q) => q.f.flag, Not(IsTrue())))).toMatch(/WHERE NOT\("f"\."flag" IS TRUE\)/);
+  });
+
+  it('SHOULD bind the list of Any as one array parameter', async () => {
+    if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+      return;
+    }
+
+    await seed();
+
+    const query = users()
+      .whereTyped((u) => u.firstName, Any(['Alice', 'Dave']))
+      .andWhereTyped((u) => u.id, Not(Any([4])));
+
+    expect(sqlOf(query)).toMatch(/"user"\."firstName" = ANY\(:orm_param_\d+\) AND NOT\("user"\."id" = ANY\(:orm_param_\d+\)\)/);
+    // TypeORM's Not() also sets an unused parameter with its operator's value: only the bound ones count
+    expect(query.getQueryAndParameters()[1]).toEqual([['Alice', 'Dave'], [4]]);
+    expect(await ids(query)).toEqual([1]);
+    expect(await ids(users().whereTyped((u) => u.id, Any([] as number[])))).toEqual([]);
+    expect(await ids(users().whereTyped((u) => u.id, Not(Any([] as number[]))))).toEqual([1, 2, 3, 4]);
+  });
+
+  it('SHOULD compare with NULL as with a value through IsDistinctFrom, and match NULL to NULL with Not', async () => {
+    if (mysqlLikeDrivers.includes(context.typeormOptions.type as never)) {
+      return;
+    }
+
+    type Notes = { n: { id: number; note: string | null } };
+
+    const notes = () =>
+      context.dataSource
+        .createQueryBuilder()
+        .addCommonTableExpression(`SELECT 1 AS id, 'a' AS note UNION ALL SELECT 2, 'b' UNION ALL SELECT 3, NULL`, 'n')
+        .select(nativeSql('"n"."id"'), 'id')
+        .from('n', 'n')
+        .orderBy(nativeSql('"n"."id"'))
+        .typed<Notes>();
+    const noteIds = async (query: ReturnType<typeof notes>) =>
+      (await query.getRawMany<{ id: number | string }>()).map((row) => Number(row.id));
+
+    expect(await noteIds(notes().whereTyped((q) => q.n.note, IsDistinctFrom('a')))).toEqual([2, 3]);
+    expect(await noteIds(notes().whereTyped((q) => q.n.note, Not(Equal('a'))))).toEqual([2]);
+    expect(await noteIds(notes().whereTyped((q) => q.n.note, Not(IsDistinctFrom('a'))))).toEqual([1]);
+    expect(await noteIds(notes().whereTyped((q) => q.n.note, Not(IsDistinctFrom(null))))).toEqual([3]);
+    expect(await noteIds(notes().whereTyped((q) => q.n.note, IsDistinctFrom('a')).andWhereTyped((q) => q.n.note, IsDistinctFrom('b')))).toEqual([3]);
   });
 
   it('SHOULD compare with another column through EqualColumn, and negate it with Not', async () => {

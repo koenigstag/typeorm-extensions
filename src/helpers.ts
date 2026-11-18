@@ -4,14 +4,17 @@
 export * from './utils/table.utils';
 export * from './decorators/generated-column.decorator';
 export { escapeLikePattern } from './utils/search.utils';
-export { EqualColumn, IsFalse, IsIn, IsTrue } from './utils/find-operator.utils';
+export { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from './utils/find-operator.utils';
 export { Sql } from './utils/sql-functions.utils';
 export type {
   SqlAggregateOptions,
+  SqlArrayAggOptions,
   SqlDatePart,
   SqlFunctions,
   SqlIntervalUnit,
+  SqlJsonKey,
   SqlStringAggOptions,
+  SqlTimeZone,
   SqlWindow,
 } from './utils/sql-functions.utils';
 export { selectExpression, SelectExpression } from './utils/select-expression.utils';

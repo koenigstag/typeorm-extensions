@@ -60,6 +60,24 @@ export function IsIn<T>(values: readonly T[]): FindOperator<T> {
   return In(values) as FindOperator<T>;
 }
 
+let parameterCount = 0;
+
+// Raw() sets its parameters under the names it is given: a name per operator keeps two of them in one query apart
+const parameterName = (prefix: string): string => `${prefix}_${++parameterCount}`;
+
+/**
+ * `IS DISTINCT FROM :value`: unlike `<>`, true when one side is NULL and the other isn't, false for two NULLs.
+ * `Not(IsDistinctFrom(value))` is an `=` that matches NULL to NULL. PostgreSQL, SQLite 3.39+; on MySQL and MariaDB,
+ * `whereIsDistinctFrom`, which writes `<=>`. The value may be `null` for any column.
+ */
+export function IsDistinctFrom(value: null): FindOperator<never>;
+export function IsDistinctFrom<T>(value: T | null): FindOperator<T>;
+export function IsDistinctFrom<T>(value: T | null): FindOperator<T> {
+  const name = parameterName('isDistinctFrom');
+
+  return Raw((field) => `${field} IS DISTINCT FROM :${name}`, { [name]: value }) as FindOperator<T>;
+}
+
 /**
  * `IS TRUE` on a boolean column. Unlike `= true` it is never NULL, so `Not(IsTrue())` is `IS NOT TRUE` and
  * matches NULL too, while `Not(Equal(true))` skips it. PostgreSQL, SQLite 3.23+, MySQL.
