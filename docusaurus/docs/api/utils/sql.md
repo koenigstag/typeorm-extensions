@@ -41,12 +41,14 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 
 | Function | PostgreSQL (`Sql`) | MySQL / MariaDB | SQLite |
 |---|---|---|---|
-| `count(expression?)` | `COUNT(expression)`, `COUNT(*)` without one | same | same |
+| `count(expression?)`, `count({ filter })` | `COUNT(expression)`, `COUNT(*)` without one | same | same |
 | `sum`, `min`, `max`, `avg(expression)` | `SUM(…)`, `MIN(…)`, `MAX(…)`, `AVG(…)` | same | same |
 | `boolOr`, `boolAnd(condition)` | `BOOL_OR(…)`, `BOOL_AND(…)` | — | — |
 | `arrayAgg(expression, { distinct?, orderBy?, filter? })` | `ARRAY_AGG(DISTINCT … ORDER BY …) FILTER (WHERE …)` | — | — |
 | `jsonAgg(expression, { distinct?, orderBy?, filter? })` | `json_agg(…)` | `JSON_ARRAYAGG(…)`, no options | `json_group_array(…)`; `orderBy` from 3.44, `filter` from 3.30 |
 | `jsonbAgg(expression, { … })` | `jsonb_agg(…)` | — | — |
+| `percentileCont`, `percentileDisc(fraction, orderBy)` | `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY …)` | — | — |
+| `mode(expression)` | `MODE() WITHIN GROUP (ORDER BY …)` | — | — |
 | `stringAgg(expression, separator, { orderBy? })` | `STRING_AGG(expression, ', ' ORDER BY …)` | `GROUP_CONCAT(expression ORDER BY … SEPARATOR ', ')` | `GROUP_CONCAT(expression, ', ')`; no `distinct`, `orderBy` from 3.44 |
 | `coalesce(a, b, …)` | `COALESCE(a, b, …)` | same | same |
 | `nullif(a, b)` | `NULLIF(a, b)` | same | same |
@@ -61,8 +63,8 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 | `abs`, `floor`, `ceil(expression)` | `ABS(…)`, `FLOOR(…)`, `CEIL(…)` | same | same (3.35+ with math functions) |
 | `cast(expression, type)` | `CAST(expression AS type)`; a type name with an optional size and `[]`, anything else throws | same | same |
 | `now()` | `NOW()` | `NOW()` | `CURRENT_TIMESTAMP` |
-| `interval(amount, unit)` | `INTERVAL '30 days'` | `INTERVAL 30 DAY` | — |
-| `addInterval(expression, amount, unit)` | `(expression + INTERVAL '30 days')`, `-` for a negative amount | `(expression + INTERVAL 30 DAY)` | `datetime(expression, '+30 days')`, text |
+| `interval(amount, unit)` | `INTERVAL '30 days'`; `make_interval(days => :n)` for `{ sql: ':n' }` | `INTERVAL 30 DAY`, `INTERVAL (:n) DAY` | — |
+| `addInterval(expression, amount, unit)` | `(expression + INTERVAL '30 days')`, `-` for a negative amount | `(expression + INTERVAL 30 DAY)` | `datetime(expression, '+30 days')`, `datetime(expression, '+' \|\| (:n) \|\| ' days')`; text |
 | `ago(amount, unit)` | `(NOW() - INTERVAL '30 days')` | `(NOW() - INTERVAL 30 DAY)` | `datetime('now', '-30 days')`, text |
 | `extract(part, expression)` | `EXTRACT(YEAR FROM …)`, a `numeric` | `EXTRACT(…)`; `UNIX_TIMESTAMP(…)` for `'epoch'`, `DAYOFWEEK(…) - 1` for `'dow'` | `CAST(strftime('%Y', …) AS integer)` |
 | `atTimeZone(expression, zone)` | `(expression AT TIME ZONE 'Europe/Kyiv')`; an offset `'+02:00'` is UTC+2; a column is `{ sql: e.timezone }` | — | — |
@@ -77,9 +79,10 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 | `jsonBuildObject({ key: expression, … })` | `json_build_object('key', expression, …)` | `JSON_OBJECT(…)` | `json_object(…)` |
 | `jsonbBuildObject({ key: expression, … })` | `jsonb_build_object(…)` | — | — |
 | `jsonbSet(target, ['a', 'b'], value, { createMissing? })` | `jsonb_set(target, ARRAY['a', 'b'], value)` | — | — |
+| `jsonbMerge(target, patch)` | `(COALESCE(target, CAST('{}' AS jsonb)) \|\| patch)` | — | — |
 | `toJsonb`, `jsonbTypeof`, `jsonbArrayElements(expression)` | `to_jsonb(…)`, `jsonb_typeof(…)`, `jsonb_array_elements(…)` | — | — |
 
-Units of `interval`, `addInterval` and `ago`: `'seconds'`, `'minutes'`, `'hours'`, `'days'`, `'weeks'`, `'months'`, `'years'`, an integer amount. Parts of `extract`: `'year'`, `'month'`, `'day'`, `'hour'`, `'minute'`, `'second'`, `'epoch'` (seconds since 1970) and `'dow'` (day of the week from 0, Sunday). The amount, the unit, the part, the separator, the delimiter, the format, a time zone name and the keys of a JSON path or object are checked or written as SQL strings, so they can't carry SQL; on MySQL and SQLite a key of a JSON path has no `"` or `\`.
+Units of `interval`, `addInterval` and `ago`: `'seconds'`, `'minutes'`, `'hours'`, `'days'`, `'weeks'`, `'months'`, `'years'`; the amount is an integer or an SQL expression, `{ sql: ':days' }`. Parts of `extract`: `'year'`, `'month'`, `'day'`, `'hour'`, `'minute'`, `'second'`, `'epoch'` (seconds since 1970) and `'dow'` (day of the week from 0, Sunday). The amount, the unit, the part, the separator, the delimiter, the format, a time zone name and the keys of a JSON path or object are checked or written as SQL strings, so they can't carry SQL; on MySQL and SQLite a key of a JSON path has no `"` or `\`.
 
 A [`tableHelper`](./tableHelper.md) has forms of `arrayAgg` and `jsonAgg` over a column of its table that give an empty array instead of NULL for no rows, and `jsonColumn` reads a path typed against the entity; `Sql` takes any expression and writes the function alone. `arrayAgg` and the JSON arrays write `filter` as `FILTER (WHERE …)`: a CASE would leave a NULL in the array for each skipped row.
 
@@ -95,7 +98,9 @@ Sql.case([[o.where('total', '> 100'), "'big'"]], "'small'")
 
 - `distinct?: boolean`: each value once, `COUNT(DISTINCT expression)`. `Sql.count()` needs an expression for it.
 - `filter?: string`: aggregates only the rows that match the condition.
-- `syntax?: 'case' | 'filter'`: how `filter` is written. `'case'` (default) gives `MAX(CASE WHEN filter THEN expression END)`, in every database; `'filter'` gives `MAX(expression) FILTER (WHERE filter)`, PostgreSQL and SQLite 3.30+.
+- `syntax?: 'case' | 'filter'`: how `filter` is written. `'case'` (default) gives `MAX(CASE WHEN filter THEN expression END)`, in every database; `'filter'` gives `MAX(expression) FILTER (WHERE filter)`, PostgreSQL and SQLite 3.30+. `Sql.for(driver, { syntax: 'filter' })` changes the default for its functions.
+
+`Sql.count({ filter })` counts the matching rows, the same as `Sql.count(undefined, { filter })`.
 
 ## Notes
 

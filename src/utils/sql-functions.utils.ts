@@ -55,6 +55,14 @@ export type SqlWindow = {
 
 export type SqlIntervalUnit = 'seconds' | 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years';
 
+/** An integer number of units, or an SQL expression, `{ sql: ':days' }`. */
+export type SqlIntervalAmount = number | { sql: string };
+
+export type SqlOptions = {
+  /** How the aggregates write `filter` when a call doesn't set its `syntax`: `'case'` (default) or `'filter'`. */
+  syntax?: 'case' | 'filter';
+};
+
 export type SqlDatePart = 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | 'epoch' | 'dow';
 
 type Dialect = 'postgres' | 'mysql' | 'sqlite' | 'other';
@@ -67,6 +75,16 @@ const MYSQL_UNITS: Record<SqlIntervalUnit, string> = {
   weeks: 'WEEK',
   months: 'MONTH',
   years: 'YEAR',
+};
+
+const MAKE_INTERVAL_ARGS: Record<SqlIntervalUnit, string> = {
+  seconds: 'secs',
+  minutes: 'mins',
+  hours: 'hours',
+  days: 'days',
+  weeks: 'weeks',
+  months: 'months',
+  years: 'years',
 };
 
 const SQLITE_PARTS: Record<Exclude<SqlDatePart, 'epoch'>, string> = {
@@ -130,6 +148,14 @@ function integer(method: string, value: unknown, position: string): number {
   return value;
 }
 
+function intervalAmount(method: string, amount: unknown): number | string {
+  if (typeof amount === 'object' && amount !== null) {
+    return expression(method, (amount as { sql?: unknown }).sql, 'amount');
+  }
+
+  return integer(method, amount, 'amount');
+}
+
 function intervalUnit(method: string, unit: unknown): SqlIntervalUnit {
   if (typeof unit !== 'string' || !(unit in MYSQL_UNITS)) {
     throw new TypeError(`Sql.${method}(): the unit is one of ${Object.keys(MYSQL_UNITS).join(', ')}, got "${String(unit)}"`);
@@ -145,9 +171,14 @@ const list = (method: string, values: string | readonly string[], position: stri
  * SQL functions and keywords as helpers, for one database: see `Sql`. `Sql.for('mysql')` writes MySQL / MariaDB,
  * `Sql.for('sqlite')` (`'better-sqlite3'`, …) SQLite; `Sql` itself writes PostgreSQL where the databases differ.
  */
-function createFunctions(driver?: DatabaseType) {
+function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
   const dialect = toDialect(driver);
   const name = driver ?? 'postgres';
+  const defaultSyntax = sqlOptions.syntax ?? 'case';
+
+  if (defaultSyntax !== 'case' && defaultSyntax !== 'filter') {
+    throw new TypeError(`Sql.for(): syntax is 'case' or 'filter', got "${String(defaultSyntax)}"`);
+  }
 
   const only = (method: string, ...dialects: Dialect[]): void => {
     if (!dialects.includes(dialect)) {
@@ -160,27 +191,40 @@ function createFunctions(driver?: DatabaseType) {
       throw new TypeError(`Sql.${method}(): the second argument is an options object, e.g. { filter: "…" }`);
     }
 
-    const { distinct = false, filter, syntax } = aggregateOptions;
+    const { distinct = false, filter, syntax = defaultSyntax } = aggregateOptions;
     const { argument, suffix } = filtered(`Sql.${method}`, value, filter, syntax, driver);
 
     return `${fn}(${distinct ? 'DISTINCT ' : ''}${argument})${suffix}`;
   };
 
-  // the SQL that moves `value` by `amount` units of time: a negative amount moves it back
-  const shift = (method: string, value: string, amount: number, unit: SqlIntervalUnit): string => {
-    const size = Math.abs(amount);
-    const sign = amount < 0 ? '-' : '+';
+  const intervalSql = (size: number | string, unit: SqlIntervalUnit): string => {
+    if (dialect === 'mysql') {
+      return `INTERVAL ${typeof size === 'number' ? size : `(${size})`} ${MYSQL_UNITS[unit]}`;
+    }
+
+    return typeof size === 'number' ? `INTERVAL '${size} ${unit}'` : `make_interval(${MAKE_INTERVAL_ARGS[unit]} => ${size})`;
+  };
+
+  // the SQL that moves `value` by `size` units of time, back with `back`: a negative number moves it the other way
+  const shift = (method: string, value: string, size: number | string, unit: SqlIntervalUnit, back: boolean): string => {
+    const amount = typeof size === 'number' ? Math.abs(size) : size;
+    const sign = (typeof size === 'number' && size < 0) !== back ? '-' : '+';
 
     if (dialect === 'sqlite') {
       // SQLite's modifiers have no weeks
-      const [count, sqliteUnit] = unit === 'weeks' ? [size * 7, 'days'] : [size, unit];
+      const weeks = unit === 'weeks';
+      const sqliteUnit = weeks ? 'days' : unit;
 
-      return `datetime(${value}, '${sign}${count} ${sqliteUnit}')`;
+      if (typeof amount === 'number') {
+        return `datetime(${value}, '${sign}${weeks ? amount * 7 : amount} ${sqliteUnit}')`;
+      }
+
+      return `datetime(${value}, '${sign}' || ${weeks ? `(${amount}) * 7` : `(${amount})`} || ' ${sqliteUnit}')`;
     }
 
     only(method, 'postgres', 'mysql');
 
-    return `(${value} ${sign} ${dialect === 'mysql' ? `INTERVAL ${size} ${MYSQL_UNITS[unit]}` : `INTERVAL '${size} ${unit}'`})`;
+    return `(${value} ${sign} ${intervalSql(amount, unit)})`;
   };
 
   // ARRAY_AGG and the JSON arrays: FILTER, since a CASE would add a NULL item for each skipped row
@@ -284,19 +328,21 @@ function createFunctions(driver?: DatabaseType) {
      * `COUNT(expression)`, `COUNT(*)` without one. The `pg` driver returns it as a string: `tableHelper.count()` casts
      * it to an integer.
      */
-    count(value?: SqlValue, aggregateOptions: SqlAggregateOptions = {}): string {
-      if (value === undefined) {
-        if (aggregateOptions.distinct) {
+    count(value?: SqlValue | SqlAggregateOptions, aggregateOptions: SqlAggregateOptions = {}): string {
+      const [counted, options] = typeof value === 'object' && value !== null ? [undefined, value] : [value, aggregateOptions];
+
+      if (counted === undefined) {
+        if (options.distinct) {
           throw new TypeError('Sql.count({ distinct: true }) needs an expression, e.g. Sql.count(t.email, { distinct: true })');
         }
 
         // a CASE can't return `*`: without an expression, it counts 1 per matching row
-        const counted = aggregateOptions.filter && (aggregateOptions.syntax ?? 'case') === 'case' ? '1' : '*';
+        const star = options.filter && (options.syntax ?? defaultSyntax) === 'case' ? '1' : '*';
 
-        return aggregate('COUNT', 'count', counted, aggregateOptions);
+        return aggregate('COUNT', 'count', star, options);
       }
 
-      return aggregate('COUNT', 'count', operand('count', value), aggregateOptions);
+      return aggregate('COUNT', 'count', operand('count', counted), options);
     },
     /** `SUM(expression)`: NULL for no rows, where `tableHelper.sum()` gives 0. */
     sum(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
@@ -335,7 +381,7 @@ function createFunctions(driver?: DatabaseType) {
         throw new TypeError(`Sql.stringAgg(): the separator is a string, got ${String(separator)}`);
       }
 
-      const { distinct = false, orderBy, filter, syntax } = aggregateOptions;
+      const { distinct = false, orderBy, filter, syntax = defaultSyntax } = aggregateOptions;
       const { argument, suffix } = filtered('Sql.stringAgg', expression('stringAgg', value), filter, syntax, driver);
       const order = orderBy === undefined ? '' : ` ORDER BY ${list('stringAgg', orderBy, 'orderBy')}`;
       const each = distinct ? 'DISTINCT ' : '';
@@ -381,6 +427,24 @@ function createFunctions(driver?: DatabaseType) {
     jsonbAgg(value: string, aggOptions?: SqlArrayAggOptions): string {
       only('jsonbAgg', 'postgres');
       return collect('jsonb_agg', 'jsonbAgg', value, aggOptions);
+    },
+    /**
+     * `PERCENTILE_CONT(fraction) WITHIN GROUP (ORDER BY expression)`: the value at a fraction of the ordered values,
+     * interpolated between rows; 0.5 is the median. NULL for no rows. PostgreSQL.
+     */
+    percentileCont(fraction: SqlValue, orderBy: string | readonly string[]): string {
+      only('percentileCont', 'postgres');
+      return `PERCENTILE_CONT(${operand('percentileCont', fraction, 'fraction')}) WITHIN GROUP (ORDER BY ${list('percentileCont', orderBy, 'orderBy')})`;
+    },
+    /** `PERCENTILE_DISC(fraction) WITHIN GROUP (ORDER BY expression)`: `percentileCont` that returns a value of a row. PostgreSQL. */
+    percentileDisc(fraction: SqlValue, orderBy: string | readonly string[]): string {
+      only('percentileDisc', 'postgres');
+      return `PERCENTILE_DISC(${operand('percentileDisc', fraction, 'fraction')}) WITHIN GROUP (ORDER BY ${list('percentileDisc', orderBy, 'orderBy')})`;
+    },
+    /** `MODE() WITHIN GROUP (ORDER BY expression)`: the most frequent value. NULL for no rows. PostgreSQL. */
+    mode(value: string): string {
+      only('mode', 'postgres');
+      return `MODE() WITHIN GROUP (ORDER BY ${expression('mode', value)})`;
     },
 
     /** `COALESCE(a, b, …)`: the first argument that isn't NULL. */
@@ -504,27 +568,26 @@ function createFunctions(driver?: DatabaseType) {
      * An interval to add to a time or subtract from it: `INTERVAL '30 days'`, `INTERVAL 30 DAY` on MySQL. SQLite has
      * no intervals: use `addInterval` or `ago`.
      */
-    interval(amount: number, unit: SqlIntervalUnit): string {
+    interval(amount: SqlIntervalAmount, unit: SqlIntervalUnit): string {
       only('interval', 'postgres', 'mysql');
 
-      const size = integer('interval', amount, 'amount');
-      const checked = intervalUnit('interval', unit);
+      const size = intervalAmount('interval', amount);
 
-      return dialect === 'mysql' ? `INTERVAL ${size} ${MYSQL_UNITS[checked]}` : `INTERVAL '${size} ${checked}'`;
+      return intervalSql(size, intervalUnit('interval', unit));
     },
     /**
      * The time `amount` units after `expression`, before it for a negative amount: `("t"."paidAt" + INTERVAL '30 days')`;
      * `datetime(…, '+30 days')` on SQLite, which gives text.
      */
-    addInterval(value: string, amount: number, unit: SqlIntervalUnit): string {
-      return shift('addInterval', expression('addInterval', value), integer('addInterval', amount, 'amount'), intervalUnit('addInterval', unit));
+    addInterval(value: string, amount: SqlIntervalAmount, unit: SqlIntervalUnit): string {
+      return shift('addInterval', expression('addInterval', value), intervalAmount('addInterval', amount), intervalUnit('addInterval', unit), false);
     },
     /** The time `amount` units ago: `(NOW() - INTERVAL '30 days')`, `datetime('now', '-30 days')` on SQLite. */
-    ago(amount: number, unit: SqlIntervalUnit): string {
-      const size = integer('ago', amount, 'amount');
+    ago(amount: SqlIntervalAmount, unit: SqlIntervalUnit): string {
+      const size = intervalAmount('ago', amount);
       const checked = intervalUnit('ago', unit);
 
-      return dialect === 'sqlite' ? shift('ago', `'now'`, -size, checked) : shift('ago', now(), -size, checked);
+      return shift('ago', dialect === 'sqlite' ? `'now'` : now(), size, checked, true);
     },
     /**
      * A part of a time as a number: `EXTRACT(YEAR FROM …)`. `'epoch'` is the seconds since 1970 (`UNIX_TIMESTAMP` on
@@ -663,6 +726,14 @@ function createFunctions(driver?: DatabaseType) {
 
       return `jsonb_set(${expression('jsonbSet', target, 'target')}, ${keys}, ${expression('jsonbSet', value, 'value')}${create})`;
     },
+    /**
+     * `(COALESCE(target, CAST('{}' AS jsonb)) || patch)`: the JSONB object with the keys of `patch` added or replaced,
+     * a NULL target read as `{}`. The patch is JSONB SQL: `CAST(:patch AS jsonb)`, `Sql.jsonbBuildObject({ … })`. PostgreSQL.
+     */
+    jsonbMerge(target: string, patch: string): string {
+      only('jsonbMerge', 'postgres');
+      return `(COALESCE(${expression('jsonbMerge', target, 'target')}, CAST('{}' AS jsonb)) || ${expression('jsonbMerge', patch, 'patch')})`;
+    },
     /** `to_jsonb(expression)`. PostgreSQL. */
     toJsonb(value: string): string {
       only('toJsonb', 'postgres');
@@ -704,12 +775,15 @@ function windowShift(fn: string, method: string, value: string, offset?: number,
  * Unlike `tableHelper`'s `count` and `sum`, `Sql.count` and `Sql.sum` neither cast nor replace NULL.
  */
 export type SqlFunctions = ReturnType<typeof createFunctions> & {
-  /** The same helpers for another database: `Sql.for('mysql')`, `Sql.for(dataSource.options.type)`. */
-  for(driver: DatabaseType): SqlFunctions;
+  /**
+   * The same helpers for another database: `Sql.for('mysql')`, `Sql.for(dataSource.options.type)`. With
+   * `{ syntax: 'filter' }` the aggregates write `filter` as `FILTER (WHERE …)` unless a call sets its own `syntax`.
+   */
+  for(driver: DatabaseType, options?: SqlOptions): SqlFunctions;
 };
 
-function createSql(driver?: DatabaseType): SqlFunctions {
-  return { ...createFunctions(driver), for: (otherDriver: DatabaseType) => createSql(otherDriver) };
+function createSql(driver?: DatabaseType, options?: SqlOptions): SqlFunctions {
+  return { ...createFunctions(driver, options), for: (otherDriver: DatabaseType, otherOptions?: SqlOptions) => createSql(otherDriver, otherOptions) };
 }
 
 export const Sql: SqlFunctions = createSql();

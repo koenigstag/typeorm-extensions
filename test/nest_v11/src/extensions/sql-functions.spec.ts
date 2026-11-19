@@ -22,6 +22,15 @@ describe('Sql functions', () => {
     expect(Sql.boolAnd(u.isNotNull('email'))).toBe('BOOL_AND("user"."email" IS NOT NULL)');
     expect(Sql.coalesce(Sql.max(u.id), '0')).toBe('COALESCE(MAX("user"."id"), 0)');
     expect(Sql.coalesce(Sql.max(u.id), 0)).toBe('COALESCE(MAX("user"."id"), 0)');
+    expect(Sql.count({ filter: `${u.id} > 1` })).toBe('COUNT(CASE WHEN "user"."id" > 1 THEN 1 END)');
+    expect(Sql.for('postgres', { syntax: 'filter' }).count({ filter: `${u.id} > 1` })).toBe('COUNT(*) FILTER (WHERE "user"."id" > 1)');
+    expect(Sql.for('postgres', { syntax: 'filter' }).max(u.id, { filter: `${u.id} > 1`, syntax: 'case' })).toBe('MAX(CASE WHEN "user"."id" > 1 THEN "user"."id" END)');
+    expect(Sql.ago({ sql: ':days' }, 'days')).toBe('(NOW() - make_interval(days => :days))');
+    expect(Sql.for('mysql').addInterval(u.createdAt, { sql: ':n' }, 'minutes')).toBe('("user"."createdAt" + INTERVAL (:n) MINUTE)');
+    expect(Sql.for('better-sqlite3').ago({ sql: ':n' }, 'weeks')).toBe("datetime('now', '-' || (:n) * 7 || ' days')");
+    expect(Sql.percentileCont(0.5, u.id)).toBe('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "user"."id")');
+    expect(Sql.mode(u.firstName)).toBe('MODE() WITHIN GROUP (ORDER BY "user"."firstName")');
+    expect(Sql.jsonbMerge(u.metadata, 'CAST(:patch AS jsonb)')).toBe(`(COALESCE("user"."metadata", CAST('{}' AS jsonb)) || CAST(:patch AS jsonb))`);
     expect(Sql.case([[`${u.id} > 1`, 1]], -0.5)).toBe('CASE WHEN "user"."id" > 1 THEN 1 ELSE -0.5 END');
     expect(Sql.nullif(u.lastName, "''")).toBe(`NULLIF("user"."lastName", '')`);
     expect(Sql.greatest(u.createdAt, u.updatedAt)).toBe('GREATEST("user"."createdAt", "user"."updatedAt")');

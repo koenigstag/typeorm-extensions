@@ -18,6 +18,15 @@ Sql.coalesce(Sql.sum(o.total), '0', Sql.max(o.total));
 Sql.coalesce(Sql.sum(o.total), 0);
 Sql.case([[`${o.total} > 0`, 1]], -1);
 Sql.lag(o.total, 1, 0);
+Sql.count({ filter: `${o.total} > 0` });
+Sql.for('postgres', { syntax: 'filter' }).count({ filter: `${o.total} > 0` });
+Sql.addInterval(o.note, { sql: ':minutes' }, 'minutes');
+Sql.percentileCont(0.5, o.total);
+Sql.jsonbMerge(o.note, 'CAST(:patch AS jsonb)');
+// @ts-expect-error syntax is 'case' or 'filter'
+Sql.for('postgres', { syntax: 'where' });
+// @ts-expect-error an amount is a number or { sql }
+Sql.ago(':days', 'days');
 // @ts-expect-error a condition is SQL, not a number
 Sql.case([[1, o.total]]);
 // @ts-expect-error LOWER takes a text expression
