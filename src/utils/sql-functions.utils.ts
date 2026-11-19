@@ -40,6 +40,9 @@ export type SqlArrayAggOptions = {
  */
 export type SqlTimeZone = string | { sql: string };
 
+/** An SQL expression, or a number written as a literal: `Sql.coalesce(Sql.sum(t.total), 0)` is `COALESCE(SUM("t"."total"), 0)`. */
+export type SqlValue = string | number;
+
 /** A key of a JSON object, or the index of an array item from 0. */
 export type SqlJsonKey = string | number;
 
@@ -99,12 +102,24 @@ function expression(method: string, value: unknown, position = 'argument'): stri
   return value;
 }
 
-function expressions(method: string, values: readonly unknown[], least: number): string {
+function operand(method: string, input: unknown, position = 'argument'): string {
+  if (typeof input !== 'number') {
+    return expression(method, input, position);
+  }
+
+  if (!Number.isFinite(input)) {
+    throw new TypeError(`Sql.${method}(): the ${position} is an SQL expression or a finite number, got ${String(input)}`);
+  }
+
+  return String(input);
+}
+
+function expressions(method: string, values: readonly unknown[], least: number, item = expression): string[] {
   if (values.length < least) {
     throw new TypeError(`Sql.${method}() needs at least ${least} expressions, got ${values.length}`);
   }
 
-  return values.map((value, index) => expression(method, value, `argument ${index + 1}`)).join(', ');
+  return values.map((input, index) => item(method, input, `argument ${index + 1}`));
 }
 
 function integer(method: string, value: unknown, position: string): number {
@@ -181,7 +196,7 @@ function createFunctions(driver?: DatabaseType) {
     return `${fn}(${distinct ? 'DISTINCT ' : ''}${expression(method, value)}${order})${where}`;
   };
 
-  const jsonObject = (method: string, fn: string, fields: Readonly<Record<string, string>>): string => {
+  const jsonObject = (method: string, fn: string, fields: Readonly<Record<string, SqlValue>>): string => {
     if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) {
       throw new TypeError(`Sql.${method}() takes an object of keys and SQL expressions, e.g. { id: t.id }`);
     }
@@ -192,7 +207,7 @@ function createFunctions(driver?: DatabaseType) {
       throw new TypeError(`Sql.${method}() needs at least one key`);
     }
 
-    const pairs = entries.map(([key, value]) => `${sqlString(key, driver)}, ${expression(method, value, `value of "${key}"`)}`);
+    const pairs = entries.map(([key, value]) => `${sqlString(key, driver)}, ${operand(method, value, `value of "${key}"`)}`);
 
     return `${fn}(${pairs.join(', ')})`;
   };
@@ -269,7 +284,7 @@ function createFunctions(driver?: DatabaseType) {
      * `COUNT(expression)`, `COUNT(*)` without one. The `pg` driver returns it as a string: `tableHelper.count()` casts
      * it to an integer.
      */
-    count(value?: string, aggregateOptions: SqlAggregateOptions = {}): string {
+    count(value?: SqlValue, aggregateOptions: SqlAggregateOptions = {}): string {
       if (value === undefined) {
         if (aggregateOptions.distinct) {
           throw new TypeError('Sql.count({ distinct: true }) needs an expression, e.g. Sql.count(t.email, { distinct: true })');
@@ -281,23 +296,23 @@ function createFunctions(driver?: DatabaseType) {
         return aggregate('COUNT', 'count', counted, aggregateOptions);
       }
 
-      return aggregate('COUNT', 'count', expression('count', value), aggregateOptions);
+      return aggregate('COUNT', 'count', operand('count', value), aggregateOptions);
     },
     /** `SUM(expression)`: NULL for no rows, where `tableHelper.sum()` gives 0. */
-    sum(value: string, aggregateOptions?: SqlAggregateOptions): string {
-      return aggregate('SUM', 'sum', expression('sum', value), aggregateOptions);
+    sum(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+      return aggregate('SUM', 'sum', operand('sum', value), aggregateOptions);
     },
     /** `MIN(expression)`: NULL for no rows. */
-    min(value: string, aggregateOptions?: SqlAggregateOptions): string {
-      return aggregate('MIN', 'min', expression('min', value), aggregateOptions);
+    min(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+      return aggregate('MIN', 'min', operand('min', value), aggregateOptions);
     },
     /** `MAX(expression)`: NULL for no rows. */
-    max(value: string, aggregateOptions?: SqlAggregateOptions): string {
-      return aggregate('MAX', 'max', expression('max', value), aggregateOptions);
+    max(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+      return aggregate('MAX', 'max', operand('max', value), aggregateOptions);
     },
     /** `AVG(expression)`: NULL for no rows; the `pg` driver returns PostgreSQL's `numeric` as a string. */
-    avg(value: string, aggregateOptions?: SqlAggregateOptions): string {
-      return aggregate('AVG', 'avg', expression('avg', value), aggregateOptions);
+    avg(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+      return aggregate('AVG', 'avg', operand('avg', value), aggregateOptions);
     },
     /** `BOOL_OR(condition)`: true when the condition holds for some row. PostgreSQL. */
     boolOr(condition: string, aggregateOptions?: SqlAggregateOptions): string {
@@ -369,26 +384,26 @@ function createFunctions(driver?: DatabaseType) {
     },
 
     /** `COALESCE(a, b, …)`: the first argument that isn't NULL. */
-    coalesce(...values: [string, string, ...string[]]): string {
-      return `COALESCE(${expressions('coalesce', values, 2)})`;
+    coalesce(...values: [SqlValue, SqlValue, ...SqlValue[]]): string {
+      return `COALESCE(${expressions('coalesce', values, 2, operand).join(', ')})`;
     },
     /** `NULLIF(a, b)`: NULL when `a` equals `b`, else `a`: `Sql.nullif(t.name, "''")`. */
-    nullif(value: string, nullValue: string): string {
-      return `NULLIF(${expression('nullif', value, 'first argument')}, ${expression('nullif', nullValue, 'second argument')})`;
+    nullif(value: SqlValue, nullValue: SqlValue): string {
+      return `NULLIF(${operand('nullif', value, 'first argument')}, ${operand('nullif', nullValue, 'second argument')})`;
     },
     /**
      * `GREATEST(a, b, …)`. PostgreSQL skips NULL arguments, MySQL returns NULL for any; on SQLite it is `MAX(a, b, …)`,
      * NULL for any NULL argument.
      */
-    greatest(...values: [string, string, ...string[]]): string {
-      return `${dialect === 'sqlite' ? 'MAX' : 'GREATEST'}(${expressions('greatest', values, 2)})`;
+    greatest(...values: [SqlValue, SqlValue, ...SqlValue[]]): string {
+      return `${dialect === 'sqlite' ? 'MAX' : 'GREATEST'}(${expressions('greatest', values, 2, operand).join(', ')})`;
     },
     /** `LEAST(a, b, …)`, `MIN(a, b, …)` on SQLite; NULL arguments as in `greatest`. */
-    least(...values: [string, string, ...string[]]): string {
-      return `${dialect === 'sqlite' ? 'MIN' : 'LEAST'}(${expressions('least', values, 2)})`;
+    least(...values: [SqlValue, SqlValue, ...SqlValue[]]): string {
+      return `${dialect === 'sqlite' ? 'MIN' : 'LEAST'}(${expressions('least', values, 2, operand).join(', ')})`;
     },
     /** `CASE WHEN condition THEN value … [ELSE otherwise] END`: the value of the first condition that holds. */
-    case(branches: readonly (readonly [condition: string, value: string])[], otherwise?: string): string {
+    case(branches: readonly (readonly [condition: string, value: SqlValue])[], otherwise?: SqlValue): string {
       if (!Array.isArray(branches) || !branches.length) {
         throw new TypeError('Sql.case() needs at least one [condition, value] branch');
       }
@@ -398,9 +413,9 @@ function createFunctions(driver?: DatabaseType) {
           throw new TypeError(`Sql.case(): branch ${index + 1} is a [condition, value] pair`);
         }
 
-        return `WHEN ${expression('case', branch[0], `condition ${index + 1}`)} THEN ${expression('case', branch[1], `value ${index + 1}`)}`;
+        return `WHEN ${expression('case', branch[0], `condition ${index + 1}`)} THEN ${operand('case', branch[1], `value ${index + 1}`)}`;
       });
-      const elseSql = otherwise === undefined ? '' : ` ELSE ${expression('case', otherwise, 'otherwise value')}`;
+      const elseSql = otherwise === undefined ? '' : ` ELSE ${operand('case', otherwise, 'otherwise value')}`;
 
       return `CASE ${whens.join(' ')}${elseSql} END`;
     },
@@ -425,15 +440,16 @@ function createFunctions(driver?: DatabaseType) {
      * The strings joined, a NULL one read as empty, like PostgreSQL's `CONCAT(a, b)`: `CONCAT_WS('', a, b)` on MySQL,
      * whose `CONCAT` gives NULL for any NULL, and `COALESCE(a, '') || COALESCE(b, '')` on SQLite.
      */
-    concat(...values: [string, string, ...string[]]): string {
-      const joined = expressions('concat', values, 2);
+    concat(...values: [SqlValue, SqlValue, ...SqlValue[]]): string {
+      const parts = expressions('concat', values, 2, operand);
+      const joined = parts.join(', ');
 
       if (dialect === 'mysql') {
         return `CONCAT_WS('', ${joined})`;
       }
 
       if (dialect === 'sqlite') {
-        return `(${values.map((value) => `COALESCE(${value}, '')`).join(' || ')})`;
+        return `(${parts.map((part) => `COALESCE(${part}, '')`).join(' || ')})`;
       }
 
       return `CONCAT(${joined})`;
@@ -452,34 +468,34 @@ function createFunctions(driver?: DatabaseType) {
       return `SPLIT_PART(${expression('splitPart', value)}, ${sqlString(String(delimiter), driver)}, ${integer('splitPart', part, 'part')})`;
     },
     /** `CAST(expression AS type)`; the type is a name with an optional size and `[]`: `'numeric(10, 2)'`, `'uuid[]'`. */
-    cast(value: string, type: string): string {
+    cast(value: SqlValue, type: string): string {
       if (typeof type !== 'string' || !SQL_TYPE.test(type.trim())) {
         throw new TypeError(`Sql.cast(): "${String(type)}" is not a type name, e.g. 'numeric', 'numeric(10, 2)', 'uuid[]'`);
       }
 
-      return `CAST(${expression('cast', value)} AS ${type.trim()})`;
+      return `CAST(${operand('cast', value)} AS ${type.trim()})`;
     },
 
     /**
      * `ROUND(expression[, digits])`, digits after the point, before it when negative (SQLite takes a negative
      * as 0). PostgreSQL rounds to digits only a `numeric`: `Sql.round(Sql.cast(x, 'numeric'), 2)`.
      */
-    round(value: string, digits?: number): string {
+    round(value: SqlValue, digits?: number): string {
       const places = digits === undefined ? '' : `, ${integer('round', digits, 'digits')}`;
 
-      return `ROUND(${expression('round', value)}${places})`;
+      return `ROUND(${operand('round', value)}${places})`;
     },
     /** `ABS(expression)`. */
-    abs(value: string): string {
-      return `ABS(${expression('abs', value)})`;
+    abs(value: SqlValue): string {
+      return `ABS(${operand('abs', value)})`;
     },
     /** `FLOOR(expression)`; SQLite 3.35+ built with its math functions. */
-    floor(value: string): string {
-      return `FLOOR(${expression('floor', value)})`;
+    floor(value: SqlValue): string {
+      return `FLOOR(${operand('floor', value)})`;
     },
     /** `CEIL(expression)`; SQLite 3.35+ built with its math functions. */
-    ceil(value: string): string {
-      return `CEIL(${expression('ceil', value)})`;
+    ceil(value: SqlValue): string {
+      return `CEIL(${operand('ceil', value)})`;
     },
 
     /** The time the transaction (PostgreSQL) or the statement started: `NOW()`, `CURRENT_TIMESTAMP` on SQLite. */
@@ -574,11 +590,11 @@ function createFunctions(driver?: DatabaseType) {
     /** `DENSE_RANK()`, for `over`: ties share a rank, without a gap. */
     denseRank: (): string => 'DENSE_RANK()',
     /** `LAG(expression[, offset[, default]])`, for `over`: the value `offset` rows before, 1 by default. */
-    lag(value: string, offset?: number, defaultValue?: string): string {
+    lag(value: string, offset?: number, defaultValue?: SqlValue): string {
       return windowShift('LAG', 'lag', value, offset, defaultValue);
     },
     /** `LEAD(expression[, offset[, default]])`, for `over`: the value `offset` rows after, 1 by default. */
-    lead(value: string, offset?: number, defaultValue?: string): string {
+    lead(value: string, offset?: number, defaultValue?: SqlValue): string {
       return windowShift('LEAD', 'lead', value, offset, defaultValue);
     },
     /**
@@ -598,7 +614,7 @@ function createFunctions(driver?: DatabaseType) {
     /** `DISTINCT ON (a, b, …)`, for a SELECT written as SQL; a query builder has `distinctOnTyped`. PostgreSQL. */
     distinctOn(...values: [string, ...string[]]): string {
       only('distinctOn', 'postgres');
-      return `DISTINCT ON (${expressions('distinctOn', values, 1)})`;
+      return `DISTINCT ON (${expressions('distinctOn', values, 1).join(', ')})`;
     },
 
     /**
@@ -619,7 +635,7 @@ function createFunctions(driver?: DatabaseType) {
      * A JSON object of SQL expressions: `Sql.jsonBuildObject({ id: t.id, name: u.name })` →
      * `json_build_object('id', "t"."id", 'name', "u"."name")`; `JSON_OBJECT(…)` on MySQL, `json_object(…)` on SQLite.
      */
-    jsonBuildObject(fields: Readonly<Record<string, string>>): string {
+    jsonBuildObject(fields: Readonly<Record<string, SqlValue>>): string {
       only('jsonBuildObject', 'postgres', 'mysql', 'sqlite');
 
       const fn = dialect === 'mysql' ? 'JSON_OBJECT' : dialect === 'sqlite' ? 'json_object' : 'json_build_object';
@@ -627,7 +643,7 @@ function createFunctions(driver?: DatabaseType) {
       return jsonObject('jsonBuildObject', fn, fields);
     },
     /** `jsonb_build_object(…)`: `jsonBuildObject` as JSONB. PostgreSQL. */
-    jsonbBuildObject(fields: Readonly<Record<string, string>>): string {
+    jsonbBuildObject(fields: Readonly<Record<string, SqlValue>>): string {
       only('jsonbBuildObject', 'postgres');
       return jsonObject('jsonbBuildObject', 'jsonb_build_object', fields);
     },
@@ -665,7 +681,7 @@ function createFunctions(driver?: DatabaseType) {
   };
 }
 
-function windowShift(fn: string, method: string, value: string, offset?: number, defaultValue?: string): string {
+function windowShift(fn: string, method: string, value: string, offset?: number, defaultValue?: SqlValue): string {
   const args = [expression(method, value)];
 
   if (offset !== undefined || defaultValue !== undefined) {
@@ -673,7 +689,7 @@ function windowShift(fn: string, method: string, value: string, offset?: number,
   }
 
   if (defaultValue !== undefined) {
-    args.push(expression(method, defaultValue, 'default value'));
+    args.push(operand(method, defaultValue, 'default value'));
   }
 
   return `${fn}(${args.join(', ')})`;
@@ -682,8 +698,9 @@ function windowShift(fn: string, method: string, value: string, offset?: number,
 /**
  * SQL functions and keywords as helpers, written as they are: `Sql.max(t.createdAt)` is `MAX("t"."createdAt")`.
  * They take SQL expressions, such as the columns of a `tableHelper` (`t.createdAt`) or other helpers, and check
- * only that each is given. Where the databases write a function differently, `Sql` writes PostgreSQL and
- * `Sql.for(driver)` the given database: `Sql.for('mysql').length(t.name)` is `CHAR_LENGTH("t"."name")`.
+ * only that each is given; where a value fits (`coalesce`, `nullif`, `case`, the aggregates, …) a number too.
+ * Where the databases write a function differently, `Sql` writes PostgreSQL and `Sql.for(driver)` the given
+ * database: `Sql.for('mysql').length(t.name)` is `CHAR_LENGTH("t"."name")`.
  * Unlike `tableHelper`'s `count` and `sum`, `Sql.count` and `Sql.sum` neither cast nor replace NULL.
  */
 export type SqlFunctions = ReturnType<typeof createFunctions> & {

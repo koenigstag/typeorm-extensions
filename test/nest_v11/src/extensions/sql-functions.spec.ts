@@ -21,6 +21,8 @@ describe('Sql functions', () => {
     expect(Sql.boolOr(`${u.id} > 2`)).toBe('BOOL_OR("user"."id" > 2)');
     expect(Sql.boolAnd(u.isNotNull('email'))).toBe('BOOL_AND("user"."email" IS NOT NULL)');
     expect(Sql.coalesce(Sql.max(u.id), '0')).toBe('COALESCE(MAX("user"."id"), 0)');
+    expect(Sql.coalesce(Sql.max(u.id), 0)).toBe('COALESCE(MAX("user"."id"), 0)');
+    expect(Sql.case([[`${u.id} > 1`, 1]], -0.5)).toBe('CASE WHEN "user"."id" > 1 THEN 1 ELSE -0.5 END');
     expect(Sql.nullif(u.lastName, "''")).toBe(`NULLIF("user"."lastName", '')`);
     expect(Sql.greatest(u.createdAt, u.updatedAt)).toBe('GREATEST("user"."createdAt", "user"."updatedAt")');
     expect(Sql.least(u.createdAt, 'NOW()')).toBe('LEAST("user"."createdAt", NOW())');
@@ -34,6 +36,7 @@ describe('Sql functions', () => {
   it('SHOULD refuse a missing expression, a type that is not a type name and an unknown syntax', () => {
     expect(() => Sql.max(undefined as never)).toThrow(/Sql\.max\(\): the argument is an SQL expression/);
     expect(() => Sql.coalesce(u.id, '  ')).toThrow(/Sql\.coalesce\(\): the argument 2 is an SQL expression/);
+    expect(() => Sql.coalesce(u.id, NaN)).toThrow(/the argument 2 is an SQL expression or a finite number, got NaN/);
     expect(() => Sql.coalesce(...([u.id] as never as [string, string]))).toThrow(/at least 2 expressions/);
     expect(() => Sql.cast(u.id, 'text) OR (1=1')).toThrow(TypeError);
     expect(() => Sql.count(undefined, { distinct: true })).toThrow(/needs an expression/);
@@ -243,7 +246,7 @@ setupTest('Sql functions in queries', undefined, (context) => {
     const empty = await users()
       .select(Sql.sum(u.id), 'sum')
       .addSelect(Sql.max(u.id), 'max')
-      .addSelect(Sql.coalesce(Sql.sum(u.id), '0'), 'sumOrZero')
+      .addSelect(Sql.coalesce(Sql.sum(u.id), 0), 'sumOrZero')
       .where(`${u.id} < 0`)
       .getRawOne<Record<string, number | null>>();
 

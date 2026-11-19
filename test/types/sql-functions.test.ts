@@ -15,6 +15,13 @@ Sql.sum(o.total, { filter: o.where('note', 'IS NULL'), syntax: 'filter' });
 Sql.max(o.createdAt);
 Sql.coalesce(o.note, "''");
 Sql.coalesce(Sql.sum(o.total), '0', Sql.max(o.total));
+Sql.coalesce(Sql.sum(o.total), 0);
+Sql.case([[`${o.total} > 0`, 1]], -1);
+Sql.lag(o.total, 1, 0);
+// @ts-expect-error a condition is SQL, not a number
+Sql.case([[1, o.total]]);
+// @ts-expect-error LOWER takes a text expression
+Sql.lower(1);
 Sql.greatest(o.createdAt, 'NOW()');
 Sql.nullif(Sql.lower(o.note), "''");
 Sql.distinctOn(o.id, o.createdAt);

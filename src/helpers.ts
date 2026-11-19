@@ -15,6 +15,7 @@ export type {
   SqlJsonKey,
   SqlStringAggOptions,
   SqlTimeZone,
+  SqlValue,
   SqlWindow,
 } from './utils/sql-functions.utils';
 export { selectExpression, SelectExpression } from './utils/select-expression.utils';

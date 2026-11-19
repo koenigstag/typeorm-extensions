@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Description
 
-`Sql` writes SQL functions and keywords, so a query built as a string doesn't depend on spelling them by hand: `Sql.max(t.createdAt)` is `MAX("t"."createdAt")`. Each function takes SQL expressions, such as the columns of a [`tableHelper`](./tableHelper.md) (`t.createdAt`, checked against the entity type), other `Sql` functions or SQL text, and writes them as they are. It throws a `TypeError` for an expression that is missing or empty, which is what a misspelled column of an untyped object gives.
+`Sql` writes SQL functions and keywords, so a query built as a string doesn't depend on spelling them by hand: `Sql.max(t.createdAt)` is `MAX("t"."createdAt")`. Each function takes SQL expressions, such as the columns of a [`tableHelper`](./tableHelper.md) (`t.createdAt`, checked against the entity type), other `Sql` functions or SQL text, and writes them as they are. Where a value fits (`coalesce`, `nullif`, `greatest`, `least`, `concat`, `case` values, the aggregates, `round`, `abs`, `floor`, `ceil`, `cast`, the default of `lag` / `lead`, the values of `jsonBuildObject`) a number goes too, written as a literal: `Sql.coalesce(Sql.sum(o.total), 0)`. It throws a `TypeError` for an expression that is missing or empty, or a number that is `NaN` or infinite, which is what a misspelled column of an untyped object gives.
 
 ```typescript
 import { Sql, tableHelper } from 'typeorm-extensions';
@@ -16,7 +16,7 @@ const o = tableHelper<Order>('o');
 query
   .select(Sql.count(), 'orders')                                          // COUNT(*)
   .addSelect(Sql.count(o.userId, { distinct: true }), 'buyers')           // COUNT(DISTINCT "o"."userId")
-  .addSelect(Sql.coalesce(Sql.sum(o.total), '0'), 'revenue')              // COALESCE(SUM("o"."total"), 0)
+  .addSelect(Sql.coalesce(Sql.sum(o.total), 0), 'revenue')                // COALESCE(SUM("o"."total"), 0)
   .addSelect(Sql.max(o.paidAt, { filter: o.isNotNull('paidAt') }), 'lastPaid')
   .andWhere(`${o.createdAt} >= ${Sql.ago(30, 'days')}`);                  // (NOW() - INTERVAL '30 days')
 ```
