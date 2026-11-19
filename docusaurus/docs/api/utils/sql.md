@@ -82,6 +82,8 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 | `jsonbSet(target, ['a', 'b'], value, { createMissing? })` | `jsonb_set(target, ARRAY['a', 'b'], value)` | — | — |
 | `jsonbMerge(target, patch)` | `(COALESCE(target, CAST('{}' AS jsonb)) \|\| patch)` | — | — |
 | `toJsonb`, `jsonbTypeof`, `jsonbArrayElements(expression)` | `to_jsonb(…)`, `jsonb_typeof(…)`, `jsonb_array_elements(…)` | — | — |
+| `arrayPosition(array, value)` | `array_position(array, value)` | — | — |
+| `similarity`, `wordSimilarity`, `strictWordSimilarity(a, b)` | `similarity(a, b)`, `word_similarity(a, b)`, `strict_word_similarity(a, b)`, with the `pg_trgm` extension | — | — |
 
 Units of `interval`, `addInterval` and `ago`: `'seconds'`, `'minutes'`, `'hours'`, `'days'`, `'weeks'`, `'months'`, `'years'`; the amount is an integer or an SQL expression, `{ sql: ':days' }`. Parts of `extract`: `'year'`, `'month'`, `'day'`, `'hour'`, `'minute'`, `'second'`, `'epoch'` (seconds since 1970) and `'dow'` (day of the week from 0, Sunday). The amount, the unit, the part, the separator, the delimiter, the format, a time zone name and the keys of a JSON path or object are checked or written as SQL strings, so they can't carry SQL; on MySQL and SQLite a key of a JSON path has no `"` or `\`.
 

@@ -793,6 +793,26 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
       only('jsonbArrayElements', 'postgres');
       return `jsonb_array_elements(${expression('jsonbArrayElements', value)})`;
     },
+    /** `array_position(array, value)`: the 1-based position of the first element equal to the value, NULL when there is none. PostgreSQL. */
+    arrayPosition(array: string, value: SqlValue): string {
+      only('arrayPosition', 'postgres');
+      return `array_position(${expression('arrayPosition', array, 'array')}, ${operand('arrayPosition', value, 'value')})`;
+    },
+    /** `similarity(a, b)`: how alike two strings are by their trigrams, 0 to 1. PostgreSQL with the pg_trgm extension. */
+    similarity(a: string, b: string): string {
+      only('similarity', 'postgres');
+      return `similarity(${expression('similarity', a, 'first argument')}, ${expression('similarity', b, 'second argument')})`;
+    },
+    /** `word_similarity(a, b)`: the best similarity of `a` to a run of words in `b`, 0 to 1. PostgreSQL with pg_trgm. */
+    wordSimilarity(a: string, b: string): string {
+      only('wordSimilarity', 'postgres');
+      return `word_similarity(${expression('wordSimilarity', a, 'first argument')}, ${expression('wordSimilarity', b, 'second argument')})`;
+    },
+    /** `strict_word_similarity(a, b)`: `wordSimilarity` matched on whole words of `b`, 0 to 1. PostgreSQL with pg_trgm. */
+    strictWordSimilarity(a: string, b: string): string {
+      only('strictWordSimilarity', 'postgres');
+      return `strict_word_similarity(${expression('strictWordSimilarity', a, 'first argument')}, ${expression('strictWordSimilarity', b, 'second argument')})`;
+    },
   };
 }
 

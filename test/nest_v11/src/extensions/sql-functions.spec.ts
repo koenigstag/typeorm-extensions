@@ -132,6 +132,17 @@ describe('Sql.for(driver)', () => {
       'jsonb_typeof("user"."metadata")',
       'jsonb_array_elements("user"."metadata")',
     ]);
+    expect([pg.similarity(u.firstName, ':q'), pg.wordSimilarity(':q', u.firstName), pg.strictWordSimilarity(':q', u.firstName)]).toEqual([
+      'similarity("user"."firstName", :q)',
+      'word_similarity(:q, "user"."firstName")',
+      'strict_word_similarity(:q, "user"."firstName")',
+    ]);
+    expect([pg.arrayPosition(':ids::uuid[]', u.id), pg.arrayPosition(':numbers::int[]', 3)]).toEqual([
+      'array_position(:ids::uuid[], "user"."id")',
+      'array_position(:numbers::int[], 3)',
+    ]);
+    expect(() => mysql.similarity(u.firstName, ':q')).toThrow(TypeError);
+    expect(() => sqlite.arrayPosition(':ids', u.id)).toThrow(TypeError);
     expect(mysql.stringAgg(u.firstName, `a\\b'`)).toBe(`GROUP_CONCAT("user"."firstName" SEPARATOR 'a\\\\b''')`);
   });
 
