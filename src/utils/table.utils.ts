@@ -10,6 +10,8 @@ import {
 import { buildJsonPath } from './json-path.utils';
 import { filtered, sqlString } from './aggregate.utils';
 import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
+import { Sql } from './sql-functions.utils';
+import type { SqlJsonKey } from './sql-functions.utils';
 import type { DateTruncUnit } from './time-zone.utils';
 
 export type { DateTruncUnit } from './time-zone.utils';
@@ -90,6 +92,74 @@ export type TableHelperJsonOptions = {
 };
 
 type ColumnName<T> = keyof T & string;
+
+declare const jsonPathEnd: unique symbol;
+
+/** The end of a path into a JSON column: a value with no keys of its own. */
+export type JsonPathEnd = { readonly [jsonPathEnd]?: never };
+
+/** A JSON value TypeScript knows nothing about: any key, at any depth. */
+export type JsonPathAny = { readonly [key: string]: JsonPathAny };
+
+type JsonObjectPart<V> = Exclude<Extract<NonNullable<V>, object>, Date | ArrayBufferView | ArrayBuffer>;
+
+/** The keys a path may take below a JSON value: an object's keys (of any member of a union), an array's indexes. */
+export type JsonPathNode<V> = 0 extends 1 & V
+	? JsonPathAny
+	: unknown extends V
+		? JsonPathAny
+		: [JsonObjectPart<V>] extends [never]
+			? JsonPathEnd
+			: [JsonObjectPart<V>] extends [readonly (infer E)[]]
+				? { readonly [index: number]: JsonPathNode<E> }
+				: [JsonKeys<JsonObjectPart<V>>] extends [never]
+					? JsonPathAny
+					: { readonly [K in JsonKeys<JsonObjectPart<V>>]-?: JsonPathNode<JsonValueAt<JsonObjectPart<V>, K>> };
+
+/** The row `json` / `jsonText` read a path from: a column, then the keys of its JSON value. */
+export type JsonPathRow<T> = { readonly [K in ColumnName<T>]-?: JsonPathNode<T[K]> };
+
+const JSON_PATH = Symbol('jsonPath');
+const ARRAY_INDEX = /^(0|[1-9]\d*)$/;
+
+// the column and the keys a callback walks: (r) => r.metadata.settings.theme → ['metadata', 'settings', 'theme']
+function readJsonPath(method: string, callback: unknown): [string, SqlJsonKey, ...SqlJsonKey[]] {
+	if (typeof callback !== 'function') {
+		throw new TypeError(`tableHelper.${method}() takes a callback, e.g. t.${method}((r) => r.metadata.role)`);
+	}
+
+	const step = (keys: readonly string[]): unknown =>
+		new Proxy(
+			{},
+			{
+				get: (_target, key) => {
+					if (key === JSON_PATH) {
+						return keys;
+					}
+
+					return typeof key === 'symbol' ? undefined : step([...keys, key]);
+				},
+			}
+		);
+	const result: unknown = callback(step([]));
+	const keys = typeof result === 'object' && result !== null ? (result as { [JSON_PATH]?: unknown })[JSON_PATH] : undefined;
+
+	if (!Array.isArray(keys)) {
+		throw new TypeError(`tableHelper.${method}(): the callback returns a path, e.g. (r) => r.metadata.role`);
+	}
+
+	const [column, first, ...rest] = keys as string[];
+
+	if (column === undefined || first === undefined) {
+		throw new TypeError(
+			`tableHelper.${method}(): the path needs a key inside the column, e.g. (r) => r.${column ?? 'metadata'}.role; the column itself is t.${column ?? 'metadata'}`
+		);
+	}
+
+	const toKey = (key: string): SqlJsonKey => (ARRAY_INDEX.test(key) ? Number(key) : key);
+
+	return [column, toKey(first), ...rest.map(toKey)];
+}
 
 export type TableHelperJsonAggOptions<T> = TableHelperJsonOptions & {
 	/** Orders the array by a column of the helper's table, ascending or in the given direction. Not on MySQL. */
@@ -449,6 +519,30 @@ const createTableHelper = <T extends ObjectLiteral>(
 		return `CAST(${expression} AS ${type})`;
 	},
 	/**
+	 * A value inside a JSON column as JSON, `->` key by key; a key of digits is an array index:
+	 * `t.json((r) => r.metadata.settings)` → `("user"."metadata" -> 'settings')`. Keys are checked against
+	 * the column's type. MySQL: `JSON_EXTRACT(…)`; SQLite 3.38+: `->` with a `$` path.
+	 */
+	json(path: (row: JsonPathRow<T>) => unknown): string {
+		const [column, ...keys] = readJsonPath('json', path);
+		const sql = options.driver === undefined ? Sql : Sql.for(options.driver);
+
+		return sql.json(this.column(column as keyof T), ...keys);
+	},
+	/**
+	 * A value inside a JSON column as text, `->` to the last key and `->>` on it:
+	 * `t.jsonText((r) => r.metadata.settings.theme)` → `("user"."metadata" -> 'settings' ->> 'theme')`.
+	 * A JSON `null` gives SQL NULL, where `json` gives a JSON `null` that `IS NOT NULL`.
+	 */
+	jsonText(path: (row: JsonPathRow<T>) => unknown): string {
+		const [column, ...keys] = readJsonPath('jsonText', path);
+		const sql = options.driver === undefined ? Sql : Sql.for(options.driver);
+
+		return sql.jsonText(this.column(column as keyof T), ...keys);
+	},
+	/**
+	 * @deprecated Use `json` / `jsonText`, which take the path as a callback: `t.jsonText((r) => r.metadata.role)`.
+	 *
 	 * Returns a full JSONB column access expression.
 	 * @example
 	 * t.jsonColumn('metadata', '->>', 'role')             // → "user"."metadata" ->> 'role'
@@ -464,6 +558,9 @@ const createTableHelper = <T extends ObjectLiteral>(
 		return `${column} ${path}`;
 	},
 	/**
+	 * @deprecated Go into the JSON column in the typed where callback (`whereTyped((u) => u.metadata.role, …)`),
+	 * or use `json` / `jsonText`.
+	 *
 	 * Returns only the JSONB operator fragment (without the column).
 	 * Useful inside `whereTyped` conditions strings.
 	 * @example

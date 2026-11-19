@@ -63,8 +63,10 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `atTimeZone(value, zone)` | `t.atTimeZone('createdAt', 'Europe/Kyiv')` | `("user"."createdAt" AT TIME ZONE 'Europe/Kyiv')` |
 | `dateTrunc(unit, value, zone?)` | `t.dateTrunc('day', 'createdAt', 'Europe/Kyiv')` | `date_trunc('day', "user"."createdAt", 'Europe/Kyiv')` |
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
-| `jsonColumn(column, operator, ...keys)` | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
-| `jsonPath(column, operator, ...keys)` | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
+| `json(path)` | `t.json((r) => r.metadata.settings)` | `("user"."metadata" -> 'settings')` |
+| `jsonText(path)` | `t.jsonText((r) => r.metadata.settings.theme)` | `("user"."metadata" -> 'settings' ->> 'theme')` |
+| `jsonColumn(column, operator, ...keys)` (deprecated) | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
+| `jsonPath(column, operator, ...keys)` (deprecated) | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
 | `jsonBuildObject(columns, options?)` | `image.jsonBuildObject(['id', 'url'])` | `json_build_object('id', "images"."id", 'url', "images"."url")` |
 | `jsonAgg(expression, options?)` | `image.jsonAgg(image.column('url'))` | `COALESCE(json_agg("images"."url"), CAST('[]' AS json))` |
 
@@ -271,7 +273,9 @@ const rows = await usersRepository
 
 ## JSONB
 
-`jsonColumn` returns the full accessor for a JSON/JSONB column; `jsonPath` returns only the operator part, for use in [whereTyped](../typed/whereTyped.md) conditions, where the column comes from the callback.
+`json` and `jsonText` read a value inside a JSON column, with the path written as a callback: `t.jsonText((r) => r.metadata.settings.theme)` is `("user"."metadata" -> 'settings' ->> 'theme')`. `json` gives the value as JSON (`->` on every key), `jsonText` as text (`->>` on the last key). They differ on a JSON `null`: `jsonText` gives SQL NULL, `json` a JSON `null` that `IS NOT NULL`. The keys are checked against the column's TypeScript type the same way as below, and any key goes below an untyped value (`unknown`, `any`, `object`, `Record<string, unknown>`). A key of digits (`r.metadata.items[0]`) is an array index, so an object key of digits can't be read this way. The result is in parentheses, so a cast or a comparison can follow it (`${t.jsonText((r) => r.paymentDetails.amount)}::int > 0`). With a `driver` it is written for that database: `JSON_EXTRACT` / `JSON_UNQUOTE` on MySQL, `->` / `->>` with a `$` path on SQLite 3.38+.
+
+`jsonColumn` and `jsonPath` are deprecated: `jsonColumn` returns the full accessor for a JSON/JSONB column with the operator as its second argument; `jsonPath` returns only the operator part, for use in [whereTyped](../typed/whereTyped.md) conditions, where the column comes from the callback — the callback can now go into the JSON column itself.
 
 Typed where methods go into JSON columns themselves (`user => user.metadata.settings.theme`, see [Paths into JSON columns](../typed/whereTyped.md#paths-into-json-columns)), so these helpers are for the places that take an expression: select, group by, order, untyped where.
 

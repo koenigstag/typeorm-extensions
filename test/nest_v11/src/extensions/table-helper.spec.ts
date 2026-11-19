@@ -158,6 +158,29 @@ describe('tableHelper', () => {
     });
   });
 
+  describe('json / jsonText', () => {
+    it('SHOULD write the path the callback walks, -> on every key or ->> on the last, in parentheses', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(table.jsonText((u) => u.metadata.role)).toBe('("user"."metadata" ->> \'role\')');
+      expect(table.json((u) => u.metadata.settings.theme)).toBe('("user"."metadata" -> \'settings\' -> \'theme\')');
+
+      type Rows = { data: { items: { name: string }[] } };
+
+      expect(tableHelper<Rows>('r').jsonText((r) => r.data.items[0].name)).toBe('("r"."data" -> \'items\' -> 0 ->> \'name\')');
+      expect(tableHelper<Rows>('r', { driver: 'mysql' }).jsonText((r) => r.data.items[0].name)).toBe(
+        'JSON_UNQUOTE(JSON_EXTRACT(`r`.`data`, \'$."items"[0]."name"\'))'
+      );
+    });
+
+    it('SHOULD refuse a path with no key inside the column', () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(() => table.jsonText((u) => u.metadata)).toThrow(/needs a key inside the column/);
+      expect(() => table.json(() => 'metadata')).toThrow(/the callback returns a path/);
+    });
+  });
+
   describe('jsonColumn', () => {
     it('SHOULD return column with ->> operator', () => {
       const table = tableHelper<UserEntity>('user');

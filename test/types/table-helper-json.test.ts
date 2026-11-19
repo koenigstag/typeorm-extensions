@@ -45,6 +45,24 @@ class Person {
 
 const person = tableHelper<Person>('person');
 
+// json / jsonText: the path as a callback
+person.jsonText((p) => p.profile.address.city);
+person.json((p) => p.profile.address.geo);
+person.jsonText((p) => p.profile.address.geo.lat);
+person.jsonText((p) => p.profile.tags[0]);
+person.jsonText((p) => p.profile.meta.any.depth);
+person.jsonText((p) => p.profile.extra.anything);
+person.jsonText((p) => p.free.a.b);
+person.jsonText((p) => p.anything.a.b);
+// @ts-expect-error not a key of the interface
+person.jsonText((p) => p.profile.address.street);
+// @ts-expect-error a string has no keys
+person.jsonText((p) => p.profile.address.city.length);
+// @ts-expect-error a Date ends the path
+person.jsonText((p) => p.profile.birthday.getTime);
+// @ts-expect-error not a column of the entity
+person.jsonText((p) => p.missing.key);
+
 // interface and class types are checked like type aliases
 person.jsonColumn('profile', '->>', 'address', 'city');
 person.jsonColumn('profile', '->', 'address', 'geo');
