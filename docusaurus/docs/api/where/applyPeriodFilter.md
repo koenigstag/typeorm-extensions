@@ -23,7 +23,7 @@ interface PeriodFilter {
 - The conditions are added with AND and narrow the whole WHERE clause: after `.where(a).orWhere(b)` the result is `(a OR b) AND …`, not `a OR (b AND …)` as with TypeORM's `andWhere`.
 - An invalid `Date` or a date-only string that isn't a calendar date (`'2024-02-30'`) throws a `TypeError`.
 
-Works on every database. Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Works on every database. Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 
@@ -94,6 +94,7 @@ With `timeZone`, the strings are read as the wall clock of that zone and passed 
 | any other string (`'yesterday'`) | `TypeError` |
 
 - The conversion runs in JavaScript (`Intl`), so the column stays bare in SQL and its index is used, and it works on every database.
+- On SQLite, which keeps a datetime as UTC text (`2024-01-31 10:00:00.000`) and compares it as text, a string with a time and an offset is bound as a `Date` even without `timeZone`, so TypeORM writes it in the stored form. Other strings are compared as written there.
 - Daylight saving time is followed as PostgreSQL's `AT TIME ZONE` does: a day may have 23 or 25 hours, a time the clock skips is read with the offset before the transition (`'2024-03-10 02:30'` → `07:30` UTC), and a time shown twice is the later of the two.
 - It is for timestamp columns. A `date` column has no time zone: filter it without `timeZone`.
 - An unknown zone throws a `TypeError`, also when the period is empty, so a wrong zone from configuration is caught at once.

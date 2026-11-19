@@ -1,11 +1,12 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { patchPrototype } from '../utils/prototype.utils';
-import { resolveCalculatedColumn, selectCalculatedForOrder } from '../utils/calculated-column.utils';
+import {
+  addSelectCalculatedColumn,
+  CalculatedSelection,
+  orderByCalculatedColumn,
+} from '../utils/calculated-column.utils';
 
-/** `addSelect`'s selection: an SQL expression, or a factory that builds a subquery on the builder it is given. */
-export type CalculatedSelection<SubEntity extends ObjectLiteral = ObjectLiteral> =
-  | string
-  | ((qb: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<SubEntity>);
+export type { CalculatedSelection };
 
 // declarations
 
@@ -77,7 +78,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       property: string,
       alias?: string
     ): SelectQueryBuilder<Entity> {
-      return addSelectCalculated(this, selection, property, alias);
+      return addSelectCalculatedColumn(this, selection, property, alias, 'addSelectCalculated');
     },
 
     orderByCalculated<Entity extends ObjectLiteral>(
@@ -87,7 +88,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       nulls?: 'NULLS FIRST' | 'NULLS LAST',
       alias?: string
     ): SelectQueryBuilder<Entity> {
-      return attachOrderByCalculated(this, 'orderBy', property, order, nulls, alias);
+      return orderByCalculatedColumn(this, 'orderBy', property, order, nulls, alias, 'orderByCalculated');
     },
 
     addOrderByCalculated<Entity extends ObjectLiteral>(
@@ -97,40 +98,9 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       nulls?: 'NULLS FIRST' | 'NULLS LAST',
       alias?: string
     ): SelectQueryBuilder<Entity> {
-      return attachOrderByCalculated(this, 'addOrderBy', property, order, nulls, alias);
+      return orderByCalculatedColumn(this, 'addOrderBy', property, order, nulls, alias, 'addOrderByCalculated');
     },
   },
 };
 
 patchPrototype(SelectQueryBuilder, extension);
-
-// implementation
-
-function addSelectCalculated<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
-  builder: SelectQueryBuilder<Entity>,
-  selection: CalculatedSelection<SubEntity>,
-  property: string,
-  aliasName?: string
-): SelectQueryBuilder<Entity> {
-  const { key } = resolveCalculatedColumn(builder, property, aliasName, 'addSelectCalculated');
-
-  // two calls: addSelect's overloads take a string or a factory, not their union
-  if (typeof selection === 'function') {
-    return builder.addSelect(selection, key);
-  }
-
-  return builder.addSelect(selection, key);
-}
-
-function attachOrderByCalculated<Entity extends ObjectLiteral>(
-  builder: SelectQueryBuilder<Entity>,
-  method: 'orderBy' | 'addOrderBy',
-  property: string,
-  order: 'ASC' | 'DESC' | undefined,
-  nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined,
-  aliasName: string | undefined
-): SelectQueryBuilder<Entity> {
-  const orderAlias = selectCalculatedForOrder(builder, property, aliasName, `${method}Calculated`);
-
-  return builder[method](orderAlias, order, nulls);
-}

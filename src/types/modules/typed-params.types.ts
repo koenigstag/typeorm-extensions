@@ -1,3 +1,4 @@
+import type { FindOperator } from 'typeorm';
 import type { TypeormExtensionsConfig } from '../interfaces/config.interface';
 import type { TypedWhereOptions } from '../extensions/typed-where.types';
 import type { ArgsType } from '../util-types';
@@ -79,6 +80,20 @@ type StrictWhereArgs<Operator extends string, Value> = Uppercase<Trim<Operator>>
  */
 export type TypedWhereArgs<Type, Operator extends string, Value> =
   IsStrict<Type> extends true ? StrictWhereArgs<NoInferType<Operator>, NoInferType<Value>> : LooseWhereArgs;
+
+/**
+ * A TypeORM find operator on a column, its value of the column's type. `In()`, `IsNull()` and `Raw()` are typed
+ * `FindOperator<any>` by TypeORM and fit any column.
+ */
+export type TypedFindOperator<Value> = FindOperator<ParamValue<NoInferType<Value>>>;
+
+/** The condition of `whereTyped`: SQL (`'IS NULL'`, `'>='` with a value), or a find operator on the column. */
+export type TypedWhereCondition<Value> = string | TypedFindOperator<Value>;
+
+/** Parameters and options after the condition; a find operator holds its own value and takes none. */
+export type TypedWhereConditionArgs<Type, Condition, Value> = Condition extends string
+  ? TypedWhereArgs<Type, Condition, Value>
+  : [];
 
 /** Values of `whereIsInTyped` / `whereIsAnyTyped`; with `strictParams`, of the column's type. */
 export type TypedArrayArg<Type, Value> = IsStrict<Type> extends true ? readonly ParamValue<NoInferType<Value>>[] : ArgsType;

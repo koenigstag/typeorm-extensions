@@ -6,7 +6,7 @@ sidebar_position: 1
 
 ## Description
 
-This category provides a set of extensions for `WHERE` conditions on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`: `IN`, `= ANY(...)`, PostgreSQL array and JSON operators, null-safe comparisons, period filters and `[NOT] EXISTS` subqueries.
+This category provides a set of extensions for `WHERE` conditions on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`): `IN`, `= ANY(...)`, PostgreSQL array and JSON operators, null-safe comparisons, period filters and `[NOT] EXISTS` subqueries.
 
 ### Methods
 - [whereIsIn](./whereIsIn): add `IN` / `NOT IN` conditions by column name.

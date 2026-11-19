@@ -21,7 +21,7 @@ Conditions on PostgreSQL **array columns** (`text[]`, `int[]`, `uuid[]`, …):
 
 **PostgreSQL only** (and compatible databases such as CockroachDB). The column must be a real array column, e.g. `@Column('text', { array: true })`, not TypeORM's `simple-array` (comma-separated text).
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 

@@ -2,21 +2,21 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
-const projectName = 'Typeorm Extensions';
+const projectName = 'TypeORM Extensions';
 const repositoryName = 'typeorm-extensions';
 const packageName = repositoryName;
 const organizationName = 'koenigstag';
 
 const branchName = 'main';
-const projectFolder = __dirname;
+const projectFolder = 'docusaurus';
 
 const config: Config = {
   title: projectName,
-  tagline: 'Additional functionality and extensions for the TypeORM',
+  tagline: 'Type-safe extensions for the TypeORM QueryBuilder: typed queries, pagination, SQL helpers',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: `https:/${organizationName}.github.io`,
+  url: `https://${organizationName}.github.io`,
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: `/${repositoryName}`,
@@ -44,18 +44,10 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          // Please change this to your repo.
-          // Remove this to remove th'typeorm-extensions'e "edit this page" links.
           editUrl:
             `https://github.com/${organizationName}/${repositoryName}/tree/${branchName}/${projectFolder}/docs/`,
         },
-        blog: {
-          showReadingTime: true,
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            `https://github.com/${organizationName}/${repositoryName}/tree/${branchName}/${projectFolder}/blog/`,
-        },
+        blog: false,
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -64,8 +56,6 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
     navbar: {
       title: projectName,
       logo: {
@@ -117,8 +107,12 @@ const config: Config = {
           title: 'Community',
           items: [
             {
-              label: 'Stack Overflow',
-              href: `https://stackoverflow.com/questions/tagged/${packageName}`,
+              label: 'Issues',
+              href: `https://github.com/${organizationName}/${repositoryName}/issues`,
+            },
+            {
+              label: 'Changelog',
+              href: `https://github.com/${organizationName}/${repositoryName}/blob/${branchName}/CHANGELOG.md`,
             },
           ],
         },
@@ -126,8 +120,8 @@ const config: Config = {
           title: 'More',
           items: [
             {
-              label: 'Blog',
-              to: '/blog',
+              label: 'Playground',
+              to: '/playground',
             },
             {
               label: 'GitHub',
@@ -140,7 +134,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} ${projectName}, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} ${organizationName}. MIT licensed. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

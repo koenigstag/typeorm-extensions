@@ -5,20 +5,49 @@ import {
   DeleteQueryBuilder,
 } from 'typeorm';
 import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
-import type { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
-import { getKeyHolder } from '../../../utils/proxy-key.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototypes } from '../../../utils/prototype.utils';
+import { columnProxy, isColumnRef } from '../../../utils/column-proxy.utils';
 
 // declarations
 
+/** The SQL of one returned column. It can be a value of the returned object or go into an expression. */
+export type ReturningColumn = string;
+
+/**
+ * The columns of the written row: a property gives its column (`"ticket_status"`), an embedded
+ * property its columns (`p.address.city`), a relation with one join column that column.
+ */
+export type ReturningRow<Entity> = {
+  readonly [K in keyof Entity as Entity[K] extends (...args: never[]) => unknown ? never : K]-?: NonNullable<
+    Entity[K]
+  > extends Date | readonly unknown[]
+    ? ReturningColumn
+    : NonNullable<Entity[K]> extends ObjectLiteral
+      ? ReturningColumn & ReturningRow<NonNullable<Entity[K]>>
+      : ReturningColumn;
+};
+
+/**
+ * What the `returningTyped` callback gets: the columns of the written row, and on PostgreSQL 18+
+ * `old` and `new`, the row before and after the write (`old` is all NULL for an inserted row,
+ * `new` for a deleted one). A column named `old` or `new` is shadowed by them.
+ */
+export type ReturningColumns<Entity> = Omit<ReturningRow<Entity>, 'old' | 'new'> & {
+  readonly old: ReturningRow<Entity>;
+  readonly new: ReturningRow<Entity>;
+};
+
 export interface TypedReturningMethods<Entity extends ObjectLiteral> {
   /**
-   * Sets the columns to return from entity properties: `RETURNING` on PostgreSQL and MariaDB, `OUTPUT` on SQL Server.
-   * `returningTyped(u => [u.id, u.status])` returns the columns of `id` and `status`, whatever their
-   * database names; the rows come in `execute()`'s `raw`. A property that isn't a column of the
-   * entity throws a `TypeError` (TypeORM's `returning([...])` silently skips it).
+   * Sets what the write returns, as an object of output names: `RETURNING` on PostgreSQL and MariaDB, `OUTPUT` on SQL Server.
+   * `returningTyped(t => ({ id: t.id, status: t.status }))` returns rows `{ id, status }` in `execute()`'s `raw`,
+   * whatever the database names of the columns. A value is a column or an SQL expression built from them;
+   * `old` / `new` (PostgreSQL 18+) give the row before and after the write. Exactly the listed outputs are returned.
+   * A property that isn't a column throws a `TypeError`.
    */
-  returningTyped(selection: KeyProxyCallback<Entity>): this;
+  returningTyped<Type extends ObjectLiteral = Entity>(
+    selection: (columns: ReturningColumns<Type>) => Record<string, ReturningColumn>
+  ): this;
 }
 
 /* eslint-disable @typescript-eslint/no-empty-interface */
@@ -44,41 +73,82 @@ declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
 const extension: { prototype: Partial<UpdateQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     // the same implementation for the Insert, Update, Delete and SoftDelete builders
-    returningTyped<Entity extends ObjectLiteral>(
+    returningTyped<Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
       this: UpdateQueryBuilder<Entity>,
-      selection: KeyProxyCallback<Entity>
+      selection: (columns: ReturningColumns<Type>) => Record<string, ReturningColumn>
     ): UpdateQueryBuilder<Entity> {
-      const keyHolders = getKeyHolder<Entity>(selection);
-      const paths = (Array.isArray(keyHolders) ? keyHolders : [keyHolders]).map((keyHolder) =>
-        keyHolder.getKeys().join('.')
-      );
-
       const mainAlias = this.expressionMap.mainAlias;
+      const driver = this.connection.driver;
+      const queryType = this.expressionMap.queryType;
 
-      if (!mainAlias?.hasMetadata) {
-        // no entity to map properties with: return the columns by name
-        return this.returning(paths.map((path) => this.escape(path)).join(', '));
-      }
+      const columnName = (path: string[]): string => {
+        const propertyPath = path.join('.');
 
-      for (const path of paths) {
-        // a column, an embedded column (`address.city`) or a relation with join columns (`owner`)
-        if (mainAlias.metadata.findColumnsWithPropertyPath(path).length === 0) {
-          throw new TypeError(`returningTyped: "${path}" is not a column of ${mainAlias.metadata.name}`);
+        if (!mainAlias?.hasMetadata) {
+          // no entity to map properties with: the property is the column
+          return this.escape(propertyPath);
         }
+
+        const columns = mainAlias.metadata.findColumnsWithPropertyPath(propertyPath);
+
+        if (columns.length !== 1) {
+          throw new TypeError(
+            columns.length === 0
+              ? `returningTyped: "${propertyPath}" is not a column of ${mainAlias.metadata.name}`
+              : `returningTyped: "${propertyPath}" of ${mainAlias.metadata.name} has ${columns.length} columns, return them one by one`
+          );
+        }
+
+        return this.escape(columns[0].databaseName);
+      };
+
+      const currentRow = (path: string[]): string => {
+        const name = columnName(path);
+
+        if (driver.options.type !== 'mssql') {
+          return name;
+        }
+
+        // OUTPUT reads the written row from INSERTED, a deleted one from the table, as TypeORM's returning() does
+        const mainTableName = (this as unknown as { getMainTableName(): string }).getMainTableName();
+
+        return queryType === 'delete' ? `${this.escape(mainTableName)}.${name}` : `INSERTED.${name}`;
+      };
+
+      const rowVersion = (version: 'old' | 'new') => (path: string[]): string => {
+        if (driver.options.type !== 'postgres') {
+          throw new TypeError(`returningTyped: "${version}" is supported on PostgreSQL 18+ only`);
+        }
+
+        return `${version}.${columnName(path)}`;
+      };
+
+      const columns = columnProxy([], currentRow, {
+        old: columnProxy([], rowVersion('old')),
+        new: columnProxy([], rowVersion('new')),
+      }) as ReturningColumns<Type>;
+
+      const outputs = selection(columns);
+
+      if (outputs === null || typeof outputs !== 'object' || Array.isArray(outputs)) {
+        throw new TypeError('returningTyped: return an object of output names, e.g. t => ({ id: t.id })');
       }
 
-      return this.returning(paths);
+      const expressions = Object.entries(outputs).map(([name, value]) => {
+        if (typeof value !== 'string' && !isColumnRef(value)) {
+          throw new TypeError(`returningTyped: "${name}" must be a column or an SQL expression`);
+        }
+
+        return `${String(value)} AS ${this.escape(name)}`;
+      });
+
+      if (expressions.length === 0) {
+        throw new TypeError('returningTyped: return at least one output');
+      }
+
+      return this.returning(expressions.join(', '));
     },
   },
 };
 
-const queryBuilders = [
-  InsertQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-  SoftDeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes([InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder, SoftDeleteQueryBuilder], extension);

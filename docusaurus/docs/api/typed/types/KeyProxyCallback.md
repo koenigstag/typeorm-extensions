@@ -28,7 +28,7 @@ type KeyProxyCallback<Entity> = (
 | `exec => exec.details.meta.endTs` | `"exec"."details" -> 'meta' ->> 'endTs'`: the keys after a JSON column are a path inside it, in where methods only (see [Paths into JSON columns](../whereTyped.md#paths-into-json-columns)) |
 | `user => [user.id, user.name]` | `['user.id', 'user.name']`: several keys (for `selectTyped`, `distinctOnTyped`, `groupByTyped`) |
 
-The property is mapped to its database column (`@Column({ name })`, embedded columns) through the metadata of its alias: where methods and `useQuotes` emit the quoted column, e.g. `"user"."created_at"`.
+The property is mapped to its database column (`@Column({ name })`, embedded columns) through the metadata of its alias: where methods and `useQuotes` emit the quoted column, e.g. `"user"."created_at"`. A key on an alias the query doesn't have yet, such as a join added after the call, is mapped when the SQL is built, the way TypeORM maps unquoted keys.
 
 A relation column is keyed by the relation property name, so join the relation with that alias:
 
@@ -98,7 +98,7 @@ query.where((qb) => {
 })
 ```
 
-A single-level key (`(q) => q.chatRoomId`) needs the main alias, so before `from()` it throws a `TypeError`. Column names are mapped through aliases the query already knows: a quoted key (where methods, `useQuotes`) for a renamed column needs `from()` to come first.
+A single-level key (`(q) => q.chatRoomId`) needs the main alias, so before `from()` it throws a `TypeError`. Keys on an alias that `from()` adds later are mapped to their columns when the SQL is built.
 
 ## Example
 

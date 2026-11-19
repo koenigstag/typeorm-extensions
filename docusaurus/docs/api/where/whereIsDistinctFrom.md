@@ -30,7 +30,7 @@ Works on every database, in its own syntax:
 - MySQL / MariaDB: `NOT (column <=> :value)` / `column <=> :value`
 - SQLite: `column IS NOT :value` / `column IS :value`
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 

@@ -34,7 +34,7 @@ setupTest('getRawManyWithTotals', undefined, (context) => {
       .select('t.id', 'id')
       .addSelect('t.status', 'status')
       .orderBy('t.id', 'ASC')
-      .getRawManyWithTotals<{ id: number; status: string }>({ page: 1, pageSize: 2 });
+      .getRawManyWithTotals<{ id: number; status: string }>({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page).toMatchObject({ total: 4, limit: 2, offset: 0, hasMore: true });
     expect(page.list).toEqual([

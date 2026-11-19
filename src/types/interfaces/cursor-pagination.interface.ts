@@ -16,3 +16,15 @@ export type CursorOrderParam<Entity> = {
   /** `'ASC'` by default. */
   direction?: OrderDirection;
 };
+
+/** An SQL expression that orders the rows of `getRawManyWithCursor`. */
+export type RawCursorOrderParam = {
+  /**
+   * A column (`user.createdAt`, `"user"."created_at"`) or a computed value
+   * (`CASE "member"."role" WHEN 'owner' THEN 0 ELSE 1 END`). It must be valid in WHERE, so not an
+   * aggregate, and must not be `NULL`.
+   */
+  selector: string;
+  /** `'ASC'` by default. */
+  direction?: OrderDirection;
+};

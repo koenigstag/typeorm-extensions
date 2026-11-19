@@ -10,4 +10,5 @@ export * from './search.types';
 export * from './typed-having.types';
 export * from './union.types';
 export * from './join-lateral.types';
+export * from './typed-join-and-map.types';
 export * from './query-returning.types';

@@ -2,10 +2,8 @@ import {
   SelectQueryBuilder,
   WhereExpressionBuilder,
   ObjectLiteral,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
-import { patchPrototype } from '../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import { toFieldSql } from '../utils/query-builder.utils';
 import { WhereMethods } from '../types/extensions';
 import {
@@ -74,6 +72,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereJsonMethods {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereJsonMethods {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 
 // patching
@@ -107,15 +109,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 

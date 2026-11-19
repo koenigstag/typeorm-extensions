@@ -2,9 +2,14 @@ import { SelectQueryBuilder } from 'typeorm';
 import 'typeorm-extensions';
 import type { WithTypedRoot } from '../../src/types/modules/typed-root.types';
 
+interface IntakeSettings {
+  enabled: boolean;
+}
+
 class Event {
   id: string;
   eventType: string;
+  intakeSettings?: IntakeSettings;
 }
 
 class CheckIn {
@@ -30,7 +35,6 @@ typed.addGroupByTyped((q) => [q.checkin.id, q.event.eventType]);
 checkIns.groupByTyped((c) => c.ticket);
 // @ts-expect-error the root is the aliases now, not the entity
 typed.groupByTyped((q) => q.customerId);
-// @ts-expect-error a relation is no column to group by
-checkIns.groupByTyped((c) => c.event);
-// @ts-expect-error nor in a list of columns
-checkIns.addGroupByTyped((c) => [c.id, c.event]);
+// a JSON column is grouped as a whole, on the main alias or a joined one; relations are checked at runtime
+checkIns.groupByTyped<Event>((e) => e.intakeSettings);
+checkIns.addGroupByTyped<Joins>((q) => [q.checkin.id, q.event.intakeSettings]);

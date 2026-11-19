@@ -1,8 +1,6 @@
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import type {
@@ -13,7 +11,7 @@ import type {
 } from '../../../types/extensions/search.types';
 import type { WhereMethods } from '../../../types/extensions/where.types';
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototype, patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { createUniqueParameterName } from '../../../utils/sql.utils';
 import { toSearchTerm } from '../../../utils/search.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
@@ -32,7 +30,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -42,7 +40,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column % :term` condition in the query builder (PostgreSQL, pg_trgm).
    * A blank term adds no condition.
    */
-  andWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -52,7 +50,7 @@ export interface TypedWhereSimilarMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column % :term` condition in the query builder (PostgreSQL, pg_trgm).
    * A blank term adds no condition.
    */
-  orWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereSimilarTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     options?: TypedSimilarOptions
@@ -68,7 +66,7 @@ export interface TypedSimilarityScoreMethods<Entity extends ObjectLiteral> {
    * (`word_similarity(:term, column)`, the score of `column %> :term`).
    * Use a lower-case alias: PostgreSQL folds an unquoted alias in ORDER BY.
    */
-  addSimilarityScoreTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  addSimilarityScoreTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     term: string | null | undefined,
     alias: string,
@@ -93,6 +91,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereSimilarMethods<Entity> {}
+}
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereSimilarMethods<Entity> {}
 }
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
@@ -182,14 +184,6 @@ const scoreExtension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } 
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 patchPrototype(SelectQueryBuilder, scoreExtension);

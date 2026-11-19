@@ -6,15 +6,15 @@ sidebar_position: 2
 
 This category provides a set of examples for pagination features.
 
-## applyPaginationFilter
+## applyPagination
 
-`applyPaginationFilter` is a method that applies pagination to a query.
+`applyPagination` is a method that applies pagination to a query.
 
-[API reference](/docs/api/pagination/applyPaginationFilter)
+[API reference](/docs/api/pagination/applyPagination)
 
 ```typescript
 query
-  .applyPaginationFilter(
+  .applyPagination(
     { page: 1, pageSize: 10 },
     { useTakeAndSkip: true }
   )

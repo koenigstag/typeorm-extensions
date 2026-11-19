@@ -6,11 +6,11 @@ sidebar_position: 3
 
 ## Description
 
-`getManyWithTotals` loads one page of entities together with the total number of matching rows, the page `limit` and `offset`, whether more rows follow (`hasMore`) and the SQL order the page was read in (`orderBy`).
+`getManyWithTotals` loads one page of entities together with the total number of matching rows, the `page` and `pageSize` it read with (defaults applied), the page `limit` and `offset`, whether more rows follow (`hasMore`), and with `includeOrderBy` the SQL order the page was read in (`orderBy`).
 
 It runs two queries:
 1. `getCount()` on the query as it is, before pagination is applied, to get the total;
-2. `getMany()` with [applyPaginationFilter](./applyPaginationFilter.md) applied, to get the page.
+2. `getMany()` with [applyPagination](./applyPagination.md) applied, to get the page.
 
 They run at the same time, so the call takes as long as the slower one. The count goes on a clone of the builder, taken before the page query applies its limit. On a builder bound to a query runner — from a transactional manager, or inside `dataSource.transaction` — they run one after another instead: there is a single connection, on which the driver would serialise them anyway, and on `pg` that queue is deprecated.
 
@@ -29,7 +29,7 @@ getManyWithTotals(
 
 ## Arguments
 
-- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Invalid or missing values fall back to page `1` and page size `10`.
+- paginationFilter: [PaginationFilter](./types/PaginationFilter.md): Page number (1-based) and page size. Numeric strings, as an unparsed query parameter holds them, are read as numbers, and fractions are rounded down. Invalid or missing values fall back to page `1` and page size `10`. A page past the last representable offset (`page: '1e21'`) reads as an empty page rather than a database error.
 - options?: [GetManyWithTotalsOptions](./types/GetManyWithTotalsOptions.md): Skip the count query, or load all rows without pagination.
 
 ## What the count counts
@@ -43,6 +43,7 @@ That makes one mistake easy to miss: a condition that belongs to a single page �
 - The count is often as expensive as the page itself — on a text search with `COUNT(DISTINCT …)` the two take about the same time — and the call can only be as fast as the slower of the two.
 - Running them together takes two connections from the pool instead of one, for the length of the call.
 - If the count fails, for instance on a statement timeout, the whole call fails, even though the page was already read; `Promise.all` reports the first error and the other result is dropped. Nothing is logged by the extension itself.
+- With `.cache(id, ms)` the page is cached under `id`, as TypeORM's `getManyAndCount` does, and the count under `${id}-count`. One fixed id therefore serves its first cached page for every page: give each page its own id (`` `tickets:${page}:${pageSize}` ``), or cache without an id, which TypeORM keys by the SQL and its parameters. The same holds for `getRawManyWithTotals` and `getManyWithCursor`.
 - `disableTotalsCalculation` costs nothing in information except `total` itself: `hasMore` is still known, from one row past the page. If the page only needs a "load more" control rather than a page count, this is the path to take — not a last resort for queries that turned out slow.
 
 :::tip Do you need the total, or only `hasMore`?
@@ -55,23 +56,24 @@ Reach for `total` when the interface shows a count or numbered pages. Note that 
 
 ## Returns
 
-[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, limit, offset, hasMore, orderBy }`.
+[ListWithTotals&lt;Entity&gt;](./types/ListWithTotals.md): `{ list, total, page, pageSize, limit, offset, hasMore }`, and `orderBy` with `includeOrderBy: true`.
 
 ## Usage
 
 ```typescript
-const { list, total, limit, offset, hasMore, orderBy } = await usersRepository
+const { list, total, page, pageSize, limit, offset, hasMore } = await usersRepository
   .createQueryBuilder('user')
   .whereTyped(user => user.lastName, 'LIKE', '%Doe%')
   .orderBy('user.lastName', 'ASC')
   .getManyWithTotals({ page: 2, pageSize: 20 });
 
-// list    - users 21..40
-// total   - number of all users matching the condition
-// limit   - 20
-// offset  - 20
-// hasMore - true while rows follow the page, null only with loadAll
-// orderBy - [{ selector: 'user.lastName', order: 'ASC' }] — SQL selectors, for logs
+// list     - users 21..40
+// total    - number of all users matching the condition
+// page     - 2 (1 when the page is missing or below 1)
+// pageSize - 20 (10 when the size is missing or below 1)
+// limit    - 20
+// offset   - 20
+// hasMore  - true while rows follow the page, null only with loadAll
 ```
 
 ```typescript
@@ -81,6 +83,6 @@ await query.getManyWithTotals({ page: 1, pageSize: 10 }, { disableTotalsCalculat
 ```
 
 ```typescript
-// All matching rows: pagination is not applied, limit, offset and hasMore are null
+// All matching rows: pagination is not applied, page, pageSize, limit, offset and hasMore are null
 await query.getManyWithTotals({}, { loadAll: true });
 ```

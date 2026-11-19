@@ -2,18 +2,17 @@ import {
   ObjectLiteral,
   SelectQueryBuilder,
   WhereExpressionBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import type {
   SearchSelector,
+  SearchSelectors,
   TypedILikeOptions,
   TypedSearchOptions,
 } from '../../../types/extensions/search.types';
 import type { WhereMethods } from '../../../types/extensions/where.types';
 import { getTypedColumnKey, getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { createUniqueParameterName, getDriverType } from '../../../utils/sql.utils';
 import {
   buildILikeCondition,
@@ -37,7 +36,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -47,7 +46,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `column ILIKE :pattern` condition in the query builder.
    * `null`, `undefined` or a blank value adds no condition.
    */
-  andWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -57,7 +56,7 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `column ILIKE :pattern` condition in the query builder.
    * `null`, `undefined` or a blank value adds no condition.
    */
-  orWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereILikeTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: string | null | undefined,
     options?: TypedILikeOptions
@@ -65,14 +64,15 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
 
   /**
    * Sets WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder:
-   * one group, one parameter for every column. A selector is a typed callback (it may select
-   * several columns) or a raw expression `{ sql: '…' }`, which is put in parentheses.
+   * one group, one parameter for every column. Takes one callback, `q => [q.name, q.email]`, or a list
+   * of selectors: a typed callback (it may select several columns) or a raw expression `{ sql: '…' }`,
+   * which is put in parentheses.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+  whereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): this;
@@ -81,8 +81,8 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
-  andWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+  andWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): this;
@@ -91,8 +91,8 @@ export interface TypedWhereILikeMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE `(col1 ILIKE :pattern OR col2 ILIKE :pattern …)` condition in the query builder.
    * A value shorter than `options.minLength` (default 1, after trimming) adds no condition.
    */
-  orWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+  orWhereSearchTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): this;
@@ -113,6 +113,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereILikeMethods<Entity> {}
+}
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereILikeMethods<Entity> {}
 }
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
@@ -144,7 +148,7 @@ const createWhereILikeTypedMethod = (method: WhereMethods) =>
 const createWhereSearchTypedMethod = (method: WhereMethods) =>
   function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
-    selectors: ReadonlyArray<SearchSelector<Type>>,
+    selectors: SearchSelectors<Type>,
     value: string | null | undefined,
     options?: TypedSearchOptions
   ): SelectQueryBuilder<Entity> {
@@ -172,30 +176,25 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 
 /** Quoted columns and raw expressions of the search selectors, in order. */
 function getSearchColumns<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
-  selectors: ReadonlyArray<SearchSelector<Type>>,
+  selectors: SearchSelectors<Type>,
   methodName: string
 ): string[] {
-  if (!Array.isArray(selectors) || selectors.length === 0) {
-    // no columns to search in: matching nothing or everything silently would hide the bug
-    throw new TypeError(`${methodName} expects a non-empty array of columns to search in`);
+  const list: ReadonlyArray<SearchSelector<Type>> = typeof selectors === 'function' ? [selectors] : selectors;
+  // no columns to search in: matching nothing or everything silently would hide the bug
+  const emptyError = new TypeError(`${methodName} expects a non-empty array of columns to search in`);
+
+  if (!Array.isArray(list) || list.length === 0) {
+    throw emptyError;
   }
 
-  return selectors.flatMap((selector) => {
+  const columns = list.flatMap((selector) => {
     if (typeof selector === 'function') {
       return getTypedColumnKey<Type>(builder, selector);
     }
@@ -207,6 +206,12 @@ function getSearchColumns<Type extends ObjectLiteral>(
 
     throw new TypeError(`${methodName} expects a typed callback or { sql: string }, got ${JSON.stringify(selector)}`);
   });
+
+  if (columns.length === 0) {
+    throw emptyError;
+  }
+
+  return columns;
 }
 
 /**

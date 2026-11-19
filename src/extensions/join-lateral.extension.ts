@@ -1,6 +1,6 @@
-import { ObjectLiteral, QueryRunner, SelectQueryBuilder } from 'typeorm';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import type { LateralSubQuery } from '../types/extensions/join-lateral.types';
-import { withUniqueParameterNames } from '../utils/parameter.utils';
+import { detachedSubQuery, toSubQuerySql } from '../utils/parameter.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 
 // declarations
@@ -100,25 +100,7 @@ function toLateralSql<Entity extends ObjectLiteral, SubEntity extends ObjectLite
   const subBuilder =
     typeof subQuery === 'function' ? subQuery(detachedSubQuery(builder)) : subQuery;
 
-  const query = subBuilder.getQuery();
-  // a builder from subQuery() wraps itself in parentheses, any other doesn't
-  const wrapped = subBuilder.expressionMap.subQuery ? query : `(${query})`;
-  const [sql, parameters] = withUniqueParameterNames(wrapped, subBuilder.getParameters());
+  const [sql, parameters] = toSubQuerySql(subBuilder);
 
-  return { sql, parameters };
-}
-
-/**
- * A subquery builder for a factory, as TypeORM's `subQuery()` but without a parent: TypeORM's would
- * set the factory's parameters on the outer query under their own names, before they can be renamed.
- */
-function detachedSubQuery<Entity extends ObjectLiteral>(
-  builder: SelectQueryBuilder<Entity>
-): SelectQueryBuilder<ObjectLiteral> {
-  const queryRunner = (builder as unknown as { queryRunner?: QueryRunner }).queryRunner;
-  const subQuery = builder.connection.createQueryBuilder(queryRunner);
-
-  subQuery.expressionMap.subQuery = true;
-
-  return subQuery;
+  return { sql: `(${sql})`, parameters };
 }

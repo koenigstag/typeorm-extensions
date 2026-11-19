@@ -20,7 +20,7 @@ Conditions on PostgreSQL **JSON columns**:
 
 **PostgreSQL only** (and compatible databases such as CockroachDB). TypeORM's `simple-json` columns (JSON stored as text) work too, as the cast parses the text, but without an index.
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`).
 
 ## Signature
 

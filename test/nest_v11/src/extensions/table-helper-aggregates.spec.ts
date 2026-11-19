@@ -34,7 +34,7 @@ describe('tableHelper aggregates SQL', () => {
     // PostgreSQL orders a DISTINCT aggregate only by its argument
     expect(() => images().arrayAgg('url', { distinct: true, orderBy: 'id' })).toThrow(/only be ordered by "url"/);
     expect(() => images().arrayAgg('id', { orderBy: ['id', 'UP' as 'ASC'] })).toThrow(/'ASC' or 'DESC'/);
-    expect(() => images('mysql').arrayAgg('id')).toThrow(/use jsonAgg/);
+    expect(() => images('mysql').arrayAgg('id')).toThrow(/arrayAgg\(\): PostgreSQL only, the driver is "mysql": use jsonAgg/);
     expect(() => images('better-sqlite3').arrayAgg('id')).toThrow(/use jsonAgg/);
     expect(() => images('mssql').arrayAgg('id')).toThrow(/use jsonAgg/);
   });

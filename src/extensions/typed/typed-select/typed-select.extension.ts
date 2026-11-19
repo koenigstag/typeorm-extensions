@@ -1,11 +1,7 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { KeyProxyCallback } from '../../../types/modules/proxy-callback.types';
-import {
-  getSqlKeyFromProxyCallback,
-  KeyHolder,
-} from '../../../utils/proxy-key.utils';
+import { KeyHolder } from '../../../utils/proxy-key.utils';
 import { getTypedSelectionKey } from '../../../utils/query-builder.utils';
-import { getDriverType } from '../../../utils/sql.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -16,13 +12,14 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     /**
      * Creates SELECT query.
      * Replaces all previous selections if they exist.
+     * A boolean in place of the alias is `useQuotes`: `selectTyped(q => [q.id, q.name], true)`.
      */
-    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
-      selectionAliasName?: string,
+      selectionAliasName?: string | boolean,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Creates SELECT query and selects given data.
      * Replaces all previous selections if they exist.
@@ -32,26 +29,27 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       selection: string | KeyHolder,
       selectionAliasName?: string,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Creates SELECT query and selects given data.
      * Replaces all previous selections if they exist.
      */
-    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    selectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
 
     /**
      * Adds new selection to the SELECT query.
+     * A boolean in place of the alias is `useQuotes`: `addSelectTyped(q => [q.id, q.name], true)`.
      */
-    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: KeyProxyCallback<Type>,
-      selectionAliasName?: string,
+      selectionAliasName?: string | boolean,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Adds new selection to the SELECT query.
      */
@@ -60,15 +58,15 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       selection: string | KeyHolder,
       selectionAliasName?: string,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
     /**
      * Adds new selection to the SELECT query.
      */
-    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+    addSelectTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
       this: SelectQueryBuilder<Entity>,
       selection: string[] | KeyHolder[] | Array<KeyProxyCallback<Type>>,
       useQuotes?: boolean
-    ): SelectQueryBuilder<Entity>;
+    ): this;
   }
 }
 
@@ -149,26 +147,18 @@ const attachSelectMethod = <
   selectionAliasName?: string,
   useQuotes?: boolean
 ): SelectQueryBuilder<Entity> => {
-  if (selection instanceof KeyHolder) {
-    return query[method](
-      selection.toSql(undefined, useQuotes, getDriverType(query)),
-      selectionAliasName
-    );
-  }
-
   if (Array.isArray(selection)) {
     const arrayOfKeys = selection.flatMap((select) =>
-      select instanceof KeyHolder
-        ? (getSqlKeyFromProxyCallback<Type>(select, () => query.alias, useQuotes, getDriverType(query)) as string)
-        : getTypedSelectionKey<Type>(query, select, useQuotes)
+      getTypedSelectionKey<Type>(query, select, useQuotes, `${method}Typed`)
     );
 
     return query[method](arrayOfKeys);
-  } else if (typeof selection === 'function') {
+  } else if (selection instanceof KeyHolder || typeof selection === 'function') {
     const keyArrayOrSingleKey = getTypedSelectionKey<Type>(
       query,
       selection,
-      useQuotes
+      useQuotes,
+      `${method}Typed`
     );
 
     if (Array.isArray(keyArrayOrSingleKey)) {

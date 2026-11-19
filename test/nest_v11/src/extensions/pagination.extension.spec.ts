@@ -9,7 +9,7 @@ import {
 import { UserEntity, ImageEntity } from '../models';
 
 setupTest(
-  'pagination.applyPaginationFilter.limitAndOffset',
+  'pagination.applyPagination.limitAndOffset',
   undefined,
   (context) => {
     it('SHOULD apply limit and offset correctly', async () => {
@@ -28,7 +28,7 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...userIds)', { userIds: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({
+        .applyPagination({
           page,
           pageSize,
         });
@@ -71,7 +71,7 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({
+        .applyPagination({
           page,
           pageSize,
         });
@@ -105,7 +105,7 @@ setupTest(
 );
 
 setupTest(
-  'pagination.applyPaginationFilter.takeAndSkip',
+  'pagination.applyPagination.takeAndSkip',
   undefined,
   (context) => {
     it('SHOULD apply limit and offset correctly using take and skip', async () => {
@@ -140,7 +140,7 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
+        .applyPagination({ page, pageSize }, { useTakeAndSkip: true });
 
       expect(sqlOf(paginatedQuery)).toContain(`LIMIT ${limit}`);
       expect(sqlOf(paginatedQuery)).toContain(`OFFSET ${offset}`);
@@ -183,7 +183,7 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
+        .applyPagination({ page, pageSize }, { useTakeAndSkip: true });
 
       // the first page has no offset: recent TypeORM versions write `OFFSET 0`, older ones leave it out
       expect(sqlOf(paginatedQuery)).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
@@ -201,5 +201,23 @@ setupTest(
     });
 
     // TODO Add negative test cases
+  },
+);
+
+setupTest(
+  'pagination.applyPaginationFilter.legacyName',
+  undefined,
+  (context) => {
+    it('SHOULD page the query exactly like applyPagination', () => {
+      const query = () =>
+        context.dataSource.getRepository(UserEntity).createQueryBuilder('user').select('user.id');
+
+      expect(sqlOf(query().applyPaginationFilter({ page: 3, pageSize: 4 }))).toEqual(
+        sqlOf(query().applyPagination({ page: 3, pageSize: 4 })),
+      );
+      expect(
+        query().applyPaginationFilter({ page: 3, pageSize: 4 }, { useTakeAndSkip: true }).expressionMap.take,
+      ).toBe(4);
+    });
   },
 );

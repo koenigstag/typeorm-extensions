@@ -32,6 +32,10 @@ describe('tableHelper time SQL', () => {
     expect(order().dateTrunc('day', 'paidAt', { column: 'timezone', fallback: '-0330' })).toBe(
       `date_trunc('day', "order"."paidAt", COALESCE("order"."timezone", '<-0330>+03:30'))`,
     );
+    expect(() => order().atTimeZone('paidAt', '+25:00')).toThrow(/atTimeZone\(\): "\+25:00" is not a UTC offset/);
+    expect(() => order().dateTrunc('day', 'paidAt', { column: 'timezone', fallback: '-03:60' })).toThrow(
+      /dateTrunc\(\): "-03:60" is not a UTC offset/,
+    );
   });
 
   it('SHOULD truncate, in a time zone with the three-argument form', () => {

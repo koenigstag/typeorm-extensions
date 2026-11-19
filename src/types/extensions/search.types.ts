@@ -16,6 +16,9 @@ export type SqlExpression = { sql: string };
 /** A column (typed callback, may select several columns) or a raw SQL expression to search in. */
 export type SearchSelector<Type extends ObjectLiteral> = KeyProxyCallback<Type> | SqlExpression;
 
+/** One callback selecting the columns, `q => [q.name, q.email]`, or a list of selectors. */
+export type SearchSelectors<Type extends ObjectLiteral> = KeyProxyCallback<Type> | ReadonlyArray<SearchSelector<Type>>;
+
 export type TypedILikeOptions = {
   /** Where the value must be found in the column. Defaults to `'contains'`. */
   match?: LikeMatch;

@@ -16,7 +16,7 @@ export interface TypedOrderByArrayPositionMethods<Entity extends ObjectLiteral> 
    * `array_position(:values, column)`. Rows whose value isn't in `values` come last.
    * Like `orderBy`, it replaces the previous ORDER BY. See `orderByArrayPosition`.
    */
-  orderByArrayPositionTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orderByArrayPositionTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string
@@ -25,7 +25,7 @@ export interface TypedOrderByArrayPositionMethods<Entity extends ObjectLiteral> 
   /**
    * Adds ORDER BY the position of the property's column value in `values` (PostgreSQL), like `addOrderBy`.
    */
-  addOrderByArrayPositionTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  addOrderByArrayPositionTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     values: ArgsType,
     arrayType?: string

@@ -15,22 +15,27 @@ The group is in parentheses, so it combines safely with other conditions. Escapi
 
 ## Signature
 ```typescript
-whereSearchTyped(selectors: Array<KeyProxyCallback<Entity> | { sql: string }>, value: string | null | undefined, options?: TypedSearchOptions): this
-andWhereSearchTyped(selectors: Array<KeyProxyCallback<Entity> | { sql: string }>, value: string | null | undefined, options?: TypedSearchOptions): this
-orWhereSearchTyped(selectors: Array<KeyProxyCallback<Entity> | { sql: string }>, value: string | null | undefined, options?: TypedSearchOptions): this
+whereSearchTyped(selectors: KeyProxyCallback<Entity> | Array<KeyProxyCallback<Entity> | { sql: string }>, value: string | null | undefined, options?: TypedSearchOptions): this
+andWhereSearchTyped(selectors: KeyProxyCallback<Entity> | Array<KeyProxyCallback<Entity> | { sql: string }>, value: string | null | undefined, options?: TypedSearchOptions): this
+orWhereSearchTyped(selectors: KeyProxyCallback<Entity> | Array<KeyProxyCallback<Entity> | { sql: string }>, value: string | null | undefined, options?: TypedSearchOptions): this
 ```
 
 ## Arguments
-- selectors: The columns to search in, at least one:
+- selectors: The columns to search in, at least one. One [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md) selecting them, `u => [u.firstName, u.email]`, or an array of:
   - a [KeyProxyCallback&lt;Entity&gt;](./types/KeyProxyCallback.md), which may select several columns (`u => [u.firstName, u.lastName]`) or a joined column (`u => u.profile.nickname`);
   - `{ sql: string }`: a raw SQL expression, used as is in parentheses, e.g. the full name below.
 - value: string | null | undefined: The text to search for.
 - options?: TypedSearchOptions: The options of [whereILikeTyped](./whereILikeTyped.md#arguments) (`match`, `escape`, `unaccent`), plus:
   - minLength?: number: The shortest value that is searched for. Defaults to `1`.
 
-An empty `selectors` array or an invalid selector throws a `TypeError`, even for a blank value.
+No columns or an invalid selector throws a `TypeError`, even for a blank value.
 
 ## Usage
+
+```typescript
+// AND ("user"."firstName" ILIKE $1 OR "user"."email" ILIKE $1)
+query.andWhereSearchTyped(user => [user.firstName, user.email], dto.search)
+```
 
 ```typescript
 // AND ("user"."firstName" ILIKE $1 OR "user"."lastName" ILIKE $1

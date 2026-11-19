@@ -2,12 +2,10 @@ import '../../period-filter.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { attachPeriodFilter } from '../../../utils/period.utils';
 import type { PeriodFilter } from '../../../types/interfaces/period.interface';
 import type { ApplyPeriodOptions } from '../../../types/extensions/period.types';
@@ -23,7 +21,7 @@ export interface TypedPeriodFilterMethods<Entity extends ObjectLiteral> {
    * Both ends are inclusive unless `options.includeFrom` / `options.includeTo` is `false`.
    * A date-only string (`'2024-01-31'`) stands for the whole day: `periodTo: '2024-01-31'` → `column < '2024-02-01'`.
    */
-  applyPeriodFilterTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  applyPeriodFilterTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     selection: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     periodFilter: PeriodFilter | null | undefined,
     options?: ApplyPeriodOptions
@@ -46,6 +44,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedPeriodFilterMethods<Entity> {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedPeriodFilterMethods<Entity> {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
 // patching
@@ -65,12 +67,4 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);

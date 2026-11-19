@@ -1,10 +1,8 @@
 import {
   SelectQueryBuilder,
   ObjectLiteral,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
-import { patchPrototype } from '../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import type { PeriodFilter } from '../types/interfaces/period.interface';
 import type { ApplyPeriodOptions } from '../types/extensions/period.types';
 import { toFieldSql } from '../utils/query-builder.utils';
@@ -43,6 +41,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends PeriodFilterMethods {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends PeriodFilterMethods {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 
 // patching
@@ -60,12 +62,4 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);

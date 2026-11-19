@@ -1,12 +1,69 @@
-import { DatabaseType, ObjectLiteral } from "typeorm";
-import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver, quoteIdentifier, quoteIdentifierPath } from './sql.utils';
+import { DatabaseType, getMetadataArgsStorage, ObjectLiteral } from "typeorm";
+import {
+	assertArrayType,
+	isMysqlLikeDriver,
+	isPostgresLikeDriver,
+	isSqliteLikeDriver,
+	quoteIdentifier,
+	quoteIdentifierPath,
+} from './sql.utils';
 import { buildJsonPath } from './json-path.utils';
+import { filtered, sqlString } from './aggregate.utils';
+import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
+import { Sql } from './sql-functions.utils';
+import type { SqlJsonKey } from './sql-functions.utils';
+import type { DateTruncUnit } from './time-zone.utils';
+
+export type { DateTruncUnit } from './time-zone.utils';
 
 export type TableHelperOptions = {
 	useQuotes?: boolean;
 	/** The database the SQL is for: MySQL and MariaDB quote identifiers with backticks. Double quotes without it. */
 	driver?: DatabaseType;
 };
+
+/** Values a JSON path stops at, as typed callbacks read them: dates and binary data are values, an array's items have no keys. */
+type JsonPathLeaf = Date | ArrayBufferView | ArrayBuffer | readonly unknown[];
+
+/** The keys of every member of a union: a JSON value of a union type may be any of them. */
+type JsonKeys<T> = T extends JsonPathLeaf ? never : T extends object ? keyof T & string : never;
+
+/** The value under `Key` in the members of `V` that have it. */
+type JsonValueAt<V, Key> = V extends unknown ? (Key extends keyof V ? V[Key] : never) : never;
+
+/**
+ * An object whose keys a JSON path names: a type alias, an interface or a class. `object` and `{}` have no keys to check;
+ * `unknown` and `any` may hold any object, so the path goes on with any keys.
+ */
+type JsonPathKind<V> = unknown extends V
+	? 'untyped'
+	: [NonNullable<V>] extends [JsonPathLeaf]
+		? 'leaf'
+		: [NonNullable<V>] extends [object]
+			? [JsonKeys<NonNullable<V>>] extends [never]
+				? 'untyped'
+				: 'object'
+			: 'leaf';
+
+/**
+ * A JSON path checked one key at a time against the value each key is read from, so it costs the length of the path:
+ * listing every path of a wide class instead costs thousands of types per call. A key that doesn't fit is replaced by
+ * the keys that would, which is what the error names.
+ */
+type JsonPathRest<V, Path extends readonly string[]> = Path extends readonly [infer Head extends string, ...infer Rest extends string[]]
+	? JsonPathKind<V> extends 'untyped'
+		? Path
+		: JsonPathKind<V> extends 'object'
+			? Head extends JsonKeys<NonNullable<V>>
+				? [Head, ...JsonPathRest<JsonValueAt<NonNullable<V>, Head>, Rest>]
+				: [JsonKeys<NonNullable<V>>, ...Rest]
+			: []
+	: [];
+
+/** The keys of a JSON path into a column of type `V`: at least one, checked when `V` is an object type, any strings otherwise. */
+export type JsonPathArgs<V, Path extends readonly string[]> = JsonPathKind<V> extends 'object'
+	? Path extends readonly [] ? [JsonKeys<NonNullable<V>>] : JsonPathRest<V, Path>
+	: Path;
 
 type JsonFieldTuple<T, Depth extends 0[] = []> = Depth['length'] extends 4
 	? [string, ...string[]]
@@ -35,6 +92,74 @@ export type TableHelperJsonOptions = {
 };
 
 type ColumnName<T> = keyof T & string;
+
+declare const jsonPathEnd: unique symbol;
+
+/** The end of a path into a JSON column: a value with no keys of its own. */
+export type JsonPathEnd = { readonly [jsonPathEnd]?: never };
+
+/** A JSON value TypeScript knows nothing about: any key, at any depth. */
+export type JsonPathAny = { readonly [key: string]: JsonPathAny };
+
+type JsonObjectPart<V> = Exclude<Extract<NonNullable<V>, object>, Date | ArrayBufferView | ArrayBuffer>;
+
+/** The keys a path may take below a JSON value: an object's keys (of any member of a union), an array's indexes. */
+export type JsonPathNode<V> = 0 extends 1 & V
+	? JsonPathAny
+	: unknown extends V
+		? JsonPathAny
+		: [JsonObjectPart<V>] extends [never]
+			? JsonPathEnd
+			: [JsonObjectPart<V>] extends [readonly (infer E)[]]
+				? { readonly [index: number]: JsonPathNode<E> }
+				: [JsonKeys<JsonObjectPart<V>>] extends [never]
+					? JsonPathAny
+					: { readonly [K in JsonKeys<JsonObjectPart<V>>]-?: JsonPathNode<JsonValueAt<JsonObjectPart<V>, K>> };
+
+/** The row `json` / `jsonText` read a path from: a column, then the keys of its JSON value. */
+export type JsonPathRow<T> = { readonly [K in ColumnName<T>]-?: JsonPathNode<T[K]> };
+
+const JSON_PATH = Symbol('jsonPath');
+const ARRAY_INDEX = /^(0|[1-9]\d*)$/;
+
+// the column and the keys a callback walks: (r) => r.metadata.settings.theme → ['metadata', 'settings', 'theme']
+function readJsonPath(method: string, callback: unknown): [string, SqlJsonKey, ...SqlJsonKey[]] {
+	if (typeof callback !== 'function') {
+		throw new TypeError(`tableHelper.${method}() takes a callback, e.g. t.${method}((r) => r.metadata.role)`);
+	}
+
+	const step = (keys: readonly string[]): unknown =>
+		new Proxy(
+			{},
+			{
+				get: (_target, key) => {
+					if (key === JSON_PATH) {
+						return keys;
+					}
+
+					return typeof key === 'symbol' ? undefined : step([...keys, key]);
+				},
+			}
+		);
+	const result: unknown = callback(step([]));
+	const keys = typeof result === 'object' && result !== null ? (result as { [JSON_PATH]?: unknown })[JSON_PATH] : undefined;
+
+	if (!Array.isArray(keys)) {
+		throw new TypeError(`tableHelper.${method}(): the callback returns a path, e.g. (r) => r.metadata.role`);
+	}
+
+	const [column, first, ...rest] = keys as string[];
+
+	if (column === undefined || first === undefined) {
+		throw new TypeError(
+			`tableHelper.${method}(): the path needs a key inside the column, e.g. (r) => r.${column ?? 'metadata'}.role; the column itself is t.${column ?? 'metadata'}`
+		);
+	}
+
+	const toKey = (key: string): SqlJsonKey => (ARRAY_INDEX.test(key) ? Number(key) : key);
+
+	return [column, toKey(first), ...rest.map(toKey)];
+}
 
 export type TableHelperJsonAggOptions<T> = TableHelperJsonOptions & {
 	/** Orders the array by a column of the helper's table, ascending or in the given direction. Not on MySQL. */
@@ -71,34 +196,6 @@ export type TableHelperArrayAggOptions<T> = {
 	filter?: string;
 };
 
-/**
- * The argument of an aggregate and the clause after it for a `filter` written with `syntax`:
- * `CASE WHEN filter THEN argument END`, or `argument` and ` FILTER (WHERE filter)`.
- */
-function filtered(
-	method: string,
-	argument: string,
-	filter: string | undefined,
-	syntax: unknown = 'case',
-	driver?: DatabaseType
-) {
-	if (syntax !== 'case' && syntax !== 'filter') {
-		throw new TypeError(`tableHelper.${method}(): syntax is 'case' or 'filter', got "${String(syntax)}"`);
-	}
-
-	if (filter && syntax === 'filter' && isMysqlLikeDriver(driver)) {
-		throw new TypeError(`tableHelper.${method}(): MySQL / MariaDB have no FILTER (WHERE …), use syntax 'case'`);
-	}
-
-	if (!filter) {
-		return { argument, suffix: '' };
-	}
-
-	return syntax === 'case'
-		? { argument: `CASE WHEN ${filter} THEN ${argument} END`, suffix: '' }
-		: { argument, suffix: ` FILTER (WHERE ${filter})` };
-}
-
 /** `orderBy` of an aggregate: its column, and the SQL after the argument, ` ORDER BY column [direction]`. */
 function aggregateOrder<T>(method: string, orderBy: AggregateOrder<T>, toSql: (column: ColumnName<T>) => string) {
 	const [column, direction] = (typeof orderBy === 'string' ? [orderBy] : orderBy) as AggregateOrderTuple<T>;
@@ -125,41 +222,9 @@ export type TableHelperExpression<T> = DateColumnName<T> | { sql: string };
  */
 export type TableHelperTimeZone<T> = string | { column: ColumnName<T>; fallback?: string } | { sql: string };
 
-/** The units of PostgreSQL's `date_trunc`. */
-export type DateTruncUnit =
-	| 'microseconds'
-	| 'milliseconds'
-	| 'second'
-	| 'minute'
-	| 'hour'
-	| 'day'
-	| 'week'
-	| 'month'
-	| 'quarter'
-	| 'year'
-	| 'decade'
-	| 'century'
-	| 'millennium';
-
-const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
-	'microseconds',
-	'milliseconds',
-	'second',
-	'minute',
-	'hour',
-	'day',
-	'week',
-	'month',
-	'quarter',
-	'year',
-	'decade',
-	'century',
-	'millennium',
-];
-
-function assertPostgres(method: string, driver: DatabaseType | undefined) {
+function assertPostgres(method: string, driver: DatabaseType | undefined, hint?: string) {
 	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
-		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"`);
+		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"${hint ? `: ${hint}` : ''}`);
 	}
 }
 
@@ -173,7 +238,7 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 			throw new TypeError(`tableHelper.${method}(): the time zone is empty`);
 		}
 
-		return sqlString(toPostgresZone(timeZone));
+		return sqlString(toPostgresZone(`tableHelper.${method}`, timeZone));
 	}
 
 	if ('sql' in timeZone) {
@@ -184,25 +249,7 @@ function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColum
 
 	return timeZone.fallback === undefined
 		? column
-		: `COALESCE(${column}, ${sqlString(toPostgresZone(timeZone.fallback))})`;
-}
-
-const ISO_OFFSET = /^([+-])(\d{2}):?(\d{2})?$/;
-
-/**
- * PostgreSQL reads `'+02:00'` as a POSIX zone, whose offsets count west: UTC−2. An ISO 8601 offset is
- * written as the POSIX zone of the same offset, `'<+0200>-02:00'`, so `'+02:00'` is UTC+2 as everywhere else.
- */
-function toPostgresZone(timeZone: string): string {
-	const offset = ISO_OFFSET.exec(timeZone.trim());
-
-	if (offset === null) {
-		return timeZone;
-	}
-
-	const [, sign, hours, minutes = '00'] = offset;
-
-	return `<${sign}${hours}${minutes}>${sign === '+' ? '-' : '+'}${hours}:${minutes}`;
+		: `COALESCE(${column}, ${sqlString(toPostgresZone(`tableHelper.${method}`, timeZone.fallback))})`;
 }
 
 /** The JSON functions of a database: PostgreSQL's unless the driver is MySQL / MariaDB or SQLite. */
@@ -232,25 +279,46 @@ function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefi
 	return { mysql, object: `${type}_build_object`, agg: `${type}_agg`, emptyArray: `CAST('[]' AS ${type})` };
 }
 
-// MySQL reads a backslash in a string as an escape (unless NO_BACKSLASH_ESCAPES): `\'` would end the literal
-const sqlString = (value: string, driver?: DatabaseType) =>
-	`'${(isMysqlLikeDriver(driver) ? value.replace(/\\/g, '\\\\') : value).replace(/'/g, "''")}'`;
 
+/** Every JSON path into a type alias, up to 4 keys deep: `string[]` for other types. `jsonColumn` / `jsonPath` check a path with `JsonPathArgs`. */
 export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
 
-/**
- * Creates a type-safe SQL helper for building column references, WHERE expressions,
- * JOIN clauses, and JSONB accessors for a given entity type.
- *
- * @example
- * const t = tableHelper<UserEntity>('user');
- * t.column('email')              // → "user"."email"
- * t.where('id', '= :id')        // → "user"."id" = :id
- * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
- */
-export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: TableHelperOptions = {}) => ({
+/** The values of an IN / ANY condition, read only to tell an empty list: the caller binds them. */
+type ValueList = readonly unknown[] | null | undefined;
+
+const PARAM_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+const hasValues = (values: ValueList): boolean => {
+	if (values === null || values === undefined) {
+		return false;
+	}
+
+	if (!Array.isArray(values)) {
+		throw new TypeError(`tableHelper: the values of an IN / ANY condition must be an array, got ${typeof values}`);
+	}
+
+	return values.length > 0;
+};
+
+// the name is written into the SQL as `:name`
+const assertParamName = (param: string): string => {
+	if (typeof param !== 'string' || !PARAM_NAME.test(param)) {
+		throw new TypeError(`tableHelper: "${param}" is not a parameter name (letters, digits and _)`);
+	}
+
+	return param;
+};
+
+const arrayParameter = (param: string, arrayType?: string): string =>
+	arrayType === undefined ? `:${assertParamName(param)}` : `CAST(:${assertParamName(param)} AS ${assertArrayType(arrayType)})`;
+
+const createTableHelper = <T extends ObjectLiteral>(
+	alias?: string,
+	options: TableHelperOptions = {},
+	databaseNames?: ReadonlyMap<string, string>,
+) => ({
 	alias,
 	/**
 	 * Returns a quoted SQL column identifier, e.g. `"alias"."column"`. The column is always quoted as one
@@ -260,7 +328,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		const { useQuotes = true, driver } = options;
 
 		const tableAlias = alias ?? this.alias;
-		const column = String(columnName);
+		const column = databaseNames?.get(String(columnName)) ?? String(columnName);
 
 		if (!useQuotes) {
 			return [tableAlias, column].filter(Boolean).join('.');
@@ -305,6 +373,28 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		return this.where(columnName, 'IS NOT NULL');
 	},
 	/**
+	 * Returns `"alias"."column" IN (:...param)`, or `FALSE` for no values, as `whereIsIn` writes it. The values
+	 * are bound under `param` by the caller: `qb.andWhere(t.isIn('id', ids, 'ids'), { ids })`.
+	 */
+	isIn(columnName: keyof T, values: ValueList, param: string) {
+		return hasValues(values) ? this.where(columnName, `IN (:...${assertParamName(param)})`) : 'FALSE';
+	},
+	/** Returns `"alias"."column" NOT IN (:...param)`, or `TRUE` for no values, as `whereIsNotIn` writes it. */
+	isNotIn(columnName: keyof T, values: ValueList, param: string) {
+		return hasValues(values) ? this.where(columnName, `NOT IN (:...${assertParamName(param)})`) : 'TRUE';
+	},
+	/**
+	 * Returns `"alias"."column" = ANY(:param)`, or `FALSE` for no values, as `whereIsAny` writes it: the array is
+	 * bound as one parameter, cast to `arrayType` when given (`'uuid[]'`). PostgreSQL.
+	 */
+	isAny(columnName: keyof T, values: ValueList, param: string, arrayType?: string) {
+		return hasValues(values) ? this.where(columnName, `= ANY(${arrayParameter(param, arrayType)})`) : 'FALSE';
+	},
+	/** Returns `"alias"."column" <> ALL(:param)`, or `TRUE` for no values, as `whereIsNotAny` writes it. PostgreSQL. */
+	isNotAny(columnName: keyof T, values: ValueList, param: string, arrayType?: string) {
+		return hasValues(values) ? this.where(columnName, `<> ALL(${arrayParameter(param, arrayType)})`) : 'TRUE';
+	},
+	/**
 	 * Returns `CAST(COUNT("alias"."column") AS integer)`: the rows where the column isn't `NULL`. With the `driver` option
 	 * MySQL casts `AS SIGNED`, a `BIGINT`, which its TypeORM driver returns as a string by default.
 	 * Without a column it is `COUNT(*)`, all the rows of the result, in every database. To count the rows
@@ -332,7 +422,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 
 		// `COUNT(*)`, not `COUNT("alias".*)`, which only PostgreSQL accepts;
 		// a CASE can't return `*`: without a column, it counts 1 per matching row
-		const { argument, suffix } = filtered('count', column ?? (filter && syntax === 'case' ? '1' : '*'), filter, syntax, options.driver);
+		const { argument, suffix } = filtered('tableHelper.count', column ?? (filter && syntax === 'case' ? '1' : '*'), filter, syntax, options.driver);
 
 		// `CAST(… AS integer)` is a syntax error on MySQL
 		return this.cast(
@@ -349,7 +439,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	 * // COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
 	 */
 	sum(columnName: NumericColumnName<T>, sumOptions: TableHelperSumOptions = {}) {
-		const { argument, suffix } = filtered('sum', this.column(columnName), sumOptions.filter, sumOptions.syntax, options.driver);
+		const { argument, suffix } = filtered('tableHelper.sum', this.column(columnName), sumOptions.filter, sumOptions.syntax, options.driver);
 
 		return `COALESCE(SUM(${argument})${suffix}, 0)`;
 	},
@@ -363,9 +453,7 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	arrayAgg(columnName: ColumnName<T>, aggOptions: TableHelperArrayAggOptions<T> = {}) {
 		const { distinct = false, orderBy, filter } = aggOptions;
 
-		if (options.driver !== undefined && !isPostgresLikeDriver(options.driver)) {
-			throw new TypeError(`tableHelper.arrayAgg(): arrays are PostgreSQL's, the driver is "${options.driver}": use jsonAgg`);
-		}
+		assertPostgres('arrayAgg', options.driver, 'use jsonAgg');
 
 		const order = orderBy ? aggregateOrder('arrayAgg', orderBy, (column) => this.column(column)) : undefined;
 
@@ -431,21 +519,48 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		return `CAST(${expression} AS ${type})`;
 	},
 	/**
+	 * A value inside a JSON column as JSON, `->` key by key; a key of digits is an array index:
+	 * `t.json((r) => r.metadata.settings)` → `("user"."metadata" -> 'settings')`. Keys are checked against
+	 * the column's type. MySQL: `JSON_EXTRACT(…)`; SQLite 3.38+: `->` with a `$` path.
+	 */
+	json(path: (row: JsonPathRow<T>) => unknown): string {
+		const [column, ...keys] = readJsonPath('json', path);
+		const sql = options.driver === undefined ? Sql : Sql.for(options.driver);
+
+		return sql.json(this.column(column as keyof T), ...keys);
+	},
+	/**
+	 * A value inside a JSON column as text, `->` to the last key and `->>` on it:
+	 * `t.jsonText((r) => r.metadata.settings.theme)` → `("user"."metadata" -> 'settings' ->> 'theme')`.
+	 * A JSON `null` gives SQL NULL, where `json` gives a JSON `null` that `IS NOT NULL`.
+	 */
+	jsonText(path: (row: JsonPathRow<T>) => unknown): string {
+		const [column, ...keys] = readJsonPath('jsonText', path);
+		const sql = options.driver === undefined ? Sql : Sql.for(options.driver);
+
+		return sql.jsonText(this.column(column as keyof T), ...keys);
+	},
+	/**
+	 * @deprecated Use `json` / `jsonText`, which take the path as a callback: `t.jsonText((r) => r.metadata.role)`.
+	 *
 	 * Returns a full JSONB column access expression.
 	 * @example
 	 * t.jsonColumn('metadata', '->>', 'role')             // → "user"."metadata" ->> 'role'
 	 * t.jsonColumn('metadata', '->>', 'settings', 'theme') // → "user"."metadata" -> 'settings' ->> 'theme'
 	 */
-	jsonColumn<K extends keyof T>(
+	jsonColumn<K extends keyof T, Path extends string[]>(
 		columnName: K,
 		jsonOperator: '->>' | '->',
-		...fieldNames: JsonFieldRest<T[K]>
+		...fieldNames: Path & JsonPathArgs<T[K], Path>
 	) {
 		const column = this.column(columnName);
 		const path = buildJsonPath(fieldNames, jsonOperator);
 		return `${column} ${path}`;
 	},
 	/**
+	 * @deprecated Go into the JSON column in the typed where callback (`whereTyped((u) => u.metadata.role, …)`),
+	 * or use `json` / `jsonText`.
+	 *
 	 * Returns only the JSONB operator fragment (without the column).
 	 * Useful inside `whereTyped` conditions strings.
 	 * @example
@@ -455,10 +570,10 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 	 * // Combined with whereTyped:
 	 * qb.whereTyped(u => u.metadata, `${t.jsonPath('metadata', '->>', 'role')} =`, 'admin')
 	 */
-	jsonPath<K extends keyof T>(
+	jsonPath<K extends keyof T, Path extends string[]>(
 		_columnName: K,
 		jsonOperator: '->>' | '->',
-		...fieldNames: JsonFieldRest<T[K]>
+		...fieldNames: Path & JsonPathArgs<T[K], Path>
 	) {
 		return buildJsonPath(fieldNames, jsonOperator);
 	},
@@ -499,3 +614,103 @@ export const tableHelper = <T extends ObjectLiteral>(alias?: string, options: Ta
 		return `date_trunc('${unit}', ${toExpression(value, toColumn)}${zone})`;
 	}
 });
+
+type TableHelperMemberName = keyof ReturnType<typeof createTableHelper>;
+
+/**
+ * The helper `tableHelper` returns: its methods, and each column of the table as a read-only property,
+ * `t.email` for `t.column('email')`. A column named like a member (`alias`, `count`, …) is the member there.
+ */
+export type TableHelper<T extends ObjectLiteral> = ReturnType<typeof createTableHelper<T>> & {
+	readonly [K in Exclude<ColumnName<T>, TableHelperMemberName>]: string;
+} & TableRow<T>;
+
+declare const tableRow: unique symbol;
+
+/** The row a helper reads, type only: `selectRow(helper, …)` selects exactly its columns. */
+export type TableRow<T extends ObjectLiteral> = { readonly [tableRow]?: T };
+
+// keys that JavaScript, Node and test tools read on any object (await, JSON.stringify, util.inspect, Jest): they
+// must stay undefined, as must symbols. The members of Object.prototype are in the target already
+const PROTOCOL_KEYS: ReadonlySet<string> = new Set(['then', 'toJSON', 'inspect', 'asymmetricMatch', '$$typeof', 'nodeType']);
+
+const columnAccess: ProxyHandler<{ column(columnName: string): string }> = {
+	get(target, key, receiver) {
+		if (typeof key === 'symbol' || key in target || PROTOCOL_KEYS.has(key)) {
+			return Reflect.get(target, key, receiver);
+		}
+
+		return target.column(key);
+	},
+};
+
+/** An entity class, abstract ones included. */
+export type EntityClass<T> = abstract new (...args: never[]) => T;
+
+const databaseNamesByEntity = new WeakMap<object, ReadonlyMap<string, string>>();
+
+// The names set with `@Column({ name })` on the class or a parent, the nearest declaration winning. Every other
+// column keeps its property name, as under TypeORM's default naming strategy. Columns of embedded entities are not read
+const databaseColumnNames = (entity: EntityClass<ObjectLiteral>): ReadonlyMap<string, string> => {
+	const cached = databaseNamesByEntity.get(entity);
+
+	if (cached) {
+		return cached;
+	}
+
+	const lineage: unknown[] = [];
+
+	for (let target: unknown = entity; typeof target === 'function' && target !== Function.prototype; target = Object.getPrototypeOf(target)) {
+		lineage.push(target);
+	}
+
+	const names = new Map<string, string>();
+	const depths = new Map<string, number>();
+
+	for (const { target, propertyName, options } of getMetadataArgsStorage().columns) {
+		const depth = lineage.indexOf(target);
+
+		if (depth !== -1 && options.name && depth < (depths.get(propertyName) ?? Infinity)) {
+			names.set(propertyName, options.name);
+			depths.set(propertyName, depth);
+		}
+	}
+
+	databaseNamesByEntity.set(entity, names);
+
+	return names;
+};
+
+/**
+ * Creates a type-safe SQL helper for building column references, WHERE expressions,
+ * JOIN clauses, and JSONB accessors for a given entity type.
+ *
+ * Given the entity class, it takes property names and writes the column names the entity maps them to:
+ * `tableHelper(UserEntity, 'user').adminEmail` is `"user"."email"` for `@Column({ name: 'email' }) adminEmail`.
+ *
+ * @example
+ * const t = tableHelper<UserEntity>('user');
+ * t.column('email')              // → "user"."email"
+ * t.email                        // → "user"."email", the same
+ * t.where('id', '= :id')        // → "user"."id" = :id
+ * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
+ */
+export function tableHelper<T extends ObjectLiteral>(entity: EntityClass<T>, alias?: string, options?: TableHelperOptions): TableHelper<T>;
+export function tableHelper<T extends ObjectLiteral>(alias?: string, options?: TableHelperOptions): TableHelper<T>;
+export function tableHelper<T extends ObjectLiteral>(
+	entityOrAlias?: EntityClass<T> | string,
+	aliasOrOptions?: string | TableHelperOptions,
+	entityOptions?: TableHelperOptions,
+): TableHelper<T> {
+	if (entityOrAlias === undefined && typeof aliasOrOptions === 'string') {
+		throw new TypeError(
+			`tableHelper(entity, '${aliasOrOptions}'): the entity class is undefined, as a circular import leaves it at module load. Create the helper where it is used`
+		);
+	}
+
+	const helper = typeof entityOrAlias === 'function'
+		? createTableHelper<T>(aliasOrOptions as string | undefined, entityOptions, databaseColumnNames(entityOrAlias))
+		: createTableHelper<T>(entityOrAlias, aliasOrOptions as TableHelperOptions | undefined);
+
+	return new Proxy(helper, columnAccess) as TableHelper<T>;
+}

@@ -40,7 +40,7 @@ const users = await userRepository
 
 ### Ordering
 
-`orderByCalculated(property, order?, nulls?, alias?)` orders by the value of a property selected with `addSelectCalculated` before; `addOrderByCalculated` adds to the order, like `addOrderBy`. [applyOrder](../order/applyOrder.md) does the same when its `field` is a `@CalculatedColumn`, so a client sorts by `imagesCount` like by any column.
+`orderByCalculated(property, order?, nulls?, alias?)` orders by the value of a property selected with `addSelectCalculated` before; `addOrderByCalculated` adds to the order, like `addOrderBy`. [orderByTyped / addOrderByTyped](../typed/orderByTyped.md) do the same for a typed callback that picks a `@CalculatedColumn` (see [Typed callbacks](#typed-callbacks)), and [applyOrder](../order/applyOrder.md) when its `field` is one, so a client sorts by `imagesCount` like by any column.
 
 ```typescript
 userRepository
@@ -55,29 +55,56 @@ userRepository
 The value is selected a second time under a generated alias (`calculated_…`) and ordered by it, as [orderByArrayPosition](../order/orderByArrayPosition.md) does. The key the entity is read from can't be ordered by: unquoted, PostgreSQL folds it (`user_imagesCount` → `user_imagescount`), and quoted, it breaks the DISTINCT query TypeORM pages through with `take` / `skip` and joins. So:
 
 - the database computes the expression twice per row: mind it for an expensive subquery;
-- the generated alias shows up in `getRawMany()` results and in the `orderBy` of [ListWithTotals](../pagination/types/ListWithTotals.md).
+- the generated alias shows up in `getRawMany()` results and in the `orderBy` of [ListWithTotals](../pagination/types/ListWithTotals.md);
+- ordering by the same value again, and [distinctOnTyped](../typed/distinctOnTyped.md) on the property, reuse the alias. PostgreSQL requires DISTINCT ON to match the leading ORDER BY, so both have to name that one column, in either call order:
+
+```typescript
+userRepository
+  .createQueryBuilder('user')
+  .addSelectCalculatedTyped(imagesCount, (user) => user.imagesCount)
+  .orderByTyped((user) => user.imagesCount, 'DESC')
+  .addOrderBy('user.id')
+  .distinctOnTyped((user) => user.imagesCount) // one user per count, the lowest id
+  .getMany();
+```
 
 A property that isn't selected yet, or isn't a `@CalculatedColumn`, throws a `TypeError`.
 
+### Typed callbacks
+
+`addSelectCalculatedTyped` takes the property as a typed callback instead of its name, and `orderByTyped` / `addOrderByTyped` / `distinctOnTyped` order by its value when their callback picks a `@CalculatedColumn`: `(user) => user.imagesCount`, or `(q) => q.owner.imagesCount` for the entity of the joined alias `owner`, which the callback names, so no alias argument is needed. The callback starts at the root set with [typed&lt;Root&gt;()](../typed/typedRoot.md), else at the entity, so the property of a joined entity is checked at compile time too, where the string form takes any name. That it is a `@CalculatedColumn` is still checked when the query is built: TypeScript doesn't see decorators.
+
+```typescript
+imageRepository
+  .createQueryBuilder('image')
+  .leftJoinAndSelect('image.user', 'owner')
+  .typed<{ image: ImageEntity; owner: UserEntity }>()
+  .addSelectCalculatedTyped(
+    '(SELECT COUNT(*) FROM "images" "i" WHERE "i"."userId" = "owner"."id")',
+    (q) => q.owner.imagesCount
+  )
+  .orderByTyped((q) => q.owner.imagesCount, 'DESC');
+```
+
 ### Compared with `@VirtualColumn`
 
-TypeORM's `@VirtualColumn({ query })` has one SQL query, which runs every time the entity is loaded. A `@CalculatedColumn` costs nothing until a query asks for it, and each query chooses the expression.
+TypeORM's `@VirtualColumn({ query })` has one SQL query, which runs every time the entity is loaded. A `@CalculatedColumn` costs nothing until a query asks for it, and each query chooses the expression. For a column the database computes and stores, see [GeneratedColumn](./generatedColumn.md), which compares the three.
 
 ### Types
 
 The selected value is converted by the column's type, as for `@Column`:
 
 - by default the property's TypeScript type, with `emitDecoratorMetadata`: `number`, `string`, `boolean`, `Date`;
-- a `number` turns the numeric strings of the database into numbers, decimals kept: a PostgreSQL `COUNT(*)` comes back as `2`, an `AVG` as `1.5`. Past `Number.MAX_SAFE_INTEGER` a number loses precision: declare such a value as `string`;
+- a `number`, and a numeric SQL type (`'integer'`, `'bigint'`, `'numeric'`, `'decimal'`, `'float'`, …), turns the numeric strings of the database into numbers, decimals kept: a PostgreSQL `COUNT(*)` comes back as `2`, an `AVG` as `1.5`, where the driver gives `'2'` and `'1.5000000000000000'`. Past `Number.MAX_SAFE_INTEGER` a number loses precision: declare such a value as `@CalculatedColumn(String)`;
 - a `boolean` is `false` for `false`, `0`, `'0'`, `'f'`, `'false'`, so `EXISTS (…)` works on MySQL too, where it is a number;
-- `@CalculatedColumn('jsonb')`, `@CalculatedColumn({ type: 'timestamptz' })` for other types. A union type (`string | null`) is reflected as `Object`: give it a type;
-- `@CalculatedColumn({ type: 'varchar', transformer: { from: (value) => …, to: (value) => value } })` converts further, e.g. JSON text from SQLite.
+- `@CalculatedColumn('jsonb')`, `@CalculatedColumn({ type: 'timestamptz' })` for other types. A union type (`number | null`) is reflected as `Object`: give it a type, `@CalculatedColumn(Number)`;
+- `@CalculatedColumn({ type: 'varchar', transformer: { from: (value) => …, to: (value) => value } })` converts it yourself, e.g. JSON text from SQLite. A transformer replaces the conversions above: it gets the value as the database returned it, a PostgreSQL `COUNT(*)` as `'2'`.
 
 ### Limits
 
 - The value is read when the entity is **selected as a whole**: the alias, as `createQueryBuilder('user')`, `leftJoinAndSelect` and `getMany()` do. With `select(['user.id', 'user.name'])` it isn't put into the entity.
 - `find()` options can't select it.
-- Typed methods (`whereTyped`, `orderByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it.
+- Other typed methods (`whereTyped`, `selectTyped`, `groupByTyped`, …) and `getManyWithCursor` take columns of the table: for the property they throw a `TypeError`. Use the expression that fills it. `orderByTyped`, `addOrderByTyped` and `distinctOnTyped` take it, as above.
 
 ### TypeORM versions
 
@@ -101,6 +128,8 @@ addSelectCalculated(selection: string | ((qb) => SelectQueryBuilder), property: 
 orderByCalculated(property: keyof Entity, order?: 'ASC' | 'DESC', nulls?: 'NULLS FIRST' | 'NULLS LAST'): this
 orderByCalculated(property: string, order: 'ASC' | 'DESC' | undefined, nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined, alias: string): this
 addOrderByCalculated(…): this // the same arguments
+
+addSelectCalculatedTyped(selection: string | ((qb) => SelectQueryBuilder), property: (root) => value): this
 ```
 
 ## Usage
