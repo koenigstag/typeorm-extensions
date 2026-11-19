@@ -9,6 +9,9 @@ export { Sql } from './utils/sql-functions.utils';
 export type {
   SqlAggregateOptions,
   SqlArrayAggOptions,
+  SqlCaseBranch,
+  SqlCaseOfBranch,
+  SqlCaseOptions,
   SqlDatePart,
   SqlFunctions,
   SqlIntervalAmount,
@@ -18,6 +21,7 @@ export type {
   SqlStringAggOptions,
   SqlTimeZone,
   SqlValue,
+  SqlValueAggregateOptions,
   SqlWindow,
 } from './utils/sql-functions.utils';
 export { selectExpression, SelectExpression } from './utils/select-expression.utils';

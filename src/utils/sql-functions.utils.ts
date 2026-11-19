@@ -17,6 +17,25 @@ export type SqlAggregateOptions = {
   syntax?: 'case' | 'filter';
 };
 
+export type SqlValueAggregateOptions = SqlAggregateOptions & {
+  /**
+   * The value of the rows `filter` leaves out: `SUM(CASE WHEN filter THEN expression ELSE value END)`. Always a
+   * `CASE`, whatever the `syntax`, since `FILTER (WHERE …)` has no else. Needs `filter`.
+   */
+  else?: SqlValue;
+};
+
+/** A branch of `Sql.case`: `WHEN condition THEN value`. */
+export type SqlCaseBranch = { when: string; then: SqlValue };
+
+/** A branch of `Sql.caseOf`: `WHEN match THEN value`, taken when the compared value equals `match`. */
+export type SqlCaseOfBranch = { when: SqlValue; then: SqlValue };
+
+export type SqlCaseOptions = {
+  /** `ELSE value`: the value when no branch is taken, NULL without it. */
+  else?: SqlValue;
+};
+
 export type SqlStringAggOptions = SqlAggregateOptions & {
   /** Orders the values: one expression or several, each with `ASC` / `DESC` if needed. On SQLite, 3.44+. */
   orderBy?: string | readonly string[];
@@ -132,6 +151,27 @@ function operand(method: string, input: unknown, position = 'argument'): string 
   return String(input);
 }
 
+function caseBranches(method: string, branches: unknown, when: typeof expression, options: unknown): string {
+  if (!Array.isArray(branches) || !branches.length) {
+    throw new TypeError(`Sql.${method}() needs at least one { when, then } branch`);
+  }
+
+  if (typeof options !== 'object' || options === null) {
+    throw new TypeError(`Sql.${method}(): the last argument is an options object, e.g. { else: 0 }`);
+  }
+
+  const whens = branches.map((branch: unknown, index) => {
+    if (typeof branch !== 'object' || branch === null || Array.isArray(branch) || !('when' in branch) || !('then' in branch)) {
+      throw new TypeError(`Sql.${method}(): branch ${index + 1} is a { when, then } object`);
+    }
+
+    return `WHEN ${when(method, branch.when, `when ${index + 1}`)} THEN ${operand(method, branch.then, `then ${index + 1}`)}`;
+  });
+  const otherwise = (options as SqlCaseOptions).else;
+
+  return `${whens.join(' ')}${otherwise === undefined ? '' : ` ELSE ${operand(method, otherwise, 'else value')}`}`;
+}
+
 function expressions(method: string, values: readonly unknown[], least: number, item = expression): string[] {
   if (values.length < least) {
     throw new TypeError(`Sql.${method}() needs at least ${least} expressions, got ${values.length}`);
@@ -186,12 +226,21 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
     }
   };
 
-  const aggregate = (fn: string, method: string, value: string, aggregateOptions: SqlAggregateOptions = {}): string => {
+  const aggregate = (fn: string, method: string, value: string, aggregateOptions: SqlValueAggregateOptions = {}): string => {
     if (typeof aggregateOptions !== 'object' || aggregateOptions === null) {
       throw new TypeError(`Sql.${method}(): the second argument is an options object, e.g. { filter: "…" }`);
     }
 
-    const { distinct = false, filter, syntax = defaultSyntax } = aggregateOptions;
+    const { distinct = false, filter, syntax = defaultSyntax, else: otherwise } = aggregateOptions;
+
+    if (otherwise !== undefined) {
+      if (!filter) {
+        throw new TypeError(`Sql.${method}(): else needs a filter, e.g. { filter: "…", else: 0 }`);
+      }
+
+      return `${fn}(${distinct ? 'DISTINCT ' : ''}CASE WHEN ${filter} THEN ${value} ELSE ${operand(method, otherwise, 'else value')} END)`;
+    }
+
     const { argument, suffix } = filtered(`Sql.${method}`, value, filter, syntax, driver);
 
     return `${fn}(${distinct ? 'DISTINCT ' : ''}${argument})${suffix}`;
@@ -331,6 +380,10 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
     count(value?: SqlValue | SqlAggregateOptions, aggregateOptions: SqlAggregateOptions = {}): string {
       const [counted, options] = typeof value === 'object' && value !== null ? [undefined, value] : [value, aggregateOptions];
 
+      if ((options as SqlValueAggregateOptions | undefined)?.else !== undefined) {
+        throw new TypeError('Sql.count() has no else: COUNT counts every value that is not NULL, the else value too');
+      }
+
       if (counted === undefined) {
         if (options.distinct) {
           throw new TypeError('Sql.count({ distinct: true }) needs an expression, e.g. Sql.count(t.email, { distinct: true })');
@@ -345,19 +398,19 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
       return aggregate('COUNT', 'count', operand('count', counted), options);
     },
     /** `SUM(expression)`: NULL for no rows, where `tableHelper.sum()` gives 0. */
-    sum(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+    sum(value: SqlValue, aggregateOptions?: SqlValueAggregateOptions): string {
       return aggregate('SUM', 'sum', operand('sum', value), aggregateOptions);
     },
     /** `MIN(expression)`: NULL for no rows. */
-    min(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+    min(value: SqlValue, aggregateOptions?: SqlValueAggregateOptions): string {
       return aggregate('MIN', 'min', operand('min', value), aggregateOptions);
     },
     /** `MAX(expression)`: NULL for no rows. */
-    max(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+    max(value: SqlValue, aggregateOptions?: SqlValueAggregateOptions): string {
       return aggregate('MAX', 'max', operand('max', value), aggregateOptions);
     },
     /** `AVG(expression)`: NULL for no rows; the `pg` driver returns PostgreSQL's `numeric` as a string. */
-    avg(value: SqlValue, aggregateOptions?: SqlAggregateOptions): string {
+    avg(value: SqlValue, aggregateOptions?: SqlValueAggregateOptions): string {
       return aggregate('AVG', 'avg', operand('avg', value), aggregateOptions);
     },
     /** `BOOL_OR(condition)`: true when the condition holds for some row. PostgreSQL. */
@@ -466,22 +519,13 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
     least(...values: [SqlValue, SqlValue, ...SqlValue[]]): string {
       return `${dialect === 'sqlite' ? 'MIN' : 'LEAST'}(${expressions('least', values, 2, operand).join(', ')})`;
     },
-    /** `CASE WHEN condition THEN value … [ELSE otherwise] END`: the value of the first condition that holds. */
-    case(branches: readonly (readonly [condition: string, value: SqlValue])[], otherwise?: SqlValue): string {
-      if (!Array.isArray(branches) || !branches.length) {
-        throw new TypeError('Sql.case() needs at least one [condition, value] branch');
-      }
-
-      const whens = branches.map((branch, index) => {
-        if (!Array.isArray(branch) || branch.length !== 2) {
-          throw new TypeError(`Sql.case(): branch ${index + 1} is a [condition, value] pair`);
-        }
-
-        return `WHEN ${expression('case', branch[0], `condition ${index + 1}`)} THEN ${operand('case', branch[1], `value ${index + 1}`)}`;
-      });
-      const elseSql = otherwise === undefined ? '' : ` ELSE ${operand('case', otherwise, 'otherwise value')}`;
-
-      return `CASE ${whens.join(' ')}${elseSql} END`;
+    /** `CASE WHEN condition THEN value … [ELSE value] END`: the value of the first condition that holds. */
+    case(branches: readonly SqlCaseBranch[], options: SqlCaseOptions = {}): string {
+      return `CASE ${caseBranches('case', branches, expression, options)} END`;
+    },
+    /** `CASE value WHEN match THEN result … [ELSE result] END`: the result of the first match equal to the value. */
+    caseOf(value: SqlValue, branches: readonly SqlCaseOfBranch[], options: SqlCaseOptions = {}): string {
+      return `CASE ${operand('caseOf', value)} ${caseBranches('caseOf', branches, operand, options)} END`;
     },
 
     /** `LOWER(expression)`. */

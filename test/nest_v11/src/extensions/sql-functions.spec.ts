@@ -31,7 +31,14 @@ describe('Sql functions', () => {
     expect(Sql.percentileCont(0.5, u.id)).toBe('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "user"."id")');
     expect(Sql.mode(u.firstName)).toBe('MODE() WITHIN GROUP (ORDER BY "user"."firstName")');
     expect(Sql.jsonbMerge(u.metadata, 'CAST(:patch AS jsonb)')).toBe(`(COALESCE("user"."metadata", CAST('{}' AS jsonb)) || CAST(:patch AS jsonb))`);
-    expect(Sql.case([[`${u.id} > 1`, 1]], -0.5)).toBe('CASE WHEN "user"."id" > 1 THEN 1 ELSE -0.5 END');
+    expect(Sql.case([{ when: `${u.id} > 1`, then: 1 }], { else: -0.5 })).toBe('CASE WHEN "user"."id" > 1 THEN 1 ELSE -0.5 END');
+    expect(Sql.caseOf(u.firstName, [{ when: "'Alice'", then: 1 }, { when: "'Bob'", then: 2 }], { else: 0 })).toBe(
+      `CASE "user"."firstName" WHEN 'Alice' THEN 1 WHEN 'Bob' THEN 2 ELSE 0 END`
+    );
+    expect(Sql.sum(u.id, { filter: `${u.id} > 1`, else: 0 })).toBe('SUM(CASE WHEN "user"."id" > 1 THEN "user"."id" ELSE 0 END)');
+    expect(Sql.for('postgres', { syntax: 'filter' }).max(u.id, { filter: `${u.id} > 1`, else: -1 })).toBe(
+      'MAX(CASE WHEN "user"."id" > 1 THEN "user"."id" ELSE -1 END)'
+    );
     expect(Sql.nullif(u.lastName, "''")).toBe(`NULLIF("user"."lastName", '')`);
     expect(Sql.greatest(u.createdAt, u.updatedAt)).toBe('GREATEST("user"."createdAt", "user"."updatedAt")');
     expect(Sql.least(u.createdAt, 'NOW()')).toBe('LEAST("user"."createdAt", NOW())');
@@ -109,7 +116,7 @@ describe('Sql.for(driver)', () => {
   });
 
   it('SHOULD write the database-independent functions the same way', () => {
-    expect(sqlite.case([[`${u.id} = 1`, "'one'"]], "'other'")).toBe(`CASE WHEN "user"."id" = 1 THEN 'one' ELSE 'other' END`);
+    expect(sqlite.case([{ when: `${u.id} = 1`, then: "'one'" }], { else: "'other'" })).toBe(`CASE WHEN "user"."id" = 1 THEN 'one' ELSE 'other' END`);
     expect(mysql.over(mysql.rowNumber(), { partitionBy: [u.lastName, u.email], orderBy: `${u.id} DESC` })).toBe(
       'ROW_NUMBER() OVER (PARTITION BY "user"."lastName", "user"."email" ORDER BY "user"."id" DESC)'
     );
@@ -192,8 +199,11 @@ describe('Sql.for(driver)', () => {
     expect(() => pg.interval(1.5, 'hours')).toThrow(/the amount is an integer/);
     expect(() => pg.ago(1, 'day' as never)).toThrow(/the unit is one of seconds, minutes/);
     expect(() => pg.extract('week' as never, u.createdAt)).toThrow(/the part is one of/);
-    expect(() => pg.case([])).toThrow(/at least one \[condition, value\] branch/);
-    expect(() => pg.case([[`${u.id} = 1`] as never])).toThrow(/branch 1 is a \[condition, value\] pair/);
+    expect(() => pg.case([])).toThrow(/at least one \{ when, then \} branch/);
+    expect(() => pg.case([[`${u.id} = 1`, 1]] as never)).toThrow(/branch 1 is a \{ when, then \} object/);
+    expect(() => pg.caseOf(u.id, [{ when: 1 }] as never)).toThrow(/branch 1 is a \{ when, then \} object/);
+    expect(() => pg.sum(u.id, { else: 0 })).toThrow(/else needs a filter/);
+    expect(() => pg.count(u.id, { filter: '1 = 1', else: 0 } as never)).toThrow(/count\(\) has no else/);
     expect(() => pg.jsonbSet(u.metadata, [] as never, '1')).toThrow(/non-empty array of keys/);
   });
 });
@@ -270,9 +280,9 @@ setupTest('Sql functions in queries', undefined, (context) => {
 
     const rows = await users()
       .select(u.id, 'id')
-      .addSelect(sql.case([[`${u.id} = 1`, "'one'"], [`${u.id} = 2`, "'two'"]], "'many'"), 'word')
+      .addSelect(sql.case([{ when: `${u.id} = 1`, then: "'one'" }, { when: `${u.id} = 2`, then: "'two'" }], { else: "'many'" }), 'word')
       .addSelect(sql.over(sql.rowNumber(), { orderBy: `${u.id} DESC` }), 'fromEnd')
-      .addSelect(sql.over(sql.rank(), { partitionBy: sql.case([[u.isNull('metadata'), '1']], '0'), orderBy: u.id }), 'rankInGroup')
+      .addSelect(sql.over(sql.rank(), { partitionBy: sql.case([{ when: u.isNull('metadata'), then: '1' }], { else: '0' }), orderBy: u.id }), 'rankInGroup')
       .addSelect(sql.over(sql.lag(u.firstName), { orderBy: u.id }), 'previous')
       .addSelect(sql.over(sql.lead(u.firstName, 1, "'-'"), { orderBy: u.id }), 'next')
       .addSelect(sql.concat("'x'", sql.nullif(u.firstName, "'Bob'")), 'joined')
@@ -294,7 +304,10 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(sql.extract('dow', at), 'dow')
       .addSelect(sql.extract('epoch', at), 'epoch')
       .addSelect(sql.extract('day', sql.addInterval(at, 2, 'weeks')), 'dayInTwoWeeks')
-      .addSelect(sql.case([[`${sql.ago(1, 'days')} < ${sql.now()}`, '1']], '0'), 'agoIsBefore')
+      .addSelect(sql.case([{ when: `${sql.ago(1, 'days')} < ${sql.now()}`, then: '1' }], { else: '0' }), 'agoIsBefore')
+      .addSelect(sql.sum(u.id, { filter: `${u.id} > 2`, else: 0 }), 'sumElse')
+      .addSelect(sql.sum(sql.case([{ when: `${u.id} > 2`, then: u.id }], { else: 0 })), 'sumCase')
+      .addSelect(sql.max(sql.caseOf(u.id, [{ when: 1, then: 10 }, { when: 2, then: 20 }], { else: 0 })), 'caseOfMax')
       .addSelect(sql.trim("'  a  '"), 'trimmed')
       .addSelect(sql.stringAgg(u.firstName, ', '), 'names')
       .getRawOne<Record<string, string | number>>();
@@ -306,6 +319,9 @@ setupTest('Sql functions in queries', undefined, (context) => {
       epoch: Number(scalars?.epoch),
       dayInTwoWeeks: Number(scalars?.dayInTwoWeeks),
       agoIsBefore: Number(scalars?.agoIsBefore),
+      sumElse: Number(scalars?.sumElse),
+      sumCase: Number(scalars?.sumCase),
+      caseOfMax: Number(scalars?.caseOfMax),
       names: String(scalars?.names).split(', ').sort().join(', '),
     }).toEqual({
       year: 2026,
@@ -313,6 +329,9 @@ setupTest('Sql functions in queries', undefined, (context) => {
       epoch: Date.UTC(2026, 2, 4, 5, 6, 7) / 1000,
       dayInTwoWeeks: 18,
       agoIsBefore: 1,
+      sumElse: 7,
+      sumCase: 7,
+      caseOfMax: 20,
       trimmed: 'a',
       names: 'Alice, Bob, Carol, Dave',
     });
@@ -385,8 +404,8 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(Sql.splitPart("'a@b.c'", '@', 2), 'domain')
       .addSelect(`${Sql.jsonbSet(`'{"a":{"b":1}}'::jsonb`, ['a', 'b'], Sql.toJsonb("'x'::text"))} #>> '{a,b}'`, 'setValue')
       .addSelect(Sql.jsonbTypeof(`'[1]'::jsonb`), 'jsonType')
-      .addSelect(Sql.case([[`${Sql.addInterval(Sql.now(), -1, 'days')} < ${Sql.now()}`, 'true']], 'false'), 'shifted')
-      .addSelect(Sql.case([[`${Sql.now()} - ${Sql.interval(1, 'hours')} < ${Sql.now()}`, 'true']], 'false'), 'interval')
+      .addSelect(Sql.case([{ when: `${Sql.addInterval(Sql.now(), -1, 'days')} < ${Sql.now()}`, then: 'true' }], { else: 'false' }), 'shifted')
+      .addSelect(Sql.case([{ when: `${Sql.now()} - ${Sql.interval(1, 'hours')} < ${Sql.now()}`, then: 'true' }], { else: 'false' }), 'interval')
       .addSelect(Sql.arrayAgg(u.firstName, { orderBy: `${u.id} DESC`, filter: u.isNotNull('metadata') }), 'withMetadata')
       .addSelect(Sql.jsonbAgg(u.id, { distinct: true, orderBy: u.id }), 'ids')
       .addSelect(Sql.jsonbBuildObject({ a: '1' }), 'jsonbObject')

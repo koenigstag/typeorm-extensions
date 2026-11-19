@@ -53,7 +53,8 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 | `coalesce(a, b, …)` | `COALESCE(a, b, …)` | same | same |
 | `nullif(a, b)` | `NULLIF(a, b)` | same | same |
 | `greatest`, `least(a, b, …)` | `GREATEST(…)`, `LEAST(…)`, NULL arguments skipped | same, NULL for any NULL | `MAX(…)`, `MIN(…)`, NULL for any NULL |
-| `case([[condition, value], …], otherwise?)` | `CASE WHEN … THEN … ELSE … END` | same | same |
+| `case([{ when, then }, …], { else? })` | `CASE WHEN condition THEN value … ELSE … END` | same | same |
+| `caseOf(value, [{ when, then }, …], { else? })` | `CASE value WHEN match THEN result … ELSE … END` | same | same |
 | `lower`, `upper`, `trim(expression)` | `LOWER(…)`, `UPPER(…)`, `TRIM(…)` | same | same |
 | `length(expression)` | `LENGTH(…)`, characters | `CHAR_LENGTH(…)` | `LENGTH(…)` |
 | `concat(a, b, …)` | `CONCAT(a, b)`, NULL read as empty | `CONCAT_WS('', a, b)`, NULL read as empty | `COALESCE(a, '') \|\| COALESCE(b, '')` |
@@ -90,7 +91,7 @@ A [`tableHelper`](./tableHelper.md) has forms of `arrayAgg` and `jsonAgg` over a
 Sql.over(Sql.rowNumber(), { partitionBy: o.userId, orderBy: `${o.createdAt} DESC` })
 // ROW_NUMBER() OVER (PARTITION BY "o"."userId" ORDER BY "o"."createdAt" DESC)
 
-Sql.case([[o.where('total', '> 100'), "'big'"]], "'small'")
+Sql.case([{ when: o.where('total', '> 100'), then: "'big'" }], { else: "'small'" })
 // CASE WHEN "o"."total" > 100 THEN 'big' ELSE 'small' END
 ```
 
@@ -98,6 +99,7 @@ Sql.case([[o.where('total', '> 100'), "'big'"]], "'small'")
 
 - `distinct?: boolean`: each value once, `COUNT(DISTINCT expression)`. `Sql.count()` needs an expression for it.
 - `filter?: string`: aggregates only the rows that match the condition.
+- `else?: SqlValue` (`sum`, `avg`, `min`, `max`): the value of the rows `filter` leaves out, `SUM(CASE WHEN filter THEN expression ELSE 0 END)`. Always a `CASE`, whatever the `syntax`: `FILTER (WHERE …)` has no else. Needs `filter`. `count` has none, since `COUNT` counts the else value too.
 - `syntax?: 'case' | 'filter'`: how `filter` is written. `'case'` (default) gives `MAX(CASE WHEN filter THEN expression END)`, in every database; `'filter'` gives `MAX(expression) FILTER (WHERE filter)`, PostgreSQL and SQLite 3.30+. `Sql.for(driver, { syntax: 'filter' })` changes the default for its functions.
 
 `Sql.count({ filter })` counts the matching rows, the same as `Sql.count(undefined, { filter })`.

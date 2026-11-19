@@ -16,7 +16,10 @@ Sql.max(o.createdAt);
 Sql.coalesce(o.note, "''");
 Sql.coalesce(Sql.sum(o.total), '0', Sql.max(o.total));
 Sql.coalesce(Sql.sum(o.total), 0);
-Sql.case([[`${o.total} > 0`, 1]], -1);
+Sql.case([{ when: `${o.total} > 0`, then: 1 }], { else: -1 });
+Sql.caseOf(o.note, [{ when: "'a'", then: 1 }, { when: "'b'", then: 2 }], { else: 0 });
+Sql.sum(o.total, { filter: `${o.total} > 0`, else: 0 });
+Sql.avg(o.total, { filter: `${o.total} > 0`, else: `-${o.total}` });
 Sql.lag(o.total, 1, 0);
 Sql.count({ filter: `${o.total} > 0` });
 Sql.for('postgres', { syntax: 'filter' }).count({ filter: `${o.total} > 0` });
@@ -28,7 +31,9 @@ Sql.for('postgres', { syntax: 'where' });
 // @ts-expect-error an amount is a number or { sql }
 Sql.ago(':days', 'days');
 // @ts-expect-error a condition is SQL, not a number
-Sql.case([[1, o.total]]);
+Sql.case([{ when: 1, then: o.total }]);
+// @ts-expect-error COUNT counts the else value too
+Sql.count(o.total, { filter: `${o.total} > 0`, else: 0 });
 // @ts-expect-error LOWER takes a text expression
 Sql.lower(1);
 Sql.greatest(o.createdAt, 'NOW()');
@@ -38,7 +43,7 @@ Sql.distinctOn(o.id, o.createdAt);
 const mysql = Sql.for('mysql');
 mysql.length(o.note);
 mysql.for('better-sqlite3').ago(30, 'days');
-Sql.case([[o.where('total', '> 100'), "'big'"]], "'small'");
+Sql.case([{ when: o.where('total', '> 100'), then: "'big'" }], { else: "'small'" });
 Sql.over(Sql.rowNumber(), { partitionBy: o.id, orderBy: [`${o.createdAt} DESC`, o.id] });
 Sql.over(Sql.lag(o.total, 1, '0'), { orderBy: o.createdAt });
 Sql.addInterval(o.createdAt, -2, 'weeks');
@@ -52,8 +57,8 @@ Sql.interval(30, 'day');
 // @ts-expect-error not a date part
 Sql.extract('week', o.createdAt);
 
-// @ts-expect-error a branch is a [condition, value] pair
-Sql.case([[o.where('total', '> 100')]]);
+// @ts-expect-error a branch is a { when, then } object
+Sql.case([[o.where('total', '> 100'), "'big'"]]);
 
 // @ts-expect-error a path has at least one key
 Sql.jsonbSet(o.note, [], 'to_jsonb(1)');
