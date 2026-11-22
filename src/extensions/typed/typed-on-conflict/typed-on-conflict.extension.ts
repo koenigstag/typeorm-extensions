@@ -189,7 +189,12 @@ const extension: { prototype: Partial<InsertQueryBuilder<ObjectLiteral>> } = {
 
 patchPrototype(InsertQueryBuilder, extension);
 
-if (!hasOnConflict) {
+// one install for every copy of the library a project loads: two would write the clause twice
+const INSTALLED = Symbol.for('typeorm-extensions.onConflictTyped');
+
+if (!hasOnConflict && !(insertPrototype as unknown as Record<symbol, unknown>)[INSTALLED]) {
+  (insertPrototype as unknown as Record<symbol, unknown>)[INSTALLED] = true;
+
   const createInsertExpression = insertPrototype.createInsertExpression;
 
   insertPrototype.createInsertExpression = function (this: InsertInternals): string {

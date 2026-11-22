@@ -1,5 +1,6 @@
 import { QueryBuilder } from 'typeorm';
 import type {
+  DatabaseType,
   DataSource,
   EntityMetadata,
   ObjectLiteral,
@@ -14,7 +15,7 @@ import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import type { OrderType } from '../types/interfaces/ordering.interface';
 import { createKeyTooDeepError, getKeyHolder, KeyHolder, MAX_KEY_DEPTH } from './proxy-key.utils';
 import { isJsonColumn, JsonPathSqlOptions, toJsonPathSql } from './json-path.utils';
-import { getDriverType, stringToSQLIdentifier } from './sql.utils';
+import { getDriverType, isUnquotedIdentifierPath, quoteIdentifier, stringToSQLIdentifier } from './sql.utils';
 import { isCalculated } from './calculated-column.utils';
 
 /**
@@ -84,6 +85,14 @@ const DEFERRED_KEY_END = '\uE003';
 const DEFERRED_KEY = /\uE000([^\uE000-\uE004]+)([\uE001\uE002\uE004])([^\uE000-\uE004]+)\uE003/g;
 const TWO_PART_FIELD = /^([A-Za-z_][\w$]*)\.([A-Za-z_][\w$]*)$/;
 
+// TypeORM's escape() wraps a name in quotes without doubling a quote inside it, so a typed key read from a request
+// (`u => u[sort]`) could close the identifier: a name holding a quote character is quoted with it doubled instead
+const QUOTE_CHARACTER = /["`[\]]/;
+
+function safeEscape(escape: (name: string) => string, driver: DatabaseType | undefined): (name: string) => string {
+  return (name) => (QUOTE_CHARACTER.test(name) ? quoteIdentifier(name, driver) : escape(name));
+}
+
 /**
  * Placeholder for a column of an alias the query doesn't have yet, e.g. a join added after the call: resolved when
  * the alias is added (`resolveAliasKeys`) or, at the latest, when the SQL is built (`resolveDeferredKeys`).
@@ -111,7 +120,9 @@ function toDeferredKeySql(
   const metadata = metadataOf(alias);
 
   if (separator === DEFERRED_UNQUOTED) {
-    return metadata ? `${aliasName}.${name}` : `${escape(aliasName)}.${escape(name)}`;
+    return metadata && isUnquotedIdentifierPath(`${aliasName}.${name}`)
+      ? `${aliasName}.${name}`
+      : `${escape(aliasName)}.${escape(name)}`;
   }
 
   const column =
@@ -128,7 +139,7 @@ export function resolveDeferredKeys(builder: WhereExpressionBuilder, statement: 
   }
 
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
-  const escape = (identifier: string) => queryBuilder.escape(identifier);
+  const escape = safeEscape((identifier) => queryBuilder.escape(identifier), getDriverType(builder));
 
   return statement.replace(DEFERRED_KEY, (_match, aliasName: string, separator: string, name: string) =>
     toDeferredKeySql(findQueryAlias(queryBuilder, aliasName), aliasName, separator, name, escape)
@@ -142,7 +153,11 @@ export function resolveDeferredKeys(builder: WhereExpressionBuilder, statement: 
 function resolveAliasKeys(expressionMap: QueryExpressionMap, alias: Alias): void {
   // `connection` (TypeORM 0.3) or `dataSource` (1.x), protected in its types; read only when a key is found
   const { connection, dataSource } = expressionMap as unknown as { connection?: DataSource; dataSource?: DataSource };
-  const escape = (identifier: string) => (connection ?? dataSource)!.driver.escape(identifier);
+  const escape = (identifier: string) => {
+    const { driver } = (connection ?? dataSource)!;
+
+    return safeEscape((name) => driver.escape(name), driver.options.type)(identifier);
+  };
   const hasKey = (statement: unknown): statement is string =>
     typeof statement === 'string' && statement.includes(DEFERRED_KEY_START);
   const resolve = (statement: string) =>
@@ -469,11 +484,12 @@ function toQuotedColumnKey(
   }
 
   const columnName = column?.databaseName ?? propertyPath;
+  const escape = safeEscape(
+    (name) => queryBuilder.escape(name),
+    getDriverType(queryBuilder as unknown as WhereExpressionBuilder)
+  );
 
-  const columnSql =
-    aliasName === undefined
-      ? queryBuilder.escape(columnName)
-      : `${queryBuilder.escape(aliasName)}.${queryBuilder.escape(columnName)}`;
+  const columnSql = aliasName === undefined ? escape(columnName) : `${escape(aliasName)}.${escape(columnName)}`;
 
   if (!column || !jsonPath) {
     return columnSql;
@@ -648,9 +664,11 @@ export function getTypedSelectionKey<Type extends ObjectLiteral>(
       return deferColumnKey(resolved.aliasName, DEFERRED_UNQUOTED, resolved.propertyPath);
     }
 
-    return resolved.aliasName === undefined
-      ? resolved.propertyPath
-      : `${resolved.aliasName}.${resolved.propertyPath}`;
+    const key =
+      resolved.aliasName === undefined ? resolved.propertyPath : `${resolved.aliasName}.${resolved.propertyPath}`;
+
+    // TypeORM leaves a key that isn't a property as written: one that isn't a name is quoted rather than passed on
+    return isUnquotedIdentifierPath(key) ? key : toQuotedColumnKey(queryBuilder, resolved);
   };
 
   const keyHolder = getKeyHolder<Type>(selection);

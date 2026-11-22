@@ -154,7 +154,7 @@ setupTest('CalculatedColumn', undefined, (context) => {
         users()
           .addSelectCalculated(imagesCount(), 'imagesCount')
           .leftJoinAndSelect('user.images', 'images')
-          .orderByCalculated('imagesCount', 'DESC')
+          .orderByTyped((user) => user.imagesCount, 'DESC')
           .addOrderBy('user.id')
           .skip(skip)
           .take(2)
@@ -189,18 +189,17 @@ setupTest('CalculatedColumn', undefined, (context) => {
           'imagesCount',
           'owner',
         )
-        .orderByCalculated('imagesCount', 'ASC', undefined, 'owner')
+        .orderByTyped<{ owner: UserEntity }>((q) => q.owner.imagesCount, 'ASC')
         .addOrderBy('image.id', 'DESC')
         .getMany();
 
       expect(images.map(({ id }) => id)).toEqual([2, 4, 3, 1]);
     });
 
-    it('SHOULD throw for a property that is not selected or no @CalculatedColumn', () => {
-      expect(() => users().orderByCalculated('imagesCount')).toThrow(
-        /orderByCalculated: UserEntity\.imagesCount isn't selected: select it with addSelectCalculated first/,
+    it('SHOULD throw for a @CalculatedColumn that is not selected', () => {
+      expect(() => users().orderByTyped((user) => user.imagesCount)).toThrow(
+        /orderByTyped: UserEntity\.imagesCount isn't selected: select it with addSelectCalculated first/,
       );
-      expect(() => users().addOrderByCalculated('firstName')).toThrow(/UserEntity\.firstName is not a @CalculatedColumn/);
       expect(() => users().applyOrder<UserEntity>({ field: 'imagesCount' })).toThrow(/applyOrder: .* isn't selected/);
     });
 

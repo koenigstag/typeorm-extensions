@@ -1,5 +1,7 @@
 import type { ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
-import type { HavingMethods, WhereMethods } from '../types/extensions/where.types';
+import type { WhereMethods } from '../types/extensions/where.types';
+
+export type HavingMethods = 'having' | 'andHaving' | 'orHaving';
 import { createUniqueParameterName } from './sql.utils';
 import { toFieldSql } from './query-builder.utils';
 import { getPlaceholderNames } from './parameter.utils';

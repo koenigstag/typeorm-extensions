@@ -10,6 +10,8 @@ import { WhereMethods } from '../types/extensions';
 import {
   assertArrayType,
   createUniqueParameterName,
+  getDriverType,
+  isPostgresLikeDriver,
 } from '../utils/sql.utils';
 
 // declarations
@@ -147,6 +149,13 @@ function attachWhereArray<QB extends WhereExpressionBuilder>(
 ): QB {
   if (!method || typeof field !== 'string') {
     return builder;
+  }
+
+  const driver = getDriverType(builder);
+
+  // MySQL reads `&&` as a logical AND: the condition would run and match the wrong rows
+  if (driver !== undefined && !isPostgresLikeDriver(driver)) {
+    throw new TypeError(`Array condition on "${field}": ${operator} is a PostgreSQL array operator, ${driver} has none`);
   }
 
   if (!Array.isArray(values)) {

@@ -5,7 +5,7 @@ import type { EntityMetadata } from 'typeorm/metadata/EntityMetadata';
 import type { WhereMethods } from '../types/extensions';
 import type { DeepUnwrapArray, KeyPathEnd, KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import type { TypedRoot } from '../types/modules/typed-root.types';
-import { attachExists } from './where-exists.extension';
+import { attachExists } from '../utils/exists.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 import { listQueryAliases, resolveTypedProperty } from '../utils/query-builder.utils';
 import { andWhereNarrowing } from '../utils/where.utils';
@@ -23,7 +23,7 @@ type RelatedCondition<Related extends ObjectLiteral> = (subQuery: SelectQueryBui
 
 /**
  * `EXISTS` / `NOT EXISTS` over a relation of an entity, with the join condition taken from the relation's
- * metadata: `andWhereRelationExists(user => user.images, 'image', (images) => images.andWhere(…))` gives
+ * metadata: `andWhereRelationExistsTyped(user => user.images, 'image', (images) => images.andWhere(…))` gives
  * `EXISTS (SELECT 1 FROM "images" "image" WHERE … AND "image"."userId" = "user"."id")`. Works for
  * one-to-many, many-to-one, one-to-one and many-to-many (through the junction table) relations.
  *
@@ -32,37 +32,37 @@ type RelatedCondition<Related extends ObjectLiteral> = (subQuery: SelectQueryBui
  */
 export interface WhereRelationExistsMethods<Entity extends ObjectLiteral> {
   /** Sets `WHERE EXISTS (…)` over the relation, replacing the WHERE conditions set before. */
-  whereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+  whereRelationExistsTyped<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `AND EXISTS (…)` over the relation. */
-  andWhereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+  andWhereRelationExistsTyped<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `OR EXISTS (…)` over the relation. */
-  orWhereRelationExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+  orWhereRelationExistsTyped<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Sets `WHERE NOT EXISTS (…)` over the relation, replacing the WHERE conditions set before. */
-  whereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+  whereRelationNotExistsTyped<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `AND NOT EXISTS (…)` over the relation. */
-  andWhereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+  andWhereRelationNotExistsTyped<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
   ): this;
   /** Adds `OR NOT EXISTS (…)` over the relation. */
-  orWhereRelationNotExists<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
+  orWhereRelationNotExistsTyped<Related extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     relation: RelationSelection<Type, Related>,
     alias: string,
     where?: RelatedCondition<Related>
@@ -92,12 +92,12 @@ const createMethod = (method: WhereMethods, negate: boolean) =>
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
-    whereRelationExists: createMethod('where', false),
-    andWhereRelationExists: createMethod('andWhere', false),
-    orWhereRelationExists: createMethod('orWhere', false),
-    whereRelationNotExists: createMethod('where', true),
-    andWhereRelationNotExists: createMethod('andWhere', true),
-    orWhereRelationNotExists: createMethod('orWhere', true),
+    whereRelationExistsTyped: createMethod('where', false),
+    andWhereRelationExistsTyped: createMethod('andWhere', false),
+    orWhereRelationExistsTyped: createMethod('orWhere', false),
+    whereRelationNotExistsTyped: createMethod('where', true),
+    andWhereRelationNotExistsTyped: createMethod('andWhere', true),
+    orWhereRelationNotExistsTyped: createMethod('orWhere', true),
   } as Partial<SelectQueryBuilder<ObjectLiteral>>,
 };
 
@@ -113,7 +113,7 @@ function attachRelationExists<Entity extends ObjectLiteral>(
   alias: string,
   where?: AnyRelatedCondition
 ): SelectQueryBuilder<Entity> {
-  const methodName = `${method}Relation${negate ? 'Not' : ''}Exists`;
+  const methodName = `${method}Relation${negate ? 'Not' : ''}ExistsTyped`;
   const { aliasName: ownerAlias, propertyPath } = resolveTypedProperty(
     builder,
     relationSelection as unknown as KeyProxyCallback<ObjectLiteral>,

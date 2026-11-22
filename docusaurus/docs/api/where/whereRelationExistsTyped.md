@@ -2,7 +2,7 @@
 sidebar_position: 8.5
 ---
 
-# whereRelationExists / whereRelationNotExists
+# whereRelationExistsTyped / whereRelationNotExistsTyped
 
 ## Description
 
@@ -12,7 +12,7 @@ sidebar_position: 8.5
 // users with an image that is not hidden
 userRepository
   .createQueryBuilder('user')
-  .andWhereRelationExists(
+  .andWhereRelationExistsTyped(
     user => user.images,
     'image',
     images => images.andWhereTyped(image => image.hidden, '=', false)
@@ -30,22 +30,22 @@ WHERE EXISTS (
 - **The callback** gets the subquery, a `SelectQueryBuilder` of the related entity with `alias` as its main alias, so typed methods work on it. The join condition is added after the callback's conditions, wrapped so that an `orWhere` of the callback can't escape it and a `where` can't replace it.
 - **Parameters** of the subquery get unique names, as in [whereNotExists](./whereNotExists.md#parameters): a `:status` inside doesn't read the value of an outer `:status`.
 - **`alias`** names the related entity in the subquery. It must not be an alias of the outer query, which the join condition refers to, also in another letter case (SQLite reads `USER` as `user`): that throws a `TypeError`, as does a property that isn't a relation.
-- **Inside `Brackets`** it works on a `SelectQueryBuilder`, whose `Brackets` callback is typed as a `WhereExpressionBuilder`: cast it, `(where as SelectQueryBuilder<User>).whereRelationExists(…)`.
+- **Inside `Brackets`** it works on a `SelectQueryBuilder`, whose `Brackets` callback is typed as a `WhereExpressionBuilder`: cast it, `(where as SelectQueryBuilder<User>).whereRelationExistsTyped(…)`.
 - **Lazy relations** (`Promise<Image[]>`) aren't typed by the callback: TypeScript rejects them.
 
 ## Signature
 
 ```typescript
-whereRelationExists(relation: (entity) => Related, alias: string, where?: (subQuery: SelectQueryBuilder<Related>) => unknown): this
-andWhereRelationExists(relation, alias, where?): this
-orWhereRelationExists(relation, alias, where?): this
+whereRelationExistsTyped(relation: (entity) => Related, alias: string, where?: (subQuery: SelectQueryBuilder<Related>) => unknown): this
+andWhereRelationExistsTyped(relation, alias, where?): this
+orWhereRelationExistsTyped(relation, alias, where?): this
 
-whereRelationNotExists(relation, alias, where?): this
-andWhereRelationNotExists(relation, alias, where?): this
-orWhereRelationNotExists(relation, alias, where?): this
+whereRelationNotExistsTyped(relation, alias, where?): this
+andWhereRelationNotExistsTyped(relation, alias, where?): this
+orWhereRelationNotExistsTyped(relation, alias, where?): this
 ```
 
-`whereRelationExists` / `whereRelationNotExists` replace the WHERE conditions set before, like `where`. On `SelectQueryBuilder`.
+`whereRelationExistsTyped` / `whereRelationNotExistsTyped` replace the WHERE conditions set before, like `where`. On `SelectQueryBuilder`.
 
 ## Usage
 
@@ -56,18 +56,18 @@ type Joins = { user: UserEntity; community: CommunityEntity };
 
 query
   .leftJoin('user.community', 'community')
-  .andWhereRelationExists<InterestEntity, Joins>(joins => joins.community.interests, 'interest')
+  .andWhereRelationExistsTyped<InterestEntity, Joins>(joins => joins.community.interests, 'interest')
 
 // or with the root set once by typed<Joins>(): only the related entity is named
 query
   .leftJoin('user.community', 'community')
   .typed<Joins>()
-  .andWhereRelationExists<InterestEntity>(joins => joins.community.interests, 'interest')
+  .andWhereRelationExistsTyped<InterestEntity>(joins => joins.community.interests, 'interest')
 ```
 
 ```typescript
 // members who are in no group: NOT EXISTS through the junction table
 memberRepository
   .createQueryBuilder('member')
-  .andWhereRelationNotExists(member => member.groups, 'grp')
+  .andWhereRelationNotExistsTyped(member => member.groups, 'grp')
 ```

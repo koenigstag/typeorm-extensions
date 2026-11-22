@@ -1,5 +1,5 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import type { LateralSubQuery } from '../types/extensions/join-lateral.types';
+import type { SubQuery } from '../types/extensions/sub-query.types';
 import { detachedSubQuery, toSubQuerySql } from '../utils/parameter.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 
@@ -15,7 +15,7 @@ export interface JoinLateralMethods {
    * The subquery's columns are raw: select them with `addSelect('"alias"."column"', 'name')`.
    */
   leftJoinLateral<SubEntity extends ObjectLiteral = ObjectLiteral>(
-    subQuery: LateralSubQuery<SubEntity>,
+    subQuery: string | SubQuery<SubEntity>,
     alias: string,
     condition?: string,
     parameters?: ObjectLiteral
@@ -23,7 +23,7 @@ export interface JoinLateralMethods {
 
   /** `INNER JOIN LATERAL`: as `leftJoinLateral`, but rows without a match are dropped. */
   innerJoinLateral<SubEntity extends ObjectLiteral = ObjectLiteral>(
-    subQuery: LateralSubQuery<SubEntity>,
+    subQuery: string | SubQuery<SubEntity>,
     alias: string,
     condition?: string,
     parameters?: ObjectLiteral
@@ -42,7 +42,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     leftJoinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
-      subQuery: LateralSubQuery<SubEntity>,
+      subQuery: string | SubQuery<SubEntity>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
@@ -51,7 +51,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
     },
     innerJoinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
-      subQuery: LateralSubQuery<SubEntity>,
+      subQuery: string | SubQuery<SubEntity>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
@@ -70,7 +70,7 @@ type LateralSql = { sql: string; parameters: ObjectLiteral };
 function joinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   method: 'leftJoin' | 'innerJoin',
-  subQuery: LateralSubQuery<SubEntity>,
+  subQuery: string | SubQuery<SubEntity>,
   alias: string,
   condition = 'TRUE',
   parameters?: ObjectLiteral
@@ -90,7 +90,7 @@ function joinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiter
 
 function toLateralSql<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
-  subQuery: LateralSubQuery<SubEntity>
+  subQuery: string | SubQuery<SubEntity>
 ): LateralSql {
   if (typeof subQuery === 'string') {
     // raw SQL: its placeholders are the query's own parameters, set with `parameters` or setParameter

@@ -45,7 +45,7 @@ Three ways to give an entity a value it doesn't write itself:
 | Computed | by the database, on every write of the row | by the query that selects it, with `addSelectCalculated` | by TypeORM's one `query`, on every load |
 | Cost of a plain load | reading a stored column | nothing: it isn't selected | a subquery per row |
 | Same value in every query | yes | no, each query picks its expression | yes |
-| `where`, `orderBy`, typed methods, `find()` | yes, as any column | through the expression, or `orderByCalculated` | the subquery, by hand |
+| `where`, `orderBy`, typed methods, `find()` | yes, as any column | through the expression, or `orderByTyped` | the subquery, by hand |
 | Index | yes | no | no |
 | Written by TypeORM | never | never | never |
 
@@ -82,7 +82,7 @@ export class UserEntity {
 userRepository
   .createQueryBuilder('user')
   .addSelectCalculated('(SELECT COUNT(*) FROM "images" "i" WHERE "i"."userId" = "user"."id")', 'imagesCount')
-  .orderByCalculated('imagesCount', 'DESC')
+  .orderByTyped((user) => user.imagesCount, 'DESC')
   .getMany();
 ```
 

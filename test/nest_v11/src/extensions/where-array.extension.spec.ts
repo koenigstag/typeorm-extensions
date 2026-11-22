@@ -8,8 +8,18 @@ import { postgresLikeDrivers } from '../constants/database';
 
 const isPostgres = (type: string) => postgresLikeDrivers.includes(type as never);
 
-// SQL generation does not depend on the database
 setupTest('where-array.sql', undefined, (context) => {
+  if (!isPostgres(context.typeormOptions.type)) {
+    it('SHOULD refuse array conditions on a database without PostgreSQL array operators', () => {
+      const users = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+
+      expect(() => users().whereArrayOverlaps('user.tags', ['z'])).toThrow('is a PostgreSQL array operator');
+      expect(() => users().andWhereArrayContains('user.tags', ['z'])).toThrow(TypeError);
+    });
+
+    return;
+  }
+
   it('SHOULD build @>, <@ and && with the whole array as one parameter', () => {
     const query = context.dataSource
       .getRepository(UserEntity)

@@ -207,4 +207,17 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
     const [loaded] = await query.getMany();
     expect(loaded.images?.map((image) => image.url)).toEqual(['a.png']);
   });
+
+  it('SHOULD quote a typed key that is not a name, a quote in it doubled', async () => {
+    const sort = nativeSql('id" DESC, (SELECT 1) --');
+    const pick = (user: unknown) => (user as Record<string, number>)[sort];
+    const users = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+    const quoted = nativeSql('"user"."id"" DESC, (SELECT 1) --"');
+
+    const ordered = users().orderByTyped(pick);
+
+    expect(ordered.getQuery()).toContain(`ORDER BY ${quoted}`);
+    expect(users().whereTyped(pick, '=', 1).getQuery()).toContain(`WHERE ${quoted} =`);
+    await expect(ordered.getMany()).rejects.toThrow();
+  });
 });

@@ -2,16 +2,12 @@ import { DatabaseType, getMetadataArgsStorage, ObjectLiteral } from "typeorm";
 import {
 	assertArrayType,
 	isMysqlLikeDriver,
-	isPostgresLikeDriver,
-	isSqliteLikeDriver,
 	quoteIdentifier,
 	quoteIdentifierPath,
 } from './sql.utils';
-import { filtered, sqlString } from './aggregate.utils';
-import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
+import { filtered } from './aggregate.utils';
 import { Sql } from './sql-functions.utils';
 import type { SqlJsonKey } from './sql-functions.utils';
-import type { DateTruncUnit } from './time-zone.utils';
 
 export type { DateTruncUnit } from './time-zone.utils';
 
@@ -30,14 +26,6 @@ type JsonKeys<T> = T extends JsonPathLeaf ? never : T extends object ? keyof T &
 /** The value under `Key` in the members of `V` that have it. */
 type JsonValueAt<V, Key> = V extends unknown ? (Key extends keyof V ? V[Key] : never) : never;
 
-type JsonFieldTuple<T, Depth extends 0[] = []> = Depth['length'] extends 4
-	? [string, ...string[]]
-	: {
-		[K in keyof T & string]: [NonNullable<T[K]>] extends [Record<string, unknown>]
-			? [K, ...JsonFieldTuple<NonNullable<T[K]>, [...Depth, 0]>] | [K]
-			: [K]
-	}[keyof T & string];
-
 export type TableHelperCountOptions = {
 	/** `COUNT(DISTINCT column)`: count the different values of the column. Needs a column. */
 	distinct?: boolean;
@@ -49,11 +37,6 @@ export type TableHelperCountOptions = {
 	 * - `'filter'`: `COUNT(column) FILTER (WHERE filter)`, PostgreSQL and SQLite 3.30+ only, a few percent faster on PostgreSQL.
 	 */
 	syntax?: 'case' | 'filter';
-};
-
-export type TableHelperJsonOptions = {
-	/** `jsonb_build_object` / `jsonb_agg` instead of the `json` functions. PostgreSQL only. */
-	jsonb?: boolean;
 };
 
 type ColumnName<T> = keyof T & string;
@@ -125,130 +108,6 @@ function readJsonPath(method: string, callback: unknown): [string, SqlJsonKey, .
 
 	return [column, toKey(first), ...rest.map(toKey)];
 }
-
-export type TableHelperJsonAggOptions<T> = TableHelperJsonOptions & {
-	/** Orders the array by a column of the helper's table, ascending or in the given direction. Not on MySQL. */
-	orderBy?: AggregateOrder<T>;
-	/**
-	 * Aggregates only the rows that match, e.g. `images.isNotNull('id')`: after a LEFT JOIN without a match
-	 * the row has `NULL` columns, which would otherwise come out as `[{"id": null}]`. Not on MySQL.
-	 */
-	filter?: string;
-};
-
-/** Keys of the entity whose values are numbers. */
-type NumericColumnName<T> = {
-	[K in keyof T & string]: [NonNullable<T[K]>] extends [number | bigint] ? K : never;
-}[keyof T & string];
-
-type AggregateOrderTuple<T> = readonly [ColumnName<T>, ('ASC' | 'DESC')?];
-
-type AggregateOrder<T> = ColumnName<T> | readonly [ColumnName<T>, 'ASC' | 'DESC'];
-
-export type TableHelperSumOptions = {
-	/** Sums only the rows that match this condition, e.g. `t.where('status', "= 'paid'")`. */
-	filter?: string;
-	/** How `filter` is written, as for `count`: `'case'` (default) or `'filter'` (PostgreSQL and SQLite 3.30+). */
-	syntax?: 'case' | 'filter';
-};
-
-export type TableHelperArrayAggOptions<T> = {
-	/** `array_agg(DISTINCT column)`: each value once. Then `orderBy` can only be the aggregated column. */
-	distinct?: boolean;
-	/** Orders the array by a column of the helper's table, ascending or in the given direction. */
-	orderBy?: AggregateOrder<T>;
-	/** Aggregates only the rows that match, e.g. `images.isNotNull('id')` after a LEFT JOIN without a match. */
-	filter?: string;
-};
-
-/** `orderBy` of an aggregate: its column, and the SQL after the argument, ` ORDER BY column [direction]`. */
-function aggregateOrder<T>(method: string, orderBy: AggregateOrder<T>, toSql: (column: ColumnName<T>) => string) {
-	const [column, direction] = (typeof orderBy === 'string' ? [orderBy] : orderBy) as AggregateOrderTuple<T>;
-
-	if (direction !== undefined && direction !== 'ASC' && direction !== 'DESC') {
-		throw new TypeError(`tableHelper.${method}(): the order is 'ASC' or 'DESC', got "${String(direction)}"`);
-	}
-
-	return { column, sql: ` ORDER BY ${toSql(column)}${direction ? ` ${direction}` : ''}` };
-}
-
-/** A column of the helper's table whose property is a `Date`. */
-type DateColumnName<T> = {
-	[K in keyof T & string]: [NonNullable<T[K]>] extends [Date] ? K : never;
-}[keyof T & string];
-
-/** A date column of the helper's table, or an SQL expression: `{ sql: 'MAX("order"."paidAt")' }`. */
-export type TableHelperExpression<T> = DateColumnName<T> | { sql: string };
-
-/**
- * A time zone: a name or an ISO 8601 offset (`'Europe/Kyiv'`, `'UTC'`, `'+02:00'` = UTC+2), written into the SQL as an escaped string
- * literal; a column of the helper's table, `{ column: 'timezone' }`, with an optional `fallback` zone for `NULL`;
- * or an SQL expression, `{ sql: services.column('timezone') }`.
- */
-export type TableHelperTimeZone<T> = string | { column: ColumnName<T>; fallback?: string } | { sql: string };
-
-function assertPostgres(method: string, driver: DatabaseType | undefined, hint?: string) {
-	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
-		throw new TypeError(`tableHelper.${method}(): PostgreSQL only, the driver is "${driver}"${hint ? `: ${hint}` : ''}`);
-	}
-}
-
-function toExpression<T>(value: TableHelperExpression<T>, toColumn: (column: ColumnName<T>) => string): string {
-	return typeof value === 'string' ? toColumn(value) : value.sql;
-}
-
-function toTimeZone<T>(method: string, timeZone: TableHelperTimeZone<T>, toColumn: (column: ColumnName<T>) => string): string {
-	if (typeof timeZone === 'string') {
-		if (!timeZone.trim()) {
-			throw new TypeError(`tableHelper.${method}(): the time zone is empty`);
-		}
-
-		return sqlString(toPostgresZone(`tableHelper.${method}`, timeZone));
-	}
-
-	if ('sql' in timeZone) {
-		return timeZone.sql;
-	}
-
-	const column = toColumn(timeZone.column);
-
-	return timeZone.fallback === undefined
-		? column
-		: `COALESCE(${column}, ${sqlString(toPostgresZone(`tableHelper.${method}`, timeZone.fallback))})`;
-}
-
-/** The JSON functions of a database: PostgreSQL's unless the driver is MySQL / MariaDB or SQLite. */
-function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefined) {
-	const mysql = isMysqlLikeDriver(driver);
-
-	if (jsonb && (mysql || isSqliteLikeDriver(driver))) {
-		throw new TypeError(`tableHelper: jsonb is PostgreSQL's, the driver is "${driver}"`);
-	}
-
-	if (mysql) {
-		return { mysql, object: 'JSON_OBJECT', agg: 'JSON_ARRAYAGG', emptyArray: 'JSON_ARRAY()' };
-	}
-
-	if (isSqliteLikeDriver(driver)) {
-		return { mysql, object: 'json_object', agg: 'json_group_array', emptyArray: 'json_array()' };
-	}
-
-	// PostgreSQL's when no driver is given; SQL Server, Oracle and the rest have functions of their own
-	if (driver !== undefined && !isPostgresLikeDriver(driver)) {
-		throw new TypeError(`tableHelper: the JSON functions are PostgreSQL's, MySQL / MariaDB's and SQLite's, the driver is "${driver}"`);
-	}
-
-	const type = jsonb ? 'jsonb' : 'json';
-
-	// CAST, not `::json`: TypeORM would read `:json` as a parameter
-	return { mysql, object: `${type}_build_object`, agg: `${type}_agg`, emptyArray: `CAST('[]' AS ${type})` };
-}
-
-
-/** Every JSON path into a type alias, up to 4 keys deep: `string[]` for other types. */
-export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
-	? JsonFieldTuple<NonNullable<V>>
-	: string[];
 
 /** The values of an IN / ANY condition, read only to tell an empty list: the caller binds them. */
 type ValueList = readonly unknown[] | null | undefined;
@@ -395,90 +254,6 @@ const createTableHelper = <T extends ObjectLiteral>(
 			isMysqlLikeDriver(options.driver) ? 'SIGNED' : 'integer'
 		);
 	},
-	/**
-	 * Returns `COALESCE(SUM("alias"."column"), 0)`: 0, not `NULL`, for a group without rows or a LEFT JOIN
-	 * without a match. Only a column whose property is a number. PostgreSQL sums integers into a `bigint`
-	 * and MySQL into a `DECIMAL`, which the drivers return as strings.
-	 * @example
-	 * t.sum('amountCents', { filter: t.where('status', "= 'paid'") })
-	 * // COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
-	 */
-	sum(columnName: NumericColumnName<T>, sumOptions: TableHelperSumOptions = {}) {
-		const { argument, suffix } = filtered('tableHelper.sum', this.column(columnName), sumOptions.filter, sumOptions.syntax, options.driver);
-
-		return `COALESCE(SUM(${argument})${suffix}, 0)`;
-	},
-	/**
-	 * Returns the PostgreSQL array of a column over the rows of a group, `{}` for a group without rows.
-	 * Other databases have no arrays and throw a `TypeError`: use `jsonAgg` there.
-	 * @example
-	 * images.arrayAgg('id', { distinct: true, orderBy: ['id', 'DESC'], filter: images.isNotNull('id') })
-	 * // COALESCE(array_agg(DISTINCT "image"."id" ORDER BY "image"."id" DESC) FILTER (WHERE "image"."id" IS NOT NULL), '{}')
-	 */
-	arrayAgg(columnName: ColumnName<T>, aggOptions: TableHelperArrayAggOptions<T> = {}) {
-		const { distinct = false, orderBy, filter } = aggOptions;
-
-		assertPostgres('arrayAgg', options.driver, 'use jsonAgg');
-
-		const order = orderBy ? aggregateOrder('arrayAgg', orderBy, (column) => this.column(column)) : undefined;
-
-		// PostgreSQL: "in an aggregate with DISTINCT, ORDER BY expressions must appear in argument list"
-		if (distinct && order && order.column !== columnName) {
-			throw new TypeError(
-				`tableHelper.arrayAgg(): with distinct, the array can only be ordered by "${columnName}", got "${order.column}"`
-			);
-		}
-
-		const aggregate = `array_agg(${distinct ? 'DISTINCT ' : ''}${this.column(columnName)}${order?.sql ?? ''})`;
-
-		// the untyped '{}' takes the type of the array
-		return `COALESCE(${aggregate}${filter ? ` FILTER (WHERE ${filter})` : ''}, '{}')`;
-	},
-	/**
-	 * Returns a JSON object of columns, keyed by the column names or by the keys of a `{ key: column }` map.
-	 * Every column is checked against the entity type.
-	 * @example
-	 * t.jsonBuildObject(['id', 'url'])              // json_build_object('id', "image"."id", 'url', "image"."url")
-	 * t.jsonBuildObject({ imageId: 'id', src: 'url' }) // json_build_object('imageId', "image"."id", 'src', "image"."url")
-	 * // MySQL: JSON_OBJECT(…), SQLite: json_object(…); { jsonb: true }: jsonb_build_object(…)
-	 */
-	jsonBuildObject(
-		columns: readonly ColumnName<T>[] | Readonly<Record<string, ColumnName<T>>>,
-		jsonOptions: TableHelperJsonOptions = {}
-	) {
-		const entries: [string, ColumnName<T>][] = Array.isArray(columns)
-			? (columns as readonly ColumnName<T>[]).map((column) => [column, column])
-			: Object.entries(columns as Readonly<Record<string, ColumnName<T>>>);
-
-		if (!entries.length) {
-			throw new TypeError('tableHelper.jsonBuildObject() needs at least one column');
-		}
-
-		const pairs = entries.map(([key, column]) => `${sqlString(key, options.driver)}, ${this.column(column)}`);
-
-		return `${jsonFunctions(options.driver, jsonOptions.jsonb).object}(${pairs.join(', ')})`;
-	},
-	/**
-	 * Returns the JSON array of an expression over the rows of a group, `[]` for a group without rows
-	 * (the aggregate alone gives `NULL` there). Use it with GROUP BY, or in a subquery.
-	 * @example
-	 * images.jsonAgg(images.jsonBuildObject(['id', 'url']), { orderBy: ['id', 'DESC'], filter: images.isNotNull('id') })
-	 * // COALESCE(json_agg(json_build_object(…) ORDER BY "image"."id" DESC) FILTER (WHERE "image"."id" IS NOT NULL), CAST('[]' AS json))
-	 * // MySQL: COALESCE(JSON_ARRAYAGG(…), JSON_ARRAY()), without ORDER BY and FILTER; SQLite: json_group_array(…)
-	 */
-	jsonAgg(expression: string, aggOptions: TableHelperJsonAggOptions<T> = {}) {
-		const { orderBy, filter, jsonb } = aggOptions;
-		const json = jsonFunctions(options.driver, jsonb);
-
-		if (json.mysql && (orderBy || filter)) {
-			throw new TypeError("tableHelper.jsonAgg(): MySQL's JSON_ARRAYAGG takes no ORDER BY and no FILTER");
-		}
-
-		const order = orderBy ? aggregateOrder('jsonAgg', orderBy, (column) => this.column(column)).sql : '';
-		const aggregate = `${json.agg}(${expression}${order})${filter ? ` FILTER (WHERE ${filter})` : ''}`;
-
-		return `COALESCE(${aggregate}, ${json.emptyArray})`;
-	},
 	/** Returns `CAST(expression AS type)`. */
 	cast(expression: string, type: string) {
 		return `CAST(${expression} AS ${type})`;
@@ -504,42 +279,6 @@ const createTableHelper = <T extends ObjectLiteral>(
 		const sql = options.driver === undefined ? Sql : Sql.for(options.driver);
 
 		return sql.jsonText(this.column(column as keyof T), ...keys);
-	},
-	/**
-	 * Returns `(expression AT TIME ZONE zone)` (PostgreSQL). A `timestamptz` gives the wall-clock `timestamp`
-	 * in that zone; a `timestamp` is read as wall-clock time there and gives a `timestamptz`.
-	 * A zone name is written as an escaped literal, so it is safe to take from a request.
-	 * @example
-	 * t.atTimeZone('paidAt', 'Europe/Kyiv')                              // ("order"."paidAt" AT TIME ZONE 'Europe/Kyiv')
-	 * t.atTimeZone('startsAt', { column: 'timezone', fallback: 'UTC' }) // ("order"."startsAt" AT TIME ZONE COALESCE("order"."timezone", 'UTC'))
-	 */
-	atTimeZone(value: TableHelperExpression<T>, timeZone: TableHelperTimeZone<T>) {
-		assertPostgres('atTimeZone', options.driver);
-
-		const toColumn = (column: ColumnName<T>) => this.column(column);
-
-		return `(${toExpression(value, toColumn)} AT TIME ZONE ${toTimeZone('atTimeZone', timeZone, toColumn)})`;
-	},
-	/**
-	 * Returns `date_trunc('unit', expression)` (PostgreSQL). With a time zone it is the three-argument form
-	 * (PostgreSQL 12+): a `timestamptz` is truncated at the boundaries of that zone, e.g. its local midnight
-	 * for `'day'`, and the result is a `timestamptz` again.
-	 * @example
-	 * t.dateTrunc('day', 'paidAt')                // date_trunc('day', "order"."paidAt")
-	 * t.dateTrunc('day', 'paidAt', 'Europe/Kyiv') // date_trunc('day', "order"."paidAt", 'Europe/Kyiv')
-	 */
-	dateTrunc(unit: DateTruncUnit, value: TableHelperExpression<T>, timeZone?: TableHelperTimeZone<T>) {
-		assertPostgres('dateTrunc', options.driver);
-
-		// the unit goes into the SQL as is
-		if (!DATE_TRUNC_UNITS.includes(unit)) {
-			throw new TypeError(`tableHelper.dateTrunc(): the unit is one of ${DATE_TRUNC_UNITS.join(', ')}, got "${String(unit)}"`);
-		}
-
-		const toColumn = (column: ColumnName<T>) => this.column(column);
-		const zone = timeZone === undefined ? '' : `, ${toTimeZone('dateTrunc', timeZone, toColumn)}`;
-
-		return `date_trunc('${unit}', ${toExpression(value, toColumn)}${zone})`;
 	}
 });
 

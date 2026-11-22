@@ -1,12 +1,11 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { DeepUnwrapArray, KeyProxyCallback, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { TypedWhereArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import type { HavingMethods } from '../../../types/extensions/where.types';
 import type { TypedAggregate } from '../../../types/extensions/typed-having.types';
 import type { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
 import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
-import { attachWhere, getComparedValue } from '../../../utils/where.utils';
+import { attachWhere, getComparedValue, HavingMethods } from '../../../utils/where.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 type Selection<Root extends ObjectLiteral, Type, Value> = (proxy: DeepUnwrapArray<TypeOrDefault<Type, Root>>) => Value;

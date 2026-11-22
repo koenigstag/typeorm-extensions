@@ -32,18 +32,18 @@ TypeORM's `whereExists` / `andWhereExists` / `orWhereExists` on `SelectQueryBuil
 ## Signature
 
 ```typescript
-type ExistsSubQuery<SubEntity> =
+type SubQuery<SubEntity> =
   | SelectQueryBuilder<SubEntity>
   | ((subQuery: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<SubEntity>);
 
-whereNotExists<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): this
-andWhereNotExists<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): this
-orWhereNotExists<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): this
+whereNotExists<SubEntity>(subQuery: SubQuery<SubEntity>): this
+andWhereNotExists<SubEntity>(subQuery: SubQuery<SubEntity>): this
+orWhereNotExists<SubEntity>(subQuery: SubQuery<SubEntity>): this
 
 // UpdateQueryBuilder, DeleteQueryBuilder; on SelectQueryBuilder, TypeORM's with a factory added
-whereExists<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): this
-andWhereExists<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): this
-orWhereExists<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): this
+whereExists<SubEntity>(subQuery: SubQuery<SubEntity>): this
+andWhereExists<SubEntity>(subQuery: SubQuery<SubEntity>): this
+orWhereExists<SubEntity>(subQuery: SubQuery<SubEntity>): this
 ```
 
 ## Arguments
@@ -100,8 +100,8 @@ The subquery is built as for `whereExists`, from a query builder or a [factory](
 Inside a chain, TypeORM's `where` / `andWhere` / `orWhere` take a function that gets the query builder and returns the condition, which gives the builder to call the method on.
 
 ```typescript
-existsSql<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): string
-notExistsSql<SubEntity>(subQuery: ExistsSubQuery<SubEntity>): string
+existsSql<SubEntity>(subQuery: SubQuery<SubEntity>): string
+notExistsSql<SubEntity>(subQuery: SubQuery<SubEntity>): string
 ```
 
 ```typescript

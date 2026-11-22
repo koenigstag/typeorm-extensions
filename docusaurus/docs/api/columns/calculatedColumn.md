@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# CalculatedColumn / addSelectCalculated / orderByCalculated
+# CalculatedColumn / addSelectCalculated
 
 ## Description
 
@@ -40,14 +40,14 @@ const users = await userRepository
 
 ### Ordering
 
-`orderByCalculated(property, order?, nulls?, alias?)` orders by the value of a property selected with `addSelectCalculated` before; `addOrderByCalculated` adds to the order, like `addOrderBy`. [orderByTyped / addOrderByTyped](../typed/orderByTyped.md) do the same for a typed callback that picks a `@CalculatedColumn` (see [Typed callbacks](#typed-callbacks)), and [applyOrder](../order/applyOrder.md) when its `field` is one, so a client sorts by `imagesCount` like by any column.
+[orderByTyped / addOrderByTyped](../typed/orderByTyped.md) order by the value of a `@CalculatedColumn` selected with `addSelectCalculated` before, when their callback picks it (see [Typed callbacks](#typed-callbacks)), and [applyOrder](../order/applyOrder.md) does when its `field` is one, so a client sorts by `imagesCount` like by any column.
 
 ```typescript
 userRepository
   .createQueryBuilder('user')
   .addSelectCalculated('(SELECT COUNT(*) FROM "images" "i" WHERE "i"."userId" = "user"."id")', 'imagesCount')
   .leftJoinAndSelect('user.images', 'images')
-  .orderByCalculated('imagesCount', 'DESC')
+  .orderByTyped((user) => user.imagesCount, 'DESC')
   .take(20)
   .getMany();
 ```
@@ -124,10 +124,6 @@ The property is a TypeORM virtual property, as `@VirtualColumn` declares one, so
 
 addSelectCalculated(selection: string | ((qb) => SelectQueryBuilder), property: keyof Entity): this
 addSelectCalculated(selection: string | ((qb) => SelectQueryBuilder), property: string, alias: string): this
-
-orderByCalculated(property: keyof Entity, order?: 'ASC' | 'DESC', nulls?: 'NULLS FIRST' | 'NULLS LAST'): this
-orderByCalculated(property: string, order: 'ASC' | 'DESC' | undefined, nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined, alias: string): this
-addOrderByCalculated(…): this // the same arguments
 
 addSelectCalculatedTyped(selection: string | ((qb) => SelectQueryBuilder), property: (root) => value): this
 ```

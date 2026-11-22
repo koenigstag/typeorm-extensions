@@ -7,7 +7,7 @@ import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/pr
 import { TypedArrayArg, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
-import { WhereAnyMethods } from '../../../types/extensions';
+import { WhereIsAnyMethodName } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -100,7 +100,7 @@ declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
 
 // patching
 
-const createWhereIsAnyTypedMethod = (method: WhereAnyMethods) =>
+const createWhereIsAnyTypedMethod = (method: WhereIsAnyMethodName) =>
   function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,

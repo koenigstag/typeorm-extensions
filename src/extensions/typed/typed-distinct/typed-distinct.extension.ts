@@ -12,7 +12,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
      * Sets the distinct on clause for Postgres. A `@CalculatedColumn` selected with `addSelectCalculated`
-     * goes in under the alias `orderByCalculated` orders it by, as DISTINCT ON has to match the leading ORDER BY;
+     * goes in under the alias `orderByTyped` orders it by, as DISTINCT ON has to match the leading ORDER BY;
      * so does a `selectExpression()`.
      */
     distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
@@ -21,7 +21,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
     ): this;
     /**
      * Sets the distinct on clause for Postgres. A `@CalculatedColumn` selected with `addSelectCalculated`
-     * goes in under the alias `orderByCalculated` orders it by, as DISTINCT ON has to match the leading ORDER BY;
+     * goes in under the alias `orderByTyped` orders it by, as DISTINCT ON has to match the leading ORDER BY;
      * so does a `selectExpression()`.
      */
     distinctOnTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(

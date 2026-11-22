@@ -2,7 +2,8 @@ import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
-import { addSelectCalculatedColumn, CalculatedSelection } from '../../../utils/calculated-column.utils';
+import type { SubQueryFactory } from '../../../types/extensions/sub-query.types';
+import { addSelectCalculatedColumn } from '../../../utils/calculated-column.utils';
 import { resolveTypedProperty } from '../../../utils/query-builder.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
 
@@ -18,7 +19,7 @@ export interface TypedCalculatedColumnMethods<Entity extends ObjectLiteral> {
    * `orderByTyped` / `addOrderByTyped` then order by its value.
    */
   addSelectCalculatedTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>, SubEntity extends ObjectLiteral = ObjectLiteral>(
-    selection: CalculatedSelection<SubEntity>,
+    selection: string | SubQueryFactory<SubEntity>,
     property: CalculatedPropertyCallback<Type>
   ): this;
 }
@@ -39,7 +40,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       SubEntity extends ObjectLiteral = ObjectLiteral
     >(
       this: SelectQueryBuilder<Entity>,
-      selection: CalculatedSelection<SubEntity>,
+      selection: string | SubQueryFactory<SubEntity>,
       property: CalculatedPropertyCallback<Type>
     ): SelectQueryBuilder<Entity> {
       const { aliasName, propertyPath } = resolveTypedProperty<Type>(this, property, 'addSelectCalculatedTyped');

@@ -58,15 +58,9 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `count(column?, options?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
 | | `t.count()` | `CAST(COUNT(*) AS integer)` |
 | | `t.count('email', { distinct: true })` | `CAST(COUNT(DISTINCT "user"."email") AS integer)` |
-| `sum(column, options?)` | `image.sum('size')` | `COALESCE(SUM("images"."size"), 0)` |
-| `arrayAgg(column, options?)` | `image.arrayAgg('id')` | `COALESCE(array_agg("images"."id"), '{}')` |
-| `atTimeZone(value, zone)` | `t.atTimeZone('createdAt', 'Europe/Kyiv')` | `("user"."createdAt" AT TIME ZONE 'Europe/Kyiv')` |
-| `dateTrunc(unit, value, zone?)` | `t.dateTrunc('day', 'createdAt', 'Europe/Kyiv')` | `date_trunc('day', "user"."createdAt", 'Europe/Kyiv')` |
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
 | `json(path)` | `t.json((r) => r.metadata.settings)` | `("user"."metadata" -> 'settings')` |
 | `jsonText(path)` | `t.jsonText((r) => r.metadata.settings.theme)` | `("user"."metadata" -> 'settings' ->> 'theme')` |
-| `jsonBuildObject(columns, options?)` | `image.jsonBuildObject(['id', 'url'])` | `json_build_object('id', "images"."id", 'url', "images"."url")` |
-| `jsonAgg(expression, options?)` | `image.jsonAgg(image.column('url'))` | `COALESCE(json_agg("images"."url"), CAST('[]' AS json))` |
 
 Notes:
 - Without an alias, `column()` returns just the column (`"email"`). `join()` needs an alias, the helper's or its `alias` argument; without one it throws a `TypeError`.
@@ -88,7 +82,7 @@ const cte = tableHelper<Record<'utm_id' | 'total', unknown>>('cte');
 cte.utm_id                // "cte"."utm_id"
 ```
 
-- The members of the helper win: a column named like one of them (`alias`, `column`, `where`, `count`, `sum`, `cast`, …) is reachable through `column()` only. For an entity with a `count` column, `t.count` is the method and `t.column('count')` the column.
+- The members of the helper win: a column named like one of them (`alias`, `column`, `where`, `count`, `cast`, …) is reachable through `column()` only. For an entity with a `count` column, `t.count` is the method and `t.column('count')` the column.
 - An unknown name doesn't compile (`t.notAColumn`). The names are the keys of the entity type, as `column()` takes them, relations included.
 - Symbols and the keys that JavaScript and test tools read on any object (`then`, `toJSON`, `toString`, `valueOf`, `constructor`, `inspect`, `asymmetricMatch`, `$$typeof`, `nodeType`, and the other members of `Object.prototype`) are not columns: `await`, `JSON.stringify`, `String()`, `util.inspect` and Jest matchers treat the helper as a plain object.
 - `tableHelper<Entity>()` returns a `TableHelper<Entity>`, exported for code that keeps a helper in a variable or a field.
@@ -166,39 +160,29 @@ With a `LEFT JOIN`, `COUNT(*)` also counts the row of a user without images. To 
 
 `count()` throws a `TypeError` for `distinct` without a column, for an unknown `syntax`, and for a second argument that is not an options object.
 
-## Sums
+## Sums, arrays, JSON and time zones
 
-```typescript
-sum(column: NumberColumn<Entity>, options?: { filter?: string; syntax?: 'case' | 'filter' }): string
-```
-
-`COALESCE(SUM(column), 0)`: 0, not `NULL`, for a group without rows or a `LEFT JOIN` without a match. Only a column whose property is a `number` or a `bigint` compiles: `t.sum('email')` is a type error. `filter` and `syntax` work as for `count`.
+The other SQL functions are in [`Sql`](./sql.md), over the helper's columns: `Sql.sum`, `Sql.arrayAgg`, `Sql.jsonAgg` / `Sql.jsonbAgg`, `Sql.jsonBuildObject`, `Sql.atTimeZone`, `Sql.dateTrunc` and more. They write the function and nothing else, so an aggregate over no rows is `NULL`: wrap it in `Sql.coalesce` for a default.
 
 ```typescript
 const order = tableHelper<OrderEntity>('order');
+const image = tableHelper<ImageEntity>('image');
 
-order.sum('amountCents', { filter: order.where('status', "= 'paid'") })
+Sql.coalesce(Sql.sum(order.amountCents, { filter: order.where('status', "= 'paid'") }), 0)
 // COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
+
+Sql.coalesce(
+  Sql.jsonAgg(Sql.jsonBuildObject({ imageId: image.id, src: image.url }), {
+    orderBy: `${image.createdAt} DESC`,
+    filter: image.isNotNull('id'),
+  }),
+  "CAST('[]' AS json)"
+)
+// the images of each group as a JSON array, [] for a group without rows
+
+Sql.dateTrunc('day', order.paidAt, { sql: Sql.coalesce(venue.timezone, "'UTC'") })
+// date_trunc('day', "order"."paidAt", COALESCE("venue"."timezone", 'UTC'))
 ```
-
-The result isn't cast: a sum outgrows `integer` sooner than a count. PostgreSQL sums integers into a `bigint` and MySQL into a `DECIMAL`, which the drivers return as strings; convert them, or select into a [`@CalculatedColumn`](../columns/calculatedColumn.md) of type `number`.
-
-## Arrays (PostgreSQL)
-
-```typescript
-arrayAgg(column: Column<Entity>, options?: { distinct?: boolean; orderBy?: Column | [Column, 'ASC' | 'DESC']; filter?: string }): string
-```
-
-The PostgreSQL array of a column over the rows of a group, `{}` for a group without rows:
-
-```typescript
-image.arrayAgg('id', { orderBy: ['id', 'DESC'], filter: image.isNotNull('id') })
-// COALESCE(array_agg("images"."id" ORDER BY "images"."id" DESC) FILTER (WHERE "images"."id" IS NOT NULL), '{}')
-```
-
-- **`filter`**: after a `LEFT JOIN` without a match, the array is `{NULL}` without it; filter on a non-null column of the joined table.
-- **`distinct`**: each value once. PostgreSQL then orders only by the aggregated column, so another `orderBy` throws a `TypeError`.
-- The driver returns a JavaScript array. MySQL and SQLite have no arrays: with their `driver` it throws a `TypeError`, use [`jsonAgg`](#json-objects-and-arrays) there.
 
 ## Composing helpers
 
@@ -290,88 +274,6 @@ t.jsonText((r) => r.metadata.role)           // ("user"."metadata" ->> 'role')
 t.jsonText((r) => r.metadata.settings.theme) // ("user"."metadata" -> 'settings' ->> 'theme')
 t.json((r) => r.metadata.settings)           // ("user"."metadata" -> 'settings')
 ```
-
-## JSON objects and arrays
-
-`jsonBuildObject` builds a JSON object from columns, `jsonAgg` aggregates an expression over the rows of a group into a JSON array. Together they return a row with its related rows nested, in one query:
-
-```typescript
-const image = tableHelper<ImageEntity>('image', { driver: 'postgres' });
-
-const users = await userRepository
-  .createQueryBuilder('user')
-  .select('user.id', 'id')
-  .addSelect(
-    image.jsonAgg(image.jsonBuildObject({ imageId: 'id', src: 'url' }), {
-      orderBy: ['createdAt', 'DESC'],
-      filter: image.isNotNull('id'),
-    }),
-    'images'
-  )
-  .leftJoin('user.images', 'image')
-  .groupBy('user.id')
-  .getRawMany();
-
-// [{ id: 1, images: [{ imageId: 2, src: '…' }, { imageId: 1, src: '…' }] }, { id: 3, images: [] }]
-```
-
-```sql
-COALESCE(
-  json_agg(json_build_object('imageId', "image"."id", 'src', "image"."url") ORDER BY "image"."createdAt" DESC)
-    FILTER (WHERE "image"."id" IS NOT NULL),
-  CAST('[]' AS json)
-)
-```
-
-- **Columns are checked against the entity type**: the columns of `jsonBuildObject`, as a list (keys are the column names) or as a `{ key: column }` map, and the column of `orderBy`. Keys are escaped as SQL string literals.
-- **`[]` for a group without rows**: `jsonAgg` wraps the aggregate in `COALESCE(…, [])`, since an aggregate over no rows is `NULL`.
-- **`filter`** aggregates only the matching rows. After a LEFT JOIN without a match the row has `NULL` columns, which would otherwise come out as `[{"imageId": null, "src": null}]`: filter on a non-null column of the joined table, `image.isNotNull('id')`.
-- **`orderBy`** orders the array by a column of the helper's table: `'createdAt'` or `['createdAt', 'DESC']`.
-- **`jsonb: true`** uses `jsonb_build_object` / `jsonb_agg` (PostgreSQL).
-
-The functions follow the helper's `driver` option:
-
-| Database | Object | Array | Notes |
-|---|---|---|---|
-| PostgreSQL, CockroachDB (default) | `json_build_object` / `jsonb_build_object` | `json_agg` / `jsonb_agg` | parsed by the driver |
-| MySQL / MariaDB | `JSON_OBJECT` | `JSON_ARRAYAGG` | no `orderBy`, `filter` or `jsonb`: they throw a `TypeError` |
-| SQLite | `json_object` | `json_group_array` | returned as text: `JSON.parse` it; `orderBy` needs SQLite 3.44+ |
-
-Another `driver` (`mssql`, `oracle`, …) throws a `TypeError`: those databases have JSON functions of their own.
-
-## Time zones (PostgreSQL)
-
-```typescript
-atTimeZone(value: Column | { sql: string }, timeZone: TimeZone): string
-dateTrunc(unit: DateTruncUnit, value: Column | { sql: string }, timeZone?: TimeZone): string
-
-type TimeZone = string | { column: Column; fallback?: string } | { sql: string };
-```
-
-- **`atTimeZone`** is `(value AT TIME ZONE zone)`: a `timestamptz` becomes the wall-clock `timestamp` of that zone, and a `timestamp` is read as wall-clock time there and becomes a `timestamptz`.
-- **`dateTrunc`** is `date_trunc('unit', value)`. With a zone it is the three-argument form (PostgreSQL 12+): a `timestamptz` is truncated at the boundaries of that zone, so `'day'` starts at the local midnight, and the result is a `timestamptz` again. The unit is checked: `microseconds` … `millennium`, as PostgreSQL names them.
-
-The zone is one of:
-
-- a name or an offset, `'Europe/Kyiv'`, `'UTC'`, `'+02:00'`, written as an **escaped** string literal. An offset is UTC+2 for `'+02:00'`, as in ISO 8601: PostgreSQL reads a bare `'+02:00'` as a POSIX zone, UTC−2, so it is written as `'<+0200>-02:00'`, the POSIX zone of UTC+2. Offsets stored in a `column` reach PostgreSQL as they are. The literal is escaped: a zone taken from a request can't close the literal, unlike `AT TIME ZONE '${timezone}'` in a template string;
-- a column of the helper's table, `{ column: 'timezone' }`, with `fallback` for rows where it is `NULL`: `COALESCE("venue"."timezone", 'UTC')`;
-- an SQL expression, `{ sql: venue.column('timezone') }`.
-
-```typescript
-const order = tableHelper<OrderEntity>('order');
-
-// revenue per local day of the venue
-query
-  .select(order.dateTrunc('day', 'paidAt', { sql: venue.column('timezone') }), 'day')
-  .addSelect(order.sum('amountCents'), 'amountCents')
-  .groupBy('day');
-
-// wall-clock time of a booking in its own zone
-booking.atTimeZone('startsAt', { column: 'timezone', fallback: 'UTC' })
-// ("booking"."startsAt" AT TIME ZONE COALESCE("booking"."timezone", 'UTC'))
-```
-
-With a `driver` other than PostgreSQL's (MySQL, SQLite, `mssql`, …) both throw a `TypeError`.
 
 ## Usage
 

@@ -7,7 +7,7 @@ import 'typeorm-extensions/extensions/join-unnest.extension';
 import 'typeorm-extensions/extensions/period-filter.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
 import { postgresLikeDrivers, sqliteDrivers } from '../constants/database';
-import { setupTest, createFakeUsers, createFakeImages, mysqlRun, sqlOf } from '../test-utils';
+import { setupTest, createFakeUsers, createFakeImages, mysqlRun, nativeSql, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 
 // what a query string hands over: text, one value for a list, an object for a list or an order
@@ -35,6 +35,21 @@ setupTest('query-string inputs', undefined, (context) => {
       if (!driverIn(sqliteDrivers)) {
         await expect(byField.getMany()).rejects.toThrow();
         await expect(byAlias.getMany()).rejects.toThrow();
+      }
+    });
+
+    it('SHOULD quote again a table alias quoted for another database', async () => {
+      await seedUsers(1);
+
+      const other = mysqlRun ? '"' : '`';
+      const tableAlias = `${other}\\${other}.${other} OR 1 = 1 -- ${other}`;
+      const query = users().applyOrder({ field: 'id', tableAlias });
+
+      // the driver's own quotes: sqlOf would turn MySQL's backticks into the double quotes it was given
+      expect(query.getQuery()).toContain(nativeSql('ORDER BY "\\"." OR 1 = 1 -- "."id"'));
+
+      if (!driverIn(sqliteDrivers)) {
+        await expect(query.getMany()).rejects.toThrow();
       }
     });
 

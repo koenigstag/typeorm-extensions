@@ -55,11 +55,16 @@ setupTest('insert-select-typed', undefined, (context) => {
 
     await seedUsers();
 
+    // FROM a subquery: no default order of an entity puts an ORDER BY between the FROM and ON CONFLICT
     const copyUsers = () =>
       tickets()
         .createQueryBuilder()
         .insert()
-        .valuesFromSelectTyped((sub) => sub.from(UserEntity, 'u'), { id: 'u.id', status: "'copied'", ownerId: 'u.id' })
+        .valuesFromSelectTyped((sub) => sub.from((users) => users.select('u.id', 'id').from(UserEntity, 'u'), 'src'), {
+          id: 'src.id',
+          status: "'copied'",
+          ownerId: 'src.id',
+        })
         .onConflictTyped({ target: ['id'] });
 
     await copyUsers().execute();

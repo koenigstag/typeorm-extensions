@@ -1,20 +1,16 @@
-import { InsertQueryBuilder, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import { InsertQueryBuilder, ObjectLiteral, WhereExpressionBuilder } from 'typeorm';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { isColumnRef } from '../../../utils/column-proxy.utils';
 import { detachedQueryBuilder, toSubQuerySql } from '../../../utils/parameter.utils';
 import { patchPrototype } from '../../../utils/prototype.utils';
-import { createUniqueParameterName } from '../../../utils/sql.utils';
+import { getDriverType, isSqliteLikeDriver } from '../../../utils/sql.utils';
+import type { SubQuery } from '../../../types/extensions/sub-query.types';
 import type { OnConflictTargetKey } from '../typed-on-conflict/typed-on-conflict.extension';
 
 // declarations
 
 /** The SQL each inserted column gets, by property, over the aliases of the select. */
 export type InsertSelectColumns<Entity> = { [K in OnConflictTargetKey<Entity>]?: string };
-
-/** The select the rows come from: a query builder, or a factory that builds it on the insert's connection and transaction. */
-export type InsertSelectSubQuery =
-  | SelectQueryBuilder<ObjectLiteral>
-  | ((subQuery: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<ObjectLiteral>);
 
 // keeps Type from being inferred from the columns, so it stays the entity of the builder
 type NoInferType<T> = [T][T extends unknown ? 0 : never];
@@ -29,7 +25,7 @@ export interface TypedInsertSelectMethods<Entity extends ObjectLiteral> {
    * There is no entity, so listeners and subscribers do not run and nothing is updated from the returned rows.
    */
   valuesFromSelectTyped<Type extends ObjectLiteral = Entity>(
-    subQuery: InsertSelectSubQuery,
+    subQuery: SubQuery,
     columns: InsertSelectColumns<NoInferType<Type>>
   ): this;
 }
@@ -59,15 +55,17 @@ type InsertSelectInternals = {
 };
 
 const METHOD = 'valuesFromSelectTyped';
-// what createValuesExpression returns in place of the values, swapped for the select once TypeORM wrote the statement
-const VALUES_MARKER = `/*${createUniqueParameterName(METHOD)}*/`;
+// what createValuesExpression returns in place of the values, swapped for the select once TypeORM wrote the statement;
+// one marker and one install for every copy of the library a project loads, so the wrappers don't stack
+const VALUES_MARKER = `/*typeorm-extensions:${METHOD}*/`;
+const INSTALLED = Symbol.for('typeorm-extensions.insertSelect');
 
 const insertPrototype = InsertQueryBuilder.prototype as unknown as InsertSelectInternals;
 const supported = ['getInsertedColumns', 'getValueSets', 'createValuesExpression', 'createInsertExpression'].every(
   (name) => typeof (insertPrototype as unknown as Record<string, unknown>)[name] === 'function'
 );
 
-function renderSelect(builder: InsertSelectInternals, subQuery: InsertSelectSubQuery, columns: ObjectLiteral): void {
+function renderSelect(builder: InsertSelectInternals, subQuery: SubQuery, columns: ObjectLiteral): void {
   if (!supported) {
     throw new TypeError(`${METHOD}: this TypeORM version builds inserts without the methods it extends`);
   }
@@ -118,6 +116,14 @@ function renderSelect(builder: InsertSelectInternals, subQuery: InsertSelectSubQ
     }
   });
 
+  // SQLite reads an ON after the select's FROM as a join constraint, so ON CONFLICT needs a WHERE before it
+  if (
+    isSqliteLikeDriver(getDriverType(builder as unknown as WhereExpressionBuilder)) &&
+    !query.expressionMap.wheres.length
+  ) {
+    query.where('1 = 1');
+  }
+
   const [sql, parameters] = toSubQuerySql(query);
 
   builder.setParameters(parameters);
@@ -132,7 +138,7 @@ const extension: { prototype: Partial<InsertQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     valuesFromSelectTyped<Entity extends ObjectLiteral>(
       this: InsertQueryBuilder<Entity>,
-      subQuery: InsertSelectSubQuery,
+      subQuery: SubQuery,
       columns: ObjectLiteral
     ): InsertQueryBuilder<Entity> {
       renderSelect(this as unknown as InsertSelectInternals, subQuery, columns);
@@ -144,7 +150,9 @@ const extension: { prototype: Partial<InsertQueryBuilder<ObjectLiteral>> } = {
 
 patchPrototype(InsertQueryBuilder, extension);
 
-if (supported) {
+if (supported && !(insertPrototype as unknown as Record<symbol, unknown>)[INSTALLED]) {
+  (insertPrototype as unknown as Record<symbol, unknown>)[INSTALLED] = true;
+
   const { getValueSets, createValuesExpression, createInsertExpression } = insertPrototype;
 
   // one row stands for the select, so execute() runs the statement instead of returning on no values

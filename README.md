@@ -53,7 +53,7 @@ npm install typeorm-extensions
 
 **Typed queries** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/typed/))
 - `selectTyped`, `whereTyped` (keys inside JSON columns too; `strictParams` checks the parameter against the column type), `orderByTyped`, `groupByTyped` / `havingTyped`, `distinctOnTyped`, `returningTyped`
-- typed joins and map joins (`leftJoinTyped`, `innerJoinAndMapOneTyped`, …), `typed<Root>()` for the aliases a query joins, `whereRelationExists` built from the relation metadata
+- typed joins and map joins (`leftJoinTyped`, `innerJoinAndMapOneTyped`, …), `typed<Root>()` for the aliases a query joins, `whereRelationExistsTyped` built from the relation metadata
 - `selectRow` / `unnestRows`: the body of a CTE checked against the row type of the `tableHelper` that reads it
 
 **Pagination** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/pagination/))
@@ -75,7 +75,7 @@ npm install typeorm-extensions
 - the reserved qualifier guard: catches SQL like `order."userId"` before PostgreSQL rejects it
 
 **Columns** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/columns/generatedColumn/))
-- `@CalculatedColumn` with `addSelectCalculated` / `orderByCalculated`: a value each query computes
+- `@CalculatedColumn` with `addSelectCalculated` / `orderByTyped`: a value each query computes
 - `@GeneratedColumn`: a column the database generates, which TypeORM reads and never writes
 
 ## Entry points

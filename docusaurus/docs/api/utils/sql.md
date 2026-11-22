@@ -117,5 +117,5 @@ Sql.case([{ when: o.where('total', '> 100'), then: "'big'" }], { else: "'small'"
 
 ## Notes
 
-- **The function's own result.** `Sql.count` and `Sql.sum` write the function and nothing else, so they replace a hand-written `COUNT(…)` / `SUM(…)` without changing what the query returns: the `pg` driver returns a count, a `bigint` sum and a `numeric` as strings, and `SUM`, `MIN`, `MAX` and `AVG` give NULL for no rows. `tableHelper`'s [`count`](./tableHelper.md#counting) casts to an integer and its [`sum`](./tableHelper.md#sums) gives 0 instead of NULL; `Sql.coalesce(Sql.sum(…), '0')` does the same by hand.
+- **The function's own result.** `Sql.count` and `Sql.sum` write the function and nothing else, so they replace a hand-written `COUNT(…)` / `SUM(…)` without changing what the query returns: the `pg` driver returns a count, a `bigint` sum and a `numeric` as strings, and `SUM`, `MIN`, `MAX` and `AVG` give NULL for no rows. `tableHelper`'s [`count`](./tableHelper.md#counting) casts to an integer; `Sql.coalesce(Sql.sum(…), 0)` gives 0 instead of NULL.
 - **Values.** Expressions are written as they are, so a value from a user goes into a parameter (`':since'`), never into the string.

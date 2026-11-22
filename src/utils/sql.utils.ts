@@ -111,16 +111,27 @@ export const stringToSQLIdentifier = (
     return str;
   }
 
-  const quote = isMysqlLikeDriver(driver)
-    ? wrapWithBackQoutes
-    : wrapWithDoubleQoutes;
+  const mysql = isMysqlLikeDriver(driver);
+  const ownQuote = mysql ? BACKTICK : '"';
+  const quote = mysql ? wrapWithBackQoutes : wrapWithDoubleQoutes;
 
   return (str.match(IDENTIFIER_PATH_SEGMENT) ?? [])
-    .map((segment) =>
-      segment === '*' || segment.startsWith('"') || segment.startsWith(BACKTICK)
-        ? segment
-        : quote(segment)
-    )
+    .map((segment) => {
+      if (segment === '*' || segment.startsWith(ownQuote)) {
+        return segment;
+      }
+
+      // quoted the other way: MySQL reads `"…"` as a string literal with backslash escapes, so it is
+      // unquoted and quoted again for the database rather than passed on
+      if (segment.startsWith('"') || segment.startsWith(BACKTICK)) {
+        const otherQuote = segment[0];
+        const name = segment.slice(1, -1).split(otherQuote + otherQuote).join(otherQuote);
+
+        return `${ownQuote}${name.split(ownQuote).join(ownQuote + ownQuote)}${ownQuote}`;
+      }
+
+      return quote(segment);
+    })
     .join('.');
 };
 

@@ -3,11 +3,7 @@ import { DriverUtils } from 'typeorm/driver/DriverUtils';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { createUniqueParameterName } from './sql.utils';
 import { detachedSubQuery, toSubQuerySql } from './parameter.utils';
-
-/** `addSelect`'s selection: an SQL expression, or a factory that builds a subquery on the builder it is given. */
-export type CalculatedSelection<SubEntity extends ObjectLiteral = ObjectLiteral> =
-  | string
-  | ((qb: SelectQueryBuilder<ObjectLiteral>) => SelectQueryBuilder<SubEntity>);
+import type { SubQueryFactory } from '../types/extensions/sub-query.types';
 
 const ORDER_ALIAS_PREFIX = 'calculated';
 const ORDER_ALIAS_PATTERN = new RegExp(`^${ORDER_ALIAS_PREFIX}_\\w+$`);
@@ -136,7 +132,7 @@ export function selectForOrder<Entity extends ObjectLiteral>(builder: SelectQuer
 /** Selects `selection` into the `@CalculatedColumn` `property` of the entity of `aliasName` (the main alias by default). */
 export function addSelectCalculatedColumn<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
-  selection: CalculatedSelection<SubEntity>,
+  selection: string | SubQueryFactory<SubEntity>,
   property: string,
   aliasName: string | undefined,
   methodName: string
@@ -152,19 +148,4 @@ export function addSelectCalculatedColumn<Entity extends ObjectLiteral, SubEntit
   }
 
   return builder.addSelect(selection, key);
-}
-
-/** ORDER BY the value of a `@CalculatedColumn` selected with `addSelectCalculated`, through `orderBy` or `addOrderBy`. */
-export function orderByCalculatedColumn<Entity extends ObjectLiteral>(
-  builder: SelectQueryBuilder<Entity>,
-  method: 'orderBy' | 'addOrderBy',
-  property: string,
-  order: 'ASC' | 'DESC' | undefined,
-  nulls: 'NULLS FIRST' | 'NULLS LAST' | undefined,
-  aliasName: string | undefined,
-  methodName: string
-): SelectQueryBuilder<Entity> {
-  const orderAlias = selectCalculatedForOrder(builder, property, aliasName, methodName);
-
-  return builder[method](orderAlias, order, nulls);
 }
