@@ -21,7 +21,7 @@ setupTest('insert-select-typed', undefined, (context) => {
     tickets()
       .createQueryBuilder()
       .insert()
-      .valuesFromSelect((sub) => sub.from(UserEntity, 'u').where('u.firstName = :name', { name: 'Ann' }), {
+      .valuesFromSelectTyped((sub) => sub.from(UserEntity, 'u').where('u.firstName = :name', { name: 'Ann' }), {
         ownerId: 'u.id',
         status: "'new'",
       });
@@ -59,7 +59,7 @@ setupTest('insert-select-typed', undefined, (context) => {
       tickets()
         .createQueryBuilder()
         .insert()
-        .valuesFromSelect((sub) => sub.from(UserEntity, 'u'), { id: 'u.id', status: "'copied'", ownerId: 'u.id' })
+        .valuesFromSelectTyped((sub) => sub.from(UserEntity, 'u'), { id: 'u.id', status: "'copied'", ownerId: 'u.id' })
         .onConflictTyped({ target: ['id'] });
 
     await copyUsers().execute();
@@ -78,7 +78,7 @@ setupTest('insert-select-typed', undefined, (context) => {
     const result = await tickets()
       .createQueryBuilder()
       .insert()
-      .valuesFromSelect((sub) => sub.from(UserEntity, 'u').where('u.lastName = :lastName', { lastName: 'Ray' }), {
+      .valuesFromSelectTyped((sub) => sub.from(UserEntity, 'u').where('u.lastName = :lastName', { lastName: 'Ray' }), {
         status: "'returned'",
         ownerId: 'u.id',
       })
@@ -92,7 +92,7 @@ setupTest('insert-select-typed', undefined, (context) => {
     const sql = tickets()
       .createQueryBuilder()
       .insert()
-      .valuesFromSelect((sub) => sub.from(UserEntity, 'u').where('u.firstName = :name', { name: 'Ann' }), {
+      .valuesFromSelectTyped((sub) => sub.from(UserEntity, 'u').where('u.firstName = :name', { name: 'Ann' }), {
         status: ':name',
         ownerId: 'u.id',
       })
@@ -109,7 +109,7 @@ setupTest('insert-select-typed', undefined, (context) => {
       tickets()
         .createQueryBuilder()
         .insert()
-        .valuesFromSelect((sub) => sub.from(UserEntity, 'u'), { owner: 'u.id' } as never),
+        .valuesFromSelectTyped((sub) => sub.from(UserEntity, 'u'), { owner: 'u.id' } as never),
     ).toThrow('"owner" not an inserted column');
 
     expect(() =>
@@ -117,7 +117,7 @@ setupTest('insert-select-typed', undefined, (context) => {
         .createQueryBuilder()
         .insert()
         .values({ status: 'x' })
-        .valuesFromSelect((sub) => sub.from(UserEntity, 'u'), { status: "'new'" }),
+        .valuesFromSelectTyped((sub) => sub.from(UserEntity, 'u'), { status: "'new'" }),
     ).toThrow('leave values() out');
   });
 });

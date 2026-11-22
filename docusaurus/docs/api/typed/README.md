@@ -34,7 +34,7 @@ Where methods also go into JSON columns (`exec => exec.details.meta.endTs`, see 
 - [addSelectCalculatedTyped](../columns/calculatedColumn#typed-callbacks): select into a `@CalculatedColumn` picked by a typed callback; `orderByTyped` / `addOrderByTyped` then order by it.
 - [returningTyped](./returningTyped): return typesafe columns from INSERT / UPDATE / DELETE (PostgreSQL, MariaDB, SQL Server).
 - [onConflictTyped](./onConflictTyped): `ON CONFLICT … DO UPDATE` / `DO NOTHING` with typesafe columns (PostgreSQL, SQLite).
-- [valuesFromSelect](./valuesFromSelect): `INSERT INTO … (columns) SELECT …`, the rows of an insert from a select query.
+- [valuesFromSelectTyped](./valuesFromSelectTyped): `INSERT INTO … (columns) SELECT …`, the rows of an insert from a select query.
 
 ### Types:
 - [KeyProxyCallback](./types/KeyProxyCallback): the callback that selects entity properties, and how it maps to SQL keys.

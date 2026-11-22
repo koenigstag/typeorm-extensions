@@ -23,12 +23,12 @@ export interface TypedInsertSelectMethods<Entity extends ObjectLiteral> {
   /**
    * `INSERT INTO … (columns) SELECT …`: the rows come from a select query instead of `values()`.
    * `columns` maps each property to the SQL its rows get, over the aliases of the select:
-   * `valuesFromSelect(sub => sub.from(User, 'u').where(…), { ownerId: 'u.id', status: "'new'" })`.
+   * `valuesFromSelectTyped(sub => sub.from(User, 'u').where(…), { ownerId: 'u.id', status: "'new'" })`.
    * TypeORM still writes the statement (table, column list, `orIgnore`, `onConflictTyped`, `returning`); the select's
    * own selections are replaced by `columns`, in the order of that column list, and its parameters are renamed unique.
    * There is no entity, so listeners and subscribers do not run and nothing is updated from the returned rows.
    */
-  valuesFromSelect<Type extends ObjectLiteral = Entity>(
+  valuesFromSelectTyped<Type extends ObjectLiteral = Entity>(
     subQuery: InsertSelectSubQuery,
     columns: InsertSelectColumns<NoInferType<Type>>
   ): this;
@@ -58,7 +58,7 @@ type InsertSelectInternals = {
   setParameters(parameters: ObjectLiteral): unknown;
 };
 
-const METHOD = 'valuesFromSelect';
+const METHOD = 'valuesFromSelectTyped';
 // what createValuesExpression returns in place of the values, swapped for the select once TypeORM wrote the statement
 const VALUES_MARKER = `/*${createUniqueParameterName(METHOD)}*/`;
 
@@ -130,7 +130,7 @@ function renderSelect(builder: InsertSelectInternals, subQuery: InsertSelectSubQ
 
 const extension: { prototype: Partial<InsertQueryBuilder<ObjectLiteral>> } = {
   prototype: {
-    valuesFromSelect<Entity extends ObjectLiteral>(
+    valuesFromSelectTyped<Entity extends ObjectLiteral>(
       this: InsertQueryBuilder<Entity>,
       subQuery: InsertSelectSubQuery,
       columns: ObjectLiteral
