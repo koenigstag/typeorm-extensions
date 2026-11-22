@@ -5,6 +5,7 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
 import { createFakeUsers, mysqlRun, nativeSql, setupTest, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
+import { sqliteDrivers } from '../constants/database';
 
 setupTest('order-by-typed.orderByTyped', undefined, (context) => {
   it('SHOULD apply order by correctly', async () => {
@@ -218,6 +219,10 @@ setupTest('order-by-typed.orderByTyped', undefined, (context) => {
 
     expect(ordered.getQuery()).toContain(`ORDER BY ${quoted}`);
     expect(users().whereTyped(pick, '=', 1).getQuery()).toContain(`WHERE ${quoted} =`);
-    await expect(ordered.getMany()).rejects.toThrow();
+
+    // SQLite builds that allow double-quoted strings read an unknown quoted name as a string: a constant order
+    if (!sqliteDrivers.includes(context.typeormOptions.type as never)) {
+      await expect(ordered.getMany()).rejects.toThrow();
+    }
   });
 });
