@@ -203,21 +203,3 @@ setupTest(
     // TODO Add negative test cases
   },
 );
-
-setupTest(
-  'pagination.applyPaginationFilter.legacyName',
-  undefined,
-  (context) => {
-    it('SHOULD page the query exactly like applyPagination', () => {
-      const query = () =>
-        context.dataSource.getRepository(UserEntity).createQueryBuilder('user').select('user.id');
-
-      expect(sqlOf(query().applyPaginationFilter({ page: 3, pageSize: 4 }))).toEqual(
-        sqlOf(query().applyPagination({ page: 3, pageSize: 4 })),
-      );
-      expect(
-        query().applyPaginationFilter({ page: 3, pageSize: 4 }, { useTakeAndSkip: true }).expressionMap.take,
-      ).toBe(4);
-    });
-  },
-);

@@ -7,7 +7,6 @@ import {
 	quoteIdentifier,
 	quoteIdentifierPath,
 } from './sql.utils';
-import { buildJsonPath } from './json-path.utils';
 import { filtered, sqlString } from './aggregate.utils';
 import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
 import { Sql } from './sql-functions.utils';
@@ -30,40 +29,6 @@ type JsonKeys<T> = T extends JsonPathLeaf ? never : T extends object ? keyof T &
 
 /** The value under `Key` in the members of `V` that have it. */
 type JsonValueAt<V, Key> = V extends unknown ? (Key extends keyof V ? V[Key] : never) : never;
-
-/**
- * An object whose keys a JSON path names: a type alias, an interface or a class. `object` and `{}` have no keys to check;
- * `unknown` and `any` may hold any object, so the path goes on with any keys.
- */
-type JsonPathKind<V> = unknown extends V
-	? 'untyped'
-	: [NonNullable<V>] extends [JsonPathLeaf]
-		? 'leaf'
-		: [NonNullable<V>] extends [object]
-			? [JsonKeys<NonNullable<V>>] extends [never]
-				? 'untyped'
-				: 'object'
-			: 'leaf';
-
-/**
- * A JSON path checked one key at a time against the value each key is read from, so it costs the length of the path:
- * listing every path of a wide class instead costs thousands of types per call. A key that doesn't fit is replaced by
- * the keys that would, which is what the error names.
- */
-type JsonPathRest<V, Path extends readonly string[]> = Path extends readonly [infer Head extends string, ...infer Rest extends string[]]
-	? JsonPathKind<V> extends 'untyped'
-		? Path
-		: JsonPathKind<V> extends 'object'
-			? Head extends JsonKeys<NonNullable<V>>
-				? [Head, ...JsonPathRest<JsonValueAt<NonNullable<V>, Head>, Rest>]
-				: [JsonKeys<NonNullable<V>>, ...Rest]
-			: []
-	: [];
-
-/** The keys of a JSON path into a column of type `V`: at least one, checked when `V` is an object type, any strings otherwise. */
-export type JsonPathArgs<V, Path extends readonly string[]> = JsonPathKind<V> extends 'object'
-	? Path extends readonly [] ? [JsonKeys<NonNullable<V>>] : JsonPathRest<V, Path>
-	: Path;
 
 type JsonFieldTuple<T, Depth extends 0[] = []> = Depth['length'] extends 4
 	? [string, ...string[]]
@@ -280,7 +245,7 @@ function jsonFunctions(driver: DatabaseType | undefined, jsonb: boolean | undefi
 }
 
 
-/** Every JSON path into a type alias, up to 4 keys deep: `string[]` for other types. `jsonColumn` / `jsonPath` check a path with `JsonPathArgs`. */
+/** Every JSON path into a type alias, up to 4 keys deep: `string[]` for other types. */
 export type JsonFieldRest<V> = [NonNullable<V>] extends [Record<string, unknown>]
 	? JsonFieldTuple<NonNullable<V>>
 	: string[];
@@ -541,43 +506,6 @@ const createTableHelper = <T extends ObjectLiteral>(
 		return sql.jsonText(this.column(column as keyof T), ...keys);
 	},
 	/**
-	 * @deprecated Use `json` / `jsonText`, which take the path as a callback: `t.jsonText((r) => r.metadata.role)`.
-	 *
-	 * Returns a full JSONB column access expression.
-	 * @example
-	 * t.jsonColumn('metadata', '->>', 'role')             // → "user"."metadata" ->> 'role'
-	 * t.jsonColumn('metadata', '->>', 'settings', 'theme') // → "user"."metadata" -> 'settings' ->> 'theme'
-	 */
-	jsonColumn<K extends keyof T, Path extends string[]>(
-		columnName: K,
-		jsonOperator: '->>' | '->',
-		...fieldNames: Path & JsonPathArgs<T[K], Path>
-	) {
-		const column = this.column(columnName);
-		const path = buildJsonPath(fieldNames, jsonOperator);
-		return `${column} ${path}`;
-	},
-	/**
-	 * @deprecated Go into the JSON column in the typed where callback (`whereTyped((u) => u.metadata.role, …)`),
-	 * or use `json` / `jsonText`.
-	 *
-	 * Returns only the JSONB operator fragment (without the column).
-	 * Useful inside `whereTyped` conditions strings.
-	 * @example
-	 * t.jsonPath('metadata', '->>', 'role')              // → ->> 'role'
-	 * t.jsonPath('metadata', '->>', 'settings', 'theme') // → -> 'settings' ->> 'theme'
-	 *
-	 * // Combined with whereTyped:
-	 * qb.whereTyped(u => u.metadata, `${t.jsonPath('metadata', '->>', 'role')} =`, 'admin')
-	 */
-	jsonPath<K extends keyof T, Path extends string[]>(
-		_columnName: K,
-		jsonOperator: '->>' | '->',
-		...fieldNames: Path & JsonPathArgs<T[K], Path>
-	) {
-		return buildJsonPath(fieldNames, jsonOperator);
-	},
-	/**
 	 * Returns `(expression AT TIME ZONE zone)` (PostgreSQL). A `timestamptz` gives the wall-clock `timestamp`
 	 * in that zone; a `timestamp` is read as wall-clock time there and gives a `timestamptz`.
 	 * A zone name is written as an escaped literal, so it is safe to take from a request.
@@ -693,7 +621,7 @@ const databaseColumnNames = (entity: EntityClass<ObjectLiteral>): ReadonlyMap<st
  * t.column('email')              // → "user"."email"
  * t.email                        // → "user"."email", the same
  * t.where('id', '= :id')        // → "user"."id" = :id
- * t.jsonColumn('metadata', '->>', 'role')  // → "user"."metadata" ->> 'role'
+ * t.jsonText((u) => u.metadata.role) // → ("user"."metadata" ->> 'role')
  */
 export function tableHelper<T extends ObjectLiteral>(entity: EntityClass<T>, alias?: string, options?: TableHelperOptions): TableHelper<T>;
 export function tableHelper<T extends ObjectLiteral>(alias?: string, options?: TableHelperOptions): TableHelper<T>;

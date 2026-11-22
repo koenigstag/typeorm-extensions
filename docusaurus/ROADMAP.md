@@ -40,7 +40,7 @@ see the Play buttons plan in `docusaurus/playground/README.md`.
 | Filtering | Search results in the search engine's order | simple | `whereIsAny` + `orderByArrayPosition` |
 | Joins | Several typed joins | medium | alias-keyed `type Joins = { orders: Order; host: User }` |
 | Joins | Reusable query fragments | complex | functions like `applyVisibility(qb, user)` with typed conditions; `tableHelper` inside `joinOn` |
-| JSON & arrays | Settings in JSONB | medium | `whereJsonContains`, `tableHelper.jsonColumn`, GIN index |
+| JSON & arrays | Settings in JSONB | medium | `whereJsonContains`, `tableHelper.json` / `jsonText`, GIN index |
 | JSON & arrays | Tags in an array column | medium | any tag vs all tags; `text[]` vs a join table |
 | Writes | Close stale tickets and return their ids | medium | `applyPeriodFilter` + `returningTyped` on UPDATE |
 | Pagination | Activity feed | complex | `getManyWithCursor` + a filter by event types (readonly array) + joins with `useTakeAndSkip` |

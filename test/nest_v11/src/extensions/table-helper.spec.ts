@@ -181,94 +181,6 @@ describe('tableHelper', () => {
     });
   });
 
-  describe('jsonColumn', () => {
-    it('SHOULD return column with ->> operator', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->>', 'nested')).toBe('"user"."firstName" ->> \'nested\'');
-    });
-
-    it('SHOULD use -> json operator', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->', 'nested')).toBe('"user"."firstName" -> \'nested\'');
-    });
-
-    it('SHOULD support nested path with rest params', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->>', 'billing', 'amount')).toBe(
-        '"user"."firstName" -> \'billing\' ->> \'amount\''
-      );
-    });
-
-    it('SHOULD support deeply nested path (3+ levels)', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->>', 'a', 'b', 'c')).toBe(
-        '"user"."firstName" -> \'a\' -> \'b\' ->> \'c\''
-      );
-    });
-
-    it('SHOULD use -> for all segments when jsonOperator is ->', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->', 'a', 'b')).toBe(
-        '"user"."firstName" -> \'a\' -> \'b\''
-      );
-    });
-
-    it('SHOULD escape single quotes in keys', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->>', "o'brien")).toBe(
-        '"user"."firstName" ->> \'o\'\'brien\''
-      );
-    });
-
-    it('SHOULD keep a quote-injection attempt inside the key literal', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(
-        table.jsonColumn('firstName', '->>', "x' OR '1'='1", 'y'),
-      ).toBe(
-        '"user"."firstName" -> \'x\'\' OR \'\'1\'\'=\'\'1\' ->> \'y\''
-      );
-    });
-  });
-
-  describe('jsonPath', () => {
-    it('SHOULD return only operator fragment', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonPath('firstName', '->>', 'role')).toBe("->> 'role'");
-    });
-
-    it('SHOULD return nested operators without column', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonPath('firstName', '->>', 'billing', 'amount')).toBe(
-        "-> 'billing' ->> 'amount'"
-      );
-    });
-
-    it('SHOULD support deeply nested path', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonPath('firstName', '->>', 'a', 'b', 'c')).toBe(
-        "-> 'a' -> 'b' ->> 'c'"
-      );
-    });
-
-    it('SHOULD escape single quotes in keys', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonPath('firstName', '->>', "it's", 'ok')).toBe(
-        "-> 'it''s' ->> 'ok'"
-      );
-    });
-  });
-
   describe('column accessor', () => {
     type Row = { id: number; userId: string; 'first-name': string; alias: string; count: number };
 
@@ -347,7 +259,7 @@ describe('tableHelper', () => {
   });
 });
 
-setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
+setupTest('tableHelper.jsonText (database)', undefined, (context) => {
   // `metadata` is a `simple-json` (text) column: SQLite's `->>` works on JSON text,
   // PostgreSQL's needs a json/jsonb column
   if (!sqliteDrivers.includes(context.typeormOptions.type as never)) {
@@ -372,7 +284,7 @@ setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
 
     const result = await usersRepository
       .createQueryBuilder('user')
-      .where(`${t.jsonColumn('metadata', '->>', "o'brien")} = :value`, {
+      .where(`${t.jsonText((r) => r.metadata["o'brien"])} = :value`, {
         value: 'yes',
       })
       .getMany();
@@ -388,7 +300,7 @@ setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
     const result = await usersRepository
       .createQueryBuilder('user')
       .where(
-        `${t.jsonColumn('metadata', '->>', "x' OR 1=1 OR '")} = :value`,
+        `${t.jsonText((r) => r.metadata["x' OR 1=1 OR '"])} = :value`,
         { value: 'yes' },
       )
       .getMany();

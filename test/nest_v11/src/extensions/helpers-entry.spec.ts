@@ -19,7 +19,6 @@ describe('typeorm-extensions/helpers', () => {
       'getManyWithTotals',
       'applyOrder',
       'applyPagination',
-      'applyPaginationFilter',
       'whereIsIn',
       'whereIsAny',
       'whereTyped',

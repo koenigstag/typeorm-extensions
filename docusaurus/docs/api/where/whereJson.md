@@ -36,7 +36,7 @@ orWhereJsonHasKey(field: string, key: string): this
 
 ## Arguments
 
-- field: string: JSON column, e.g. `'user.metadata'` (quoted as `"user"."metadata"`), or a JSON expression such as `tableHelper('user').jsonColumn('metadata', '->', 'settings')`, which is used as is.
+- field: string: JSON column, e.g. `'user.metadata'` (quoted as `"user"."metadata"`), or a JSON expression such as `tableHelper<User>('user').json((u) => u.metadata.settings)`, which is used as is.
 - value: unknown: Part of the document to look for: an object, an array, or a scalar.
 - key: string: Top-level key to look for.
 
@@ -63,7 +63,7 @@ query.whereJsonHasKey('user.metadata', 'settings')
 // WHERE CAST("user"."metadata" -> 'settings' AS jsonb) ? $1
 const u = tableHelper<UserEntity>('user');
 
-query.whereJsonHasKey(u.jsonColumn('metadata', '->', 'settings'), 'theme')
+query.whereJsonHasKey(u.json((r) => r.metadata.settings), 'theme')
 ```
 
 For a typesafe version that takes the column from an entity property, see [whereJsonContainsTyped](../typed/whereJsonTyped.md).

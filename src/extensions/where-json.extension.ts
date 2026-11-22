@@ -15,7 +15,7 @@ import {
 /**
  * Conditions on PostgreSQL `jsonb` / `json` / `simple-json` columns. The column is cast to `jsonb`
  * (a no-op for `jsonb` columns, so a GIN index on them is still used).
- * `field` can also be a JSON expression, e.g. `tableHelper('u').jsonColumn('metadata', '->', 'settings')`.
+ * `field` can also be a JSON expression, e.g. `tableHelper<User>('u').json((u) => u.metadata.settings)`.
  */
 export interface WhereJsonMethods {
   /**

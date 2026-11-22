@@ -32,10 +32,10 @@ setupTest('where-json.sql', undefined, (context) => {
     const query = context.dataSource
       .getRepository(UserEntity)
       .createQueryBuilder('user')
-      .whereJsonHasKey(u.jsonColumn('metadata', '->', 'settings'), 'theme');
+      .whereJsonHasKey(u.json((r) => r.metadata.settings), 'theme');
 
     expect(sqlOf(query)).toMatch(
-      /WHERE CAST\("user"\."metadata" -> 'settings' AS jsonb\) \? :where_\w+/,
+      /WHERE CAST\(\("user"\."metadata" -> 'settings'\) AS jsonb\) \? :where_\w+/,
     );
   });
 
@@ -163,7 +163,7 @@ setupTest('where-json.postgres', { entities: [ArticleEntity, UserEntity, ImageEn
     const result = await context.dataSource
       .getRepository(ArticleEntity)
       .createQueryBuilder('a')
-      .whereJsonHasKey(a.jsonColumn('meta', '->', 'author'), 'name')
+      .whereJsonHasKey(a.json((r) => r.meta.author), 'name')
       .getMany();
 
     expect(titles(result)).toEqual(['a', 'b']);

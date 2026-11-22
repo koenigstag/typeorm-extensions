@@ -18,11 +18,6 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       paginationFilter: PaginationFilter,
       options?: ApplyPaginationOptions
     ): this;
-    /** @deprecated Use `applyPagination`, which takes the same arguments. Will be removed in 3.0. */
-    applyPaginationFilter(
-      paginationFilter: PaginationFilter,
-      options?: ApplyPaginationOptions
-    ): this;
   }
 }
 
@@ -31,14 +26,6 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     applyPagination<Entity extends ObjectLiteral>(
-      this: SelectQueryBuilder<Entity>,
-      paginationFilter: PaginationFilter,
-      options?: ApplyPaginationOptions
-    ) {
-      return paginateQuery(this, paginationFilter, options);
-    },
-    // calls the implementation, not this.applyPagination: an application may patch a method of that name itself
-    applyPaginationFilter<Entity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
       paginationFilter: PaginationFilter,
       options?: ApplyPaginationOptions

@@ -48,6 +48,15 @@ Sql.over(Sql.rowNumber(), { partitionBy: o.id, orderBy: [`${o.createdAt} DESC`, 
 Sql.over(Sql.lag(o.total, 1, '0'), { orderBy: o.createdAt });
 Sql.over(Sql.lastValue(o.total), { orderBy: o.createdAt, frame: 'ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING' });
 Sql.over(Sql.firstValue(o.total), { partitionBy: o.id });
+Sql.jsonbArrayLength(o.note);
+Sql.jsonbArrayElementsText(o.note);
+Sql.regexpReplace(o.note, '\\s+', ' ', 'g');
+Sql.earthDistance(o.note, Sql.llToEarth(':lat', 50.45));
+Sql.earthBox(Sql.llToEarth(1, 2), ':radius');
+Sql.isDistinctFrom(o.total, 0);
+Sql.isNotDistinctFrom(o.total, ':total');
+// @ts-expect-error a pattern is a string
+Sql.regexpReplace(o.note, /a/, 'b');
 Sql.addInterval(o.createdAt, -2, 'weeks');
 Sql.extract('epoch', o.createdAt);
 Sql.jsonbSet(o.note, ['a', 'b'], 'to_jsonb(1)', { createMissing: false });

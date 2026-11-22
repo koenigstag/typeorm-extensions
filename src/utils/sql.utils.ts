@@ -50,6 +50,26 @@ export const isPostgresLikeDriver = (driver?: DatabaseType): boolean =>
 export const isSqliteLikeDriver = (driver?: DatabaseType): boolean =>
   driver !== undefined && SQLITE_LIKE_DRIVERS.includes(driver);
 
+/** `field IS [NOT] DISTINCT FROM value` in the database's own null-safe syntax. */
+export function buildDistinctCondition(
+  driver: DatabaseType | undefined,
+  field: string,
+  distinct: boolean,
+  value: string
+): string {
+  if (isMysqlLikeDriver(driver)) {
+    // `<=>` is MySQL's null-safe equality
+    return distinct ? `NOT (${field} <=> ${value})` : `${field} <=> ${value}`;
+  }
+
+  if (isSqliteLikeDriver(driver)) {
+    // SQLite's `IS` / `IS NOT` compare any values null-safely (IS DISTINCT FROM needs SQLite 3.39+)
+    return `${field} ${distinct ? 'IS NOT' : 'IS'} ${value}`;
+  }
+
+  return `${field} ${distinct ? 'IS DISTINCT FROM' : 'IS NOT DISTINCT FROM'} ${value}`;
+}
+
 /** Database type of the query builder's connection, e.g. `'postgres'`; undefined without one. */
 export function getDriverType(builder: WhereExpressionBuilder): DatabaseType | undefined {
   return (builder as unknown as QueryBuilder<ObjectLiteral>).connection?.driver?.options?.type;

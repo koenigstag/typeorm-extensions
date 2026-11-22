@@ -1,5 +1,5 @@
 import type { DatabaseType } from 'typeorm';
-import { isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver } from './sql.utils';
+import { buildDistinctCondition, isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver } from './sql.utils';
 import { filtered, sqlString } from './aggregate.utils';
 import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
 import type { DateTruncUnit } from './time-zone.utils';
@@ -808,6 +808,16 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
       only('jsonbArrayElements', 'postgres');
       return `jsonb_array_elements(${expression('jsonbArrayElements', value)})`;
     },
+    /** `jsonb_array_elements_text(expression)`: a row per element as text, for FROM or a LATERAL join. PostgreSQL. */
+    jsonbArrayElementsText(value: string): string {
+      only('jsonbArrayElementsText', 'postgres');
+      return `jsonb_array_elements_text(${expression('jsonbArrayElementsText', value)})`;
+    },
+    /** `jsonb_array_length(expression)`: the number of elements of a JSON array. PostgreSQL. */
+    jsonbArrayLength(value: string): string {
+      only('jsonbArrayLength', 'postgres');
+      return `jsonb_array_length(${expression('jsonbArrayLength', value)})`;
+    },
     /** `array_position(array, value)`: the 1-based position of the first element equal to the value, NULL when there is none. PostgreSQL. */
     arrayPosition(array: string, value: SqlValue): string {
       only('arrayPosition', 'postgres');
@@ -827,6 +837,55 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
     strictWordSimilarity(a: string, b: string): string {
       only('strictWordSimilarity', 'postgres');
       return `strict_word_similarity(${expression('strictWordSimilarity', a, 'first argument')}, ${expression('strictWordSimilarity', b, 'second argument')})`;
+    },
+    /**
+     * `regexp_replace(source, 'pattern', 'replacement'[, 'flags'])`: the pattern and the replacement are written as SQL
+     * strings. Without the `'g'` flag only the first match is replaced. PostgreSQL.
+     */
+    regexpReplace(source: string, pattern: string, replacement: string, flags?: string): string {
+      only('regexpReplace', 'postgres');
+
+      if (typeof pattern !== 'string' || pattern === '') {
+        throw new TypeError('Sql.regexpReplace(): the pattern is a non-empty string');
+      }
+
+      if (typeof replacement !== 'string') {
+        throw new TypeError('Sql.regexpReplace(): the replacement is a string');
+      }
+
+      if (flags !== undefined && (typeof flags !== 'string' || !/^[bcegimnpqstwx]+$/.test(flags))) {
+        throw new TypeError(`Sql.regexpReplace(): flags are letters of PostgreSQL's regexp flags, e.g. 'g' or 'gi', got "${String(flags)}"`);
+      }
+
+      const flagsSql = flags === undefined ? '' : `, '${flags}'`;
+
+      return `regexp_replace(${expression('regexpReplace', source)}, ${sqlString(pattern, driver)}, ${sqlString(replacement, driver)}${flagsSql})`;
+    },
+    /** `ll_to_earth(latitude, longitude)`: a point on the Earth's surface, for `earthDistance`. PostgreSQL with the earthdistance extension. */
+    llToEarth(latitude: SqlValue, longitude: SqlValue): string {
+      only('llToEarth', 'postgres');
+      return `ll_to_earth(${operand('llToEarth', latitude, 'latitude')}, ${operand('llToEarth', longitude, 'longitude')})`;
+    },
+    /** `earth_distance(a, b)`: the distance between two `llToEarth` points, in metres. PostgreSQL with the earthdistance extension. */
+    earthDistance(a: string, b: string): string {
+      only('earthDistance', 'postgres');
+      return `earth_distance(${expression('earthDistance', a, 'first point')}, ${expression('earthDistance', b, 'second point')})`;
+    },
+    /** `earth_box(point, radius)`: a cube around a `llToEarth` point that `@>` tests points against, radius in metres. PostgreSQL with earthdistance. */
+    earthBox(point: string, radius: SqlValue): string {
+      only('earthBox', 'postgres');
+      return `earth_box(${expression('earthBox', point, 'point')}, ${operand('earthBox', radius, 'radius')})`;
+    },
+    /**
+     * `a IS DISTINCT FROM b`: a comparison where NULL is a value, true when one side is NULL and the other isn't.
+     * MySQL: `NOT (a <=> b)`; SQLite: `a IS NOT b`.
+     */
+    isDistinctFrom(a: SqlValue, b: SqlValue): string {
+      return buildDistinctCondition(driver, operand('isDistinctFrom', a, 'first argument'), true, operand('isDistinctFrom', b, 'second argument'));
+    },
+    /** `a IS NOT DISTINCT FROM b`: equality where NULL equals NULL. MySQL: `a <=> b`; SQLite: `a IS b`. */
+    isNotDistinctFrom(a: SqlValue, b: SqlValue): string {
+      return buildDistinctCondition(driver, operand('isNotDistinctFrom', a, 'first argument'), false, operand('isNotDistinctFrom', b, 'second argument'));
     },
   };
 }

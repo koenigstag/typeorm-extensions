@@ -64,25 +64,25 @@ person.jsonText((p) => p.profile.birthday.getTime);
 person.jsonText((p) => p.missing.key);
 
 // interface and class types are checked like type aliases
-person.jsonColumn('profile', '->>', 'address', 'city');
-person.jsonColumn('profile', '->', 'address', 'geo');
-person.jsonColumn('profile', '->>', 'address', 'geo', 'lat');
-person.jsonPath('profile', '->>', 'tags');
-person.jsonColumn('settings', '->>', 'theme');
+person.jsonText((r) => r.profile.address.city);
+person.json((r) => r.profile.address.geo);
+person.jsonText((r) => r.profile.address.geo.lat);
+person.jsonText((r) => r.profile.tags);
+person.jsonText((r) => r.settings.theme);
 // unknown values, records of unknown and bare objects take any keys below them
-person.jsonColumn('profile', '->>', 'meta', 'any', 'depth');
-person.jsonColumn('profile', '->>', 'extra', 'anything');
-person.jsonColumn('free', '->>', 'a', 'b');
-person.jsonColumn('anything', '->>', 'a', 'b');
+person.jsonText((r) => r.profile.meta.any.depth);
+person.jsonText((r) => r.profile.extra.anything);
+person.jsonText((r) => r.free.a.b);
+person.jsonText((r) => r.anything.a.b);
 
 // @ts-expect-error not a key of the interface
-person.jsonColumn('profile', '->>', 'address', 'town');
+person.jsonText((r) => r.profile.address.town);
 // @ts-expect-error not a key of the class
-person.jsonPath('profile', '->>', 'adress');
+person.jsonText((r) => r.profile.adress);
 // @ts-expect-error a date has no keys
-person.jsonColumn('profile', '->>', 'birthday', 'year');
+person.jsonText((r) => r.profile.birthday.year);
 // @ts-expect-error an array's items have no keys
-person.jsonColumn('profile', '->>', 'tags', 'length');
+person.jsonText((r) => r.profile.tags.length);
 
 type JobRule = { kind: 'reminder'; remindAt: string } | { kind: 'alert'; threshold: { value: number } };
 
@@ -93,13 +93,13 @@ class Job {
 const job = tableHelper<Job>('job');
 
 // a union takes the keys of any of its members
-job.jsonColumn('rules', '->>', 'kind');
-job.jsonColumn('rules', '->>', 'remindAt');
-job.jsonColumn('rules', '->>', 'threshold', 'value');
+job.jsonText((r) => r.rules.kind);
+job.jsonText((r) => r.rules.remindAt);
+job.jsonText((r) => r.rules.threshold.value);
 // @ts-expect-error a key of no member
-job.jsonColumn('rules', '->>', 'remindOn');
+job.jsonText((r) => r.rules.remindOn);
 // @ts-expect-error a key of no member, one level down
-job.jsonColumn('rules', '->>', 'threshold', 'limit');
+job.jsonText((r) => r.rules.threshold.limit);
 
 class Tree {
   root: { a: { b: { c: { d: { leaf: string } } } } };
@@ -108,8 +108,6 @@ class Tree {
 const tree = tableHelper<Tree>('tree');
 
 // a path is checked to its end, however deep
-tree.jsonColumn('root', '->>', 'a', 'b', 'c', 'd', 'leaf');
+tree.jsonText((r) => r.root.a.b.c.d.leaf);
 // @ts-expect-error a wrong key five levels down
-tree.jsonColumn('root', '->>', 'a', 'b', 'c', 'd', 'leaves');
-// @ts-expect-error a typed column needs a key
-person.jsonColumn('profile', '->>');
+tree.jsonText((r) => r.root.a.b.c.d.leaves);

@@ -148,8 +148,24 @@ describe('Sql.for(driver)', () => {
       'array_position(:ids::uuid[], "user"."id")',
       'array_position(:numbers::int[], 3)',
     ]);
+    expect([pg.jsonbArrayLength(u.metadata), pg.jsonbArrayElementsText(u.metadata)]).toEqual([
+      'jsonb_array_length("user"."metadata")',
+      'jsonb_array_elements_text("user"."metadata")',
+    ]);
+    expect(pg.regexpReplace(u.email, "\\D'", '', 'g')).toBe(`regexp_replace("user"."email", '\\D''', '', 'g')`);
+    expect(pg.earthDistance(u.metadata, pg.llToEarth(':lat', 50.45))).toBe('earth_distance("user"."metadata", ll_to_earth(:lat, 50.45))');
+    expect(pg.earthBox(pg.llToEarth(1, 2), 500)).toBe('earth_box(ll_to_earth(1, 2), 500)');
+    expect([pg.isDistinctFrom(u.id, 1), mysql.isDistinctFrom(u.id, 'NULL'), sqlite.isNotDistinctFrom(u.id, ':id'), mysql.isNotDistinctFrom(u.id, ':id')]).toEqual([
+      '"user"."id" IS DISTINCT FROM 1',
+      'NOT ("user"."id" <=> NULL)',
+      '"user"."id" IS :id',
+      '"user"."id" <=> :id',
+    ]);
     expect(() => mysql.similarity(u.firstName, ':q')).toThrow(TypeError);
     expect(() => sqlite.arrayPosition(':ids', u.id)).toThrow(TypeError);
+    expect(() => mysql.regexpReplace(u.email, 'a', 'b')).toThrow(TypeError);
+    expect(() => pg.regexpReplace(u.email, 'a', 'b', "g'")).toThrow(TypeError);
+    expect(() => sqlite.llToEarth(1, 2)).toThrow(TypeError);
     expect(mysql.stringAgg(u.firstName, `a\\b'`)).toBe(`GROUP_CONCAT("user"."firstName" SEPARATOR 'a\\\\b''')`);
   });
 
@@ -309,14 +325,16 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(sql.substring(u.firstName, 2, 3), 'middle')
       .addSelect(sql.length(u.firstName), 'length')
       .addSelect(sql.greatest(u.id, '2'), 'atLeastTwo')
+      .addSelect(sql.case([{ when: sql.isNotDistinctFrom(sql.nullif(u.firstName, "'Bob'"), 'NULL'), then: '1' }], { else: '0' }), 'isBob')
+      .addSelect(sql.case([{ when: sql.isDistinctFrom(sql.nullif(u.firstName, "'Bob'"), "'Alice'"), then: '1' }], { else: '0' }), 'notAlice')
       .orderBy(u.id)
       .getRawMany<Record<string, string | number | null>>();
 
-    expect(rows.map((row) => [row.word, Number(row.fromEnd), Number(row.rankInGroup), row.previous, row.next, row.first, row.last, row.joined, row.middle, Number(row.length), Number(row.atLeastTwo)])).toEqual([
-      ['one', 4, 1, null, 'Bob', 'Dave', 'Dave', 'xAlice', 'lic', 5, 2],
-      ['two', 3, 1, 'Alice', 'Carol', 'Dave', 'Dave', 'x', 'ob', 3, 2],
-      ['many', 2, 2, 'Bob', 'Dave', 'Dave', 'Dave', 'xCarol', 'aro', 5, 3],
-      ['many', 1, 2, 'Carol', '-', 'Dave', 'Dave', 'xDave', 'ave', 4, 4],
+    expect(rows.map((row) => [row.word, Number(row.fromEnd), Number(row.rankInGroup), row.previous, row.next, row.first, row.last, row.joined, row.middle, Number(row.length), Number(row.atLeastTwo), Number(row.isBob), Number(row.notAlice)])).toEqual([
+      ['one', 4, 1, null, 'Bob', 'Dave', 'Dave', 'xAlice', 'lic', 5, 2, 0, 0],
+      ['two', 3, 1, 'Alice', 'Carol', 'Dave', 'Dave', 'x', 'ob', 3, 2, 1, 1],
+      ['many', 2, 2, 'Bob', 'Dave', 'Dave', 'Dave', 'xCarol', 'aro', 5, 3, 0, 1],
+      ['many', 1, 2, 'Carol', '-', 'Dave', 'Dave', 'xDave', 'ave', 4, 4, 0, 1],
     ]);
 
     const scalars = await users()
@@ -424,6 +442,9 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(Sql.splitPart("'a@b.c'", '@', 2), 'domain')
       .addSelect(`${Sql.jsonbSet(`'{"a":{"b":1}}'::jsonb`, ['a', 'b'], Sql.toJsonb("'x'::text"))} #>> '{a,b}'`, 'setValue')
       .addSelect(Sql.jsonbTypeof(`'[1]'::jsonb`), 'jsonType')
+      .addSelect(Sql.jsonbArrayLength(`'[1, 2, 3]'::jsonb`), 'arrayLength')
+      .addSelect(Sql.regexpReplace("'+1 (555) 010-9999'", '[^0-9+]', '', 'g'), 'digits')
+      .addSelect(Sql.regexpReplace("'a-b-c'", '-', '+'), 'firstDash')
       .addSelect(Sql.case([{ when: `${Sql.addInterval(Sql.now(), -1, 'days')} < ${Sql.now()}`, then: 'true' }], { else: 'false' }), 'shifted')
       .addSelect(Sql.case([{ when: `${Sql.now()} - ${Sql.interval(1, 'hours')} < ${Sql.now()}`, then: 'true' }], { else: 'false' }), 'interval')
       .addSelect(Sql.arrayAgg(u.firstName, { orderBy: `${u.id} DESC`, filter: u.isNotNull('metadata') }), 'withMetadata')
@@ -453,6 +474,9 @@ setupTest('Sql functions in queries', undefined, (context) => {
       domain: 'b.c',
       setValue: 'x',
       jsonType: 'array',
+      arrayLength: 3,
+      digits: '+15550109999',
+      firstDash: 'a+b-c',
       shifted: true,
       interval: true,
     });
@@ -469,6 +493,10 @@ setupTest('Sql functions in queries', undefined, (context) => {
     const elements = await context.dataSource.query(`SELECT value FROM ${Sql.jsonbArrayElements(`'[1, "a"]'::jsonb`)}`);
 
     expect(elements).toEqual([{ value: 1 }, { value: 'a' }]);
+
+    const texts = await context.dataSource.query(`SELECT value FROM ${Sql.jsonbArrayElementsText(`'[1, "a"]'::jsonb`)}`);
+
+    expect(texts).toEqual([{ value: '1' }, { value: 'a' }]);
   });
 
   it('SHOULD apply the scalar functions per row', async () => {
