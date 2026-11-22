@@ -46,6 +46,8 @@ mysql.for('better-sqlite3').ago(30, 'days');
 Sql.case([{ when: o.where('total', '> 100'), then: "'big'" }], { else: "'small'" });
 Sql.over(Sql.rowNumber(), { partitionBy: o.id, orderBy: [`${o.createdAt} DESC`, o.id] });
 Sql.over(Sql.lag(o.total, 1, '0'), { orderBy: o.createdAt });
+Sql.over(Sql.lastValue(o.total), { orderBy: o.createdAt, frame: 'ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING' });
+Sql.over(Sql.firstValue(o.total), { partitionBy: o.id });
 Sql.addInterval(o.createdAt, -2, 'weeks');
 Sql.extract('epoch', o.createdAt);
 Sql.jsonbSet(o.note, ['a', 'b'], 'to_jsonb(1)', { createMissing: false });

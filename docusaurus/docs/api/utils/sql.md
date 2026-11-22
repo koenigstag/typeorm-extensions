@@ -73,7 +73,8 @@ Aggregates take the [options](#aggregate-options) `distinct`, `filter` and `synt
 | `toChar(expression, format)` | `TO_CHAR(expression, 'YYYY-MM-DD')` | — | — |
 | `rowNumber()`, `rank()`, `denseRank()` | `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()` | same (8+) | same (3.25+) |
 | `lag`, `lead(expression, offset?, default?)` | `LAG(…)`, `LEAD(…)` | same (8+) | same (3.25+) |
-| `over(fn, { partitionBy?, orderBy? })` | `fn OVER (PARTITION BY … ORDER BY …)` | same (8+) | same (3.25+) |
+| `firstValue`, `lastValue(expression)` | `FIRST_VALUE(…)`, `LAST_VALUE(…)` | same (8+) | same (3.25+) |
+| `over(fn, { partitionBy?, orderBy?, frame? })` | `fn OVER (PARTITION BY … ORDER BY … frame)` | same (8+) | same (3.25+) |
 | `distinctOn(a, …)` | `DISTINCT ON (a, …)`, for a SELECT written as SQL; a query builder has [`distinctOnTyped`](../typed/distinctOnTyped.md) | — | — |
 | `json(expression, 'a', 0, …)` | `(expression -> 'a' -> 0)` | `JSON_EXTRACT(expression, '$."a"[0]')` | `(expression -> '$."a"[0]')`, 3.38+ |
 | `jsonText(expression, 'a', 'b', …)` | `(expression -> 'a' ->> 'b')`, text | `JSON_UNQUOTE(JSON_EXTRACT(…))`; a JSON `null` gives `'null'` | `(expression ->> '$."a"."b"')`, an SQL value, 3.38+ |
@@ -92,6 +93,10 @@ A [`tableHelper`](./tableHelper.md) has forms of `arrayAgg` and `jsonAgg` over a
 ```typescript
 Sql.over(Sql.rowNumber(), { partitionBy: o.userId, orderBy: `${o.createdAt} DESC` })
 // ROW_NUMBER() OVER (PARTITION BY "o"."userId" ORDER BY "o"."createdAt" DESC)
+
+// With ORDER BY the frame ends at the current row: LAST_VALUE needs one that reaches the end of the partition
+Sql.over(Sql.lastValue(o.total), { partitionBy: o.userId, orderBy: o.createdAt, frame: 'ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING' })
+// LAST_VALUE("o"."total") OVER (PARTITION BY "o"."userId" ORDER BY "o"."createdAt" ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 
 Sql.case([{ when: o.where('total', '> 100'), then: "'big'" }], { else: "'small'" })
 // CASE WHEN "o"."total" > 100 THEN 'big' ELSE 'small' END

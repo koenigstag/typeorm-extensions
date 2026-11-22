@@ -70,6 +70,8 @@ export type SqlWindow = {
   partitionBy?: string | readonly string[];
   /** `ORDER BY`: one expression or several, each with `ASC` / `DESC` if needed. */
   orderBy?: string | readonly string[];
+  /** The frame, written after `ORDER BY`: `'ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING'`. */
+  frame?: string;
 };
 
 export type SqlIntervalUnit = 'seconds' | 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years';
@@ -704,6 +706,18 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
     lead(value: string, offset?: number, defaultValue?: SqlValue): string {
       return windowShift('LEAD', 'lead', value, offset, defaultValue);
     },
+    /** `FIRST_VALUE(expression)`, for `over`: the value at the first row of the frame. */
+    firstValue(value: string): string {
+      return `FIRST_VALUE(${expression('firstValue', value)})`;
+    },
+    /**
+     * `LAST_VALUE(expression)`, for `over`: the value at the last row of the frame. With `orderBy` the default frame
+     * ends at the current row, so the last row of the partition needs `frame: 'ROWS BETWEEN UNBOUNDED PRECEDING AND
+     * UNBOUNDED FOLLOWING'`.
+     */
+    lastValue(value: string): string {
+      return `LAST_VALUE(${expression('lastValue', value)})`;
+    },
     /**
      * A window function or aggregate over a window: `Sql.over(Sql.rowNumber(), { partitionBy: t.userId, orderBy:
      * `${t.createdAt} DESC` })` → `ROW_NUMBER() OVER (PARTITION BY "t"."userId" ORDER BY "t"."createdAt" DESC)`.
@@ -713,6 +727,7 @@ function createFunctions(driver?: DatabaseType, sqlOptions: SqlOptions = {}) {
       const parts = [
         window.partitionBy === undefined ? '' : `PARTITION BY ${list('over', window.partitionBy, 'partitionBy')}`,
         window.orderBy === undefined ? '' : `ORDER BY ${list('over', window.orderBy, 'orderBy')}`,
+        window.frame === undefined ? '' : expression('over', window.frame, 'frame'),
       ].filter(Boolean);
 
       return `${expression('over', fn, 'function')} OVER (${parts.join(' ')})`;

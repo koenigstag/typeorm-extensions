@@ -122,6 +122,13 @@ describe('Sql.for(driver)', () => {
     );
     expect(pg.over(pg.lead(u.id, 2, '0'))).toBe('LEAD("user"."id", 2, 0) OVER ()');
     expect(pg.lag(u.id)).toBe('LAG("user"."id")');
+    expect(pg.over(pg.firstValue(u.firstName), { partitionBy: u.lastName, orderBy: u.id })).toBe(
+      'FIRST_VALUE("user"."firstName") OVER (PARTITION BY "user"."lastName" ORDER BY "user"."id")'
+    );
+    expect(mysql.over(mysql.lastValue(u.firstName), { orderBy: u.id, frame: 'ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING' })).toBe(
+      'LAST_VALUE("user"."firstName") OVER (ORDER BY "user"."id" ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)'
+    );
+    expect(() => pg.over(pg.rowNumber(), { frame: ' ' })).toThrow(TypeError);
     expect(pg.toChar(u.createdAt, `YYYY-MM-DD"T"`)).toBe(`TO_CHAR("user"."createdAt", 'YYYY-MM-DD"T"')`);
     expect(pg.splitPart(u.email, "@'", 2)).toBe(`SPLIT_PART("user"."email", '@''', 2)`);
     expect(pg.jsonbSet(u.metadata, ['a', "it's"], 'to_jsonb(1)', { createMissing: false })).toBe(
@@ -296,6 +303,8 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .addSelect(sql.over(sql.rank(), { partitionBy: sql.case([{ when: u.isNull('metadata'), then: '1' }], { else: '0' }), orderBy: u.id }), 'rankInGroup')
       .addSelect(sql.over(sql.lag(u.firstName), { orderBy: u.id }), 'previous')
       .addSelect(sql.over(sql.lead(u.firstName, 1, "'-'"), { orderBy: u.id }), 'next')
+      .addSelect(sql.over(sql.firstValue(u.firstName), { orderBy: `${u.id} DESC` }), 'first')
+      .addSelect(sql.over(sql.lastValue(u.firstName), { orderBy: u.id, frame: 'ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING' }), 'last')
       .addSelect(sql.concat("'x'", sql.nullif(u.firstName, "'Bob'")), 'joined')
       .addSelect(sql.substring(u.firstName, 2, 3), 'middle')
       .addSelect(sql.length(u.firstName), 'length')
@@ -303,11 +312,11 @@ setupTest('Sql functions in queries', undefined, (context) => {
       .orderBy(u.id)
       .getRawMany<Record<string, string | number | null>>();
 
-    expect(rows.map((row) => [row.word, Number(row.fromEnd), Number(row.rankInGroup), row.previous, row.next, row.joined, row.middle, Number(row.length), Number(row.atLeastTwo)])).toEqual([
-      ['one', 4, 1, null, 'Bob', 'xAlice', 'lic', 5, 2],
-      ['two', 3, 1, 'Alice', 'Carol', 'x', 'ob', 3, 2],
-      ['many', 2, 2, 'Bob', 'Dave', 'xCarol', 'aro', 5, 3],
-      ['many', 1, 2, 'Carol', '-', 'xDave', 'ave', 4, 4],
+    expect(rows.map((row) => [row.word, Number(row.fromEnd), Number(row.rankInGroup), row.previous, row.next, row.first, row.last, row.joined, row.middle, Number(row.length), Number(row.atLeastTwo)])).toEqual([
+      ['one', 4, 1, null, 'Bob', 'Dave', 'Dave', 'xAlice', 'lic', 5, 2],
+      ['two', 3, 1, 'Alice', 'Carol', 'Dave', 'Dave', 'x', 'ob', 3, 2],
+      ['many', 2, 2, 'Bob', 'Dave', 'Dave', 'Dave', 'xCarol', 'aro', 5, 3],
+      ['many', 1, 2, 'Carol', '-', 'Dave', 'Dave', 'xDave', 'ave', 4, 4],
     ]);
 
     const scalars = await users()
