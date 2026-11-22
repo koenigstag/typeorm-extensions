@@ -2,7 +2,7 @@
 
 ## [3.0.0] - Unreleased
 
-Published for testing as `3.0.0-rc.4` under the `next` dist-tag: `npm install typeorm-extensions@next`. The release candidates up to `2.2.0-rc.17` carry the 2.2.0 number; the release is 3.0.0 because `returningTyped` changed shape.
+Published for testing as `3.0.0-rc.5` under the `next` dist-tag: `npm install typeorm-extensions@next`. The release candidates up to `2.2.0-rc.17` carry the 2.2.0 number; the release is 3.0.0 because `returningTyped` changed shape.
 
 A major version: `returningTyped` takes an object of output names instead of a list of properties, and `applyPaginationFilter` and `tableHelper`'s `jsonColumn` / `jsonPath` are removed, see **Breaking Changes**. It also carries the MIT license prepared for 2.1.1, which was never published. Code that reads the results needs no change. Code that builds a `ListWithTotals` or a `ListWithCursor` itself (a mock, a wrapper) has to add `hasMore` and `pageSize`, and `page` for `ListWithTotals`. Without a query runner of its own, `getManyWithTotals` now holds two pool connections for the length of the call instead of one.
 
