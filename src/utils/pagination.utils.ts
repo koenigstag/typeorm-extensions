@@ -1,7 +1,9 @@
 import type { ObjectLiteral, SelectQueryBuilder } from "typeorm";
 import { defaultPageSize, defaultUseTakeAndSkip } from "../constants";
-import type { ApplyPaginationOptions } from "../types/extensions/pagination.types";
+import type { ApplyPaginationOptions, PageSizeOptions } from "../types/extensions/pagination.types";
 import { PaginationFilter } from "../types/interfaces/pagination.interface";
+
+export type { PageSizeOptions };
 
 // an unparsed query parameter is a string: "20" + 1 would be "201"; past MAX_SAFE_INTEGER a number is
 // written in exponent form (`OFFSET 1e+22`), which no database reads
@@ -13,16 +15,17 @@ const toPositiveInteger = (value: unknown, fallback: number): number => {
     : fallback;
 };
 
-export type PageSizeOptions = {
-  /** The page size when the filter has none, or none of at least 1; 10 when not given. */
-  defaultPageSize?: number;
-};
-
 const resolveDefaultPageSize = (options?: PageSizeOptions): number => toPositiveInteger(options?.defaultPageSize, defaultPageSize);
 
-/** The page size to read: a number or a numeric string of at least 1, rounded down; the default page size otherwise. */
+/**
+ * The page size to read: a number or a numeric string of at least 1, rounded down; the default page size
+ * otherwise. Never above `maxPageSize` when one is given.
+ */
 export const normalizePageSize = (pageSize: unknown, options?: PageSizeOptions): number =>
-  toPositiveInteger(pageSize, resolveDefaultPageSize(options));
+  Math.min(
+    toPositiveInteger(pageSize, resolveDefaultPageSize(options)),
+    toPositiveInteger(options?.maxPageSize, Number.MAX_SAFE_INTEGER)
+  );
 
 /** Limits the rows with `take`, which counts entities rather than rows when the query joins a collection, or with `limit`. */
 export const setPageLimit = <Entity extends ObjectLiteral>(
@@ -55,8 +58,8 @@ export const paginateQuery = <Entity extends ObjectLiteral>(
   paginationFilter: PaginationFilter,
   options?: ApplyPaginationOptions
 ): SelectQueryBuilder<Entity> => {
-  const { useTakeAndSkip = defaultUseTakeAndSkip } = options || {};
-  const { limit, offset } = getLimitAndOffset(paginationFilter);
+  const { useTakeAndSkip = defaultUseTakeAndSkip, ...pageSizeOptions } = options || {};
+  const { limit, offset } = getLimitAndOffset(paginationFilter, pageSizeOptions);
 
   return useTakeAndSkip ? builder.take(limit).skip(offset) : builder.limit(limit).offset(offset);
 };

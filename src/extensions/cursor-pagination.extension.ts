@@ -184,7 +184,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
   const keys = getCursorKeys(builder, orderBy);
   const fields = keys.map((key) => key.column.propertyPath);
   const cursorFields = keys.map((key, i) => toCursorField(fields[i], key.direction));
-  const pageSize = normalizePageSize(cursorFilter?.pageSize);
+  const pageSize = normalizePageSize(cursorFilter?.pageSize, options);
 
   const query = builder.clone();
   const alias = query.alias;
@@ -363,7 +363,7 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
   const includeOrderBy = options?.includeOrderBy ?? false;
   const parameterNames = Object.keys(builder.getParameters());
   const fields = keys.map((key) => toCursorField(getExpressionKeyName(key.selector, parameterNames), key.direction));
-  const pageSize = normalizePageSize(cursorFilter?.pageSize);
+  const pageSize = normalizePageSize(cursorFilter?.pageSize, options);
 
   const query = builder.clone();
   const driver = query.connection.driver.options.type;

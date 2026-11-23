@@ -11,8 +11,9 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SelectQueryBuilder<Entity extends ObjectLiteral> {
     /**
-     * Pages the query by `page` and `pageSize` (page 1 and 10 rows by default): LIMIT / OFFSET, or
-     * `take` / `skip` with `useTakeAndSkip`, which a query joining a collection needs.
+     * Pages the query by `page` and `pageSize` (page 1 and 10 rows, or `defaultPageSize`, by default; never
+     * more than `maxPageSize` rows): LIMIT / OFFSET, or `take` / `skip` with `useTakeAndSkip`, which a query
+     * joining a collection needs.
      */
     applyPagination(
       paginationFilter: PaginationFilter,

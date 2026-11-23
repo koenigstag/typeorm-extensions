@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`maxPageSize`** on `getLimitAndOffset` / `normalizePageSize`: a larger `pageSize`, or default, is lowered to it, so a request can't read a whole table in one page. Ignored when not a number of at least 1.
+- **`applyPagination`, `getManyWithTotals`, `getRawManyWithTotals`, `getManyWithCursor` and `getRawManyWithCursor` take `defaultPageSize` and `maxPageSize`**, so a query with its own default or cap no longer has to compute the page by hand. The `page` / `pageSize` they return are the ones read.
+
 ## [3.1.0] - 2026-11-23
 
 ### New Features

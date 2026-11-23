@@ -1,4 +1,14 @@
-export type ApplyPaginationOptions = {
+export type PageSizeOptions = {
+  /** The page size when the filter has none, or none of at least 1; 10 when not given. */
+  defaultPageSize?: number;
+  /**
+   * The largest page size read: a larger `pageSize` (or `defaultPageSize`) is lowered to it, so a client
+   * can't ask for the whole table in one page. No limit when not given, or not a number of at least 1.
+   */
+  maxPageSize?: number;
+};
+
+export type ApplyPaginationOptions = PageSizeOptions & {
   useTakeAndSkip?: boolean;
 };
 

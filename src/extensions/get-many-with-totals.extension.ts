@@ -141,7 +141,7 @@ async function readWithTotals<Entity extends ObjectLiteral, Row>(
 
   const { limit, offset, page, pageSize } = loadAll
     ? { limit: null, offset: null, page: null, pageSize: null }
-    : getLimitAndOffset(paginationFilter);
+    : getLimitAndOffset(paginationFilter, paginationOptions);
 
   // without a total, one row past the page is what tells whether more rows follow
   const probeForMore = disableTotalsCalculation && !loadAll && limit !== null;

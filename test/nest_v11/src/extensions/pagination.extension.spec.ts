@@ -216,3 +216,32 @@ describe('pagination.getLimitAndOffset.defaultPageSize', () => {
     expect(getLimitAndOffset({ page: 2 }, { defaultPageSize: 0 })).toMatchObject({ limit: 10, offset: 10 });
   });
 });
+
+describe('pagination.getLimitAndOffset.maxPageSize', () => {
+  it('SHOULD lower a larger page size to the max, and page by the lowered size', () => {
+    expect(getLimitAndOffset({ page: 3, pageSize: 500 }, { maxPageSize: 100 })).toEqual({ limit: 100, offset: 200, page: 3, pageSize: 100 });
+    expect(getLimitAndOffset({ pageSize: '1000' as never }, { maxPageSize: 100 })).toMatchObject({ limit: 100 });
+    expect(getLimitAndOffset({ pageSize: 30 }, { maxPageSize: 100 })).toMatchObject({ limit: 30 });
+  });
+
+  it('SHOULD lower the default page size too', () => {
+    expect(getLimitAndOffset({}, { defaultPageSize: 50, maxPageSize: 20 })).toMatchObject({ limit: 20 });
+  });
+
+  it('SHOULD ignore a max page size below 1', () => {
+    expect(getLimitAndOffset({ pageSize: 500 }, { maxPageSize: 0 })).toMatchObject({ limit: 500 });
+  });
+});
+
+setupTest(
+  'pagination.applyPagination.pageSizeOptions',
+  undefined,
+  (context) => {
+    it('SHOULD page by the default page size and cap at the max page size', () => {
+      const query = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user').select('user.id');
+
+      expect(sqlOf(query().applyPagination({ page: 2 }, { defaultPageSize: 20 }))).toEqual(sqlOf(query().limit(20).offset(20)));
+      expect(sqlOf(query().applyPagination({ page: 2, pageSize: 1000 }, { maxPageSize: 100 }))).toEqual(sqlOf(query().limit(100).offset(100)));
+    });
+  },
+);
