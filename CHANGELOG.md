@@ -1,8 +1,8 @@
 # Changelog
 
-## [3.2.0] - Unreleased
+## [3.2.0] - 2026-11-24
 
-Published for testing as `3.2.0-rc.1` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+Tested as the release candidates `3.2.0-rc.0` and `3.2.0-rc.1`.
 
 ### New Features
 
