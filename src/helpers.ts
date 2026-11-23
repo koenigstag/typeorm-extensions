@@ -41,5 +41,11 @@ export {
 export type { ReservedQualifierGuardOptions } from './utils/reserved-qualifier-guard.utils';
 export { disableStrictOrderInput, enableStrictOrderInput, InvalidOrderError } from './utils/order-input.utils';
 export type { InvalidOrderPart } from './utils/order-input.utils';
-export { getLimitAndOffset, normalizePageSize } from './utils/pagination.utils';
-export type { PageSizeOptions } from './utils/pagination.utils';
+export {
+  getLimitAndOffset,
+  getPaginationDefaults,
+  normalizePageSize,
+  PageOutOfRangeError,
+  setPaginationDefaults,
+} from './utils/pagination.utils';
+export type { PageSizeOptions, PaginationDefaults } from './utils/pagination.utils';

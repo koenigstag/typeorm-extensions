@@ -2,6 +2,7 @@ import 'typeorm-extensions/extensions/cursor-pagination.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { InvalidCursorError } from 'typeorm-extensions/extensions/cursor-pagination.extension';
 import { getExpressionKeyName } from 'typeorm-extensions/utils/cursor.utils';
+import { setPaginationDefaults } from 'typeorm-extensions/utils/pagination.utils';
 import type {
   GetManyWithCursorOptions,
   GetRawManyWithCursorOptions,
@@ -266,6 +267,120 @@ setupTest('cursor-pagination', undefined, (context) => {
   });
 });
 
+setupTest('cursor-pagination.iterate', undefined, (context) => {
+  const users = () => context.dataSource.getRepository(UserEntity);
+  const byId = { orderBy: [{ field: 'id' as const }] };
+
+  const collect = async <Row>(batches: AsyncIterable<Row[]>): Promise<Row[][]> => {
+    const read: Row[][] = [];
+
+    for await (const batch of batches) {
+      read.push(batch);
+    }
+
+    return read;
+  };
+
+  afterEach(() => setPaginationDefaults({}));
+
+  it('SHOULD read every row once, in order, in batches', async () => {
+    const saved = await users().save(await createFakeUsers({ count: 7 }));
+    for (const [i, user] of saved.entries()) {
+      await users().update(user.id, { createdAt: new Date(Date.UTC(2024, 0, 1 + (i % 3), 12)) });
+    }
+
+    const expected = await users()
+      .createQueryBuilder('user')
+      .orderBy('user.createdAt', 'DESC')
+      .addOrderBy('user.id', 'DESC')
+      .getMany();
+
+    const batches = await collect(
+      users()
+        .createQueryBuilder('user')
+        .iterateWithCursor({ batchSize: 3, orderBy: [{ field: 'createdAt', direction: 'DESC' }] }),
+    );
+
+    expect(batches.map((batch) => batch.length)).toEqual([3, 3, 1]);
+    expect(ids(batches.flat())).toEqual(ids(expected));
+  });
+
+  it('SHOULD not skip rows when the rows already read leave the query', async () => {
+    const saved = await users().save(await createFakeUsers({ count: 7 }));
+    const visited: number[] = [];
+
+    for await (const batch of users().createQueryBuilder('user').iterateWithCursor({ batchSize: 2, ...byId })) {
+      visited.push(...ids(batch));
+      // with OFFSET the next batch would start 2 rows too far
+      await users().delete(ids(batch));
+    }
+
+    expect(visited).toEqual(ids(saved).sort((a, b) => a - b));
+  });
+
+  it('SHOULD stop reading when the loop is left', async () => {
+    await users().save(await createFakeUsers({ count: 6 }));
+    const query = users().createQueryBuilder('user');
+    const reads = jest.spyOn(Object.getPrototypeOf(query), 'getRawAndEntities');
+
+    try {
+      for await (const batch of query.iterateWithCursor({ batchSize: 2, ...byId })) {
+        expect(batch).toHaveLength(2);
+        break;
+      }
+
+      expect(reads).toHaveBeenCalledTimes(1);
+    } finally {
+      reads.mockRestore();
+    }
+  });
+
+  it('SHOULD read the batch size given, whatever setPaginationDefaults says', async () => {
+    await users().save(await createFakeUsers({ count: 7 }));
+    setPaginationDefaults({ defaultPageSize: 2, maxPageSize: 2 });
+
+    const batches = await collect(users().createQueryBuilder('user').iterateWithCursor({ batchSize: 4, ...byId }));
+
+    expect(batches.map((batch) => batch.length)).toEqual([4, 3]);
+  });
+
+  it('SHOULD read no batch from an empty query', async () => {
+    await users().save(await createFakeUsers({ count: 2 }));
+
+    const batches = await collect(
+      users().createQueryBuilder('user').where('user.id < 0').iterateWithCursor({ batchSize: 2, ...byId }),
+    );
+
+    expect(batches).toEqual([]);
+  });
+
+  it('SHOULD copy the query when it starts, and leave the builder as it was', async () => {
+    await users().save(await createFakeUsers({ count: 5 }));
+    const query = users().createQueryBuilder('user').where('user.id > 0');
+    const before = sqlOf(query);
+
+    const batches = query.iterateWithCursor({ batchSize: 2, ...byId });
+    expect(sqlOf(query)).toBe(before);
+    query.andWhere('1 = 0');
+
+    expect((await collect(batches)).flat()).toHaveLength(5);
+  });
+
+  it('SHOULD throw at once for a batch size that is not a whole number of at least 1, or a key that is not a column', () => {
+    const query = users().createQueryBuilder('user');
+
+    for (const batchSize of [0, -1, 2.5, Number.NaN, '3' as never, undefined as never]) {
+      expect(() => query.iterateWithCursor({ batchSize, ...byId })).toThrow(
+        /iterateWithCursor: batchSize must be a whole number of at least 1/,
+      );
+    }
+
+    expect(() => query.iterateWithCursor({ batchSize: 2, orderBy: [{ field: 'images' as never }] })).toThrow(
+      /"images" is not a column of UserEntity/,
+    );
+  });
+});
+
 setupTest('cursor-pagination.postgres', undefined, (context) => {
   if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
     it.skip('only on postgres', () => {
@@ -434,6 +549,34 @@ setupTest('cursor-pagination.raw', undefined, (context) => {
     await expect(
       grouped().getRawManyWithCursor({ pageSize: 2 }, { orderBy: [{ alias: 'grp', selector: 'user.id' } as never] }),
     ).rejects.toThrow(/a selector or an alias, not both/);
+  });
+
+  it('SHOULD iterate raw rows in batches by a computed key', async () => {
+    await seedUsers(8);
+
+    const expected = await rows()
+      .orderBy(rank, 'ASC')
+      .addOrderBy('user.createdAt', 'DESC')
+      .addOrderBy('user.id', 'DESC')
+      .getRawMany();
+
+    const batches: ObjectLiteral[][] = [];
+    for await (const batch of rows().iterateRawWithCursor({
+      batchSize: 3,
+      orderBy: [{ selector: rank }, { selector: 'user.createdAt', direction: 'DESC' }],
+    })) {
+      batches.push(batch);
+    }
+
+    expect(batches.map((batch) => batch.length)).toEqual([3, 3, 2]);
+    expect(rawIds(batches.flat())).toEqual(rawIds(expected));
+    expect(Object.keys(batches[0][0]).sort()).toEqual(['createdAt', 'id']);
+    expect(() => rows().iterateRawWithCursor({ batchSize: 3, orderBy: [{ alias: 'missing' }] })).toThrow(
+      /the query selects nothing as "missing"/,
+    );
+    expect(() => rows().iterateRawWithCursor({ batchSize: 0, orderBy: [{ selector: rank }] })).toThrow(
+      /iterateRawWithCursor: batchSize must be a whole number of at least 1/,
+    );
   });
 
   it('SHOULD reject a cursor made for another order, and not change the query builder', async () => {

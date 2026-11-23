@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.2.0] - Unreleased
+
+Published for testing as `3.2.0-rc.1` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+
+### New Features
+
+- **`maxPageSize`** on `getLimitAndOffset` / `normalizePageSize`: a larger `pageSize`, or default, is lowered to it, so a request can't read a whole table in one page. Ignored when not a number of at least 1.
+- **`applyPagination`, `getManyWithTotals`, `getRawManyWithTotals`, `getManyWithCursor` and `getRawManyWithCursor` take `defaultPageSize` and `maxPageSize`**, so a query with its own default or cap no longer has to compute the page by hand. The `page` / `pageSize` they return are the ones read.
+- **`applyPagination`, `getLimitAndOffset`, `getManyWithTotals` and `getRawManyWithTotals` take `{ offset, limit }`** as well as `{ page, pageSize }`: the rows to skip and the rows to read, under the same `defaultPageSize` / `maxPageSize`. A negative or non-numeric offset reads from the first row, and the `page` they return is the page the offset falls in. A filter that gives `page` or `pageSize` is still read by them; one that gives only `offset` / `limit` used to read the first page, and now reads the rows it names.
+- **`firstPage: 0 | 1`**: pages counted from 0 (`page: 0` is the first page) or from 1, the default. The `page` a read returns counts the same way.
+- **`maxPage`**: the last page a read may ask for. A later page, or an offset past its first row, throws a **`PageOutOfRangeError`** (a `RangeError` with `page` and `maxPage`) before the query runs, so a client can't make the database skip a whole table.
+- **`setPaginationDefaults({ firstPage, defaultPageSize, maxPageSize, maxPage })`** and `getPaginationDefaults()` (from `typeorm-extensions/helpers`): the options every paginated read takes when its call doesn't give its own, so an application whose pages start at 0, or whose lists stop at 100 rows a page, says so once. An option given in the call still wins.
+- **`iterateWithCursor({ batchSize, orderBy })` and `iterateRawWithCursor`**: every row of a query in batches, an async iterator over the `getManyWithCursor` / `getRawManyWithCursor` pages, for work over a large set such as a sync or a backfill. Each batch costs the same however deep it is, and rows that leave the query while it runs (processed, deleted) don't make later batches skip rows, as they do with OFFSET. `batchSize` is read as given, whatever `setPaginationDefaults` says; a `batchSize` below 1 or not whole, or a key that is not a column, throws a `TypeError` at the call.
+
 ## [3.1.0] - 2026-11-23
 
 ### New Features

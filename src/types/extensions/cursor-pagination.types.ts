@@ -1,8 +1,8 @@
 import type { CursorOrderParam, RawCursorOrderParam } from '../interfaces/cursor-pagination.interface';
 import type { OrderType } from '../interfaces/ordering.interface';
-import type { IncludeOrderByOption } from './pagination.types';
+import type { IncludeOrderByOption, PageSizeOptions } from './pagination.types';
 
-export type GetManyWithCursorOptions<Entity> = IncludeOrderByOption & {
+export type GetManyWithCursorOptions<Entity> = IncludeOrderByOption & PageSizeOptions & {
   /**
    * Columns that order the rows, e.g. `[{ field: 'createdAt', direction: 'DESC' }]`.
    * The primary key is appended when it isn't listed, so the order is total and no row is skipped
@@ -13,7 +13,7 @@ export type GetManyWithCursorOptions<Entity> = IncludeOrderByOption & {
   useTakeAndSkip?: boolean;
 };
 
-export type GetRawManyWithCursorOptions = IncludeOrderByOption & {
+export type GetRawManyWithCursorOptions = IncludeOrderByOption & PageSizeOptions & {
   /**
    * SQL expressions that order the rows. On a query of an entity without GROUP BY or DISTINCT the
    * primary key of the main alias is appended when it isn't listed; otherwise the last key has to be
@@ -22,6 +22,25 @@ export type GetRawManyWithCursorOptions = IncludeOrderByOption & {
    */
   orderBy: RawCursorOrderParam[];
 };
+
+type BatchSizeOption = {
+  /** Rows per batch, a whole number of at least 1. `defaultPageSize` / `maxPageSize` of `setPaginationDefaults` don't apply to it. */
+  batchSize: number;
+};
+
+/** Options of `iterateWithCursor`: those of `getManyWithCursor`, with a `batchSize` in place of the page size. */
+export type IterateWithCursorOptions<Entity> = Omit<
+  GetManyWithCursorOptions<Entity>,
+  'includeOrderBy' | 'defaultPageSize' | 'maxPageSize'
+> &
+  BatchSizeOption;
+
+/** Options of `iterateRawWithCursor`: those of `getRawManyWithCursor`, with a `batchSize` in place of the page size. */
+export type IterateRawWithCursorOptions = Omit<
+  GetRawManyWithCursorOptions,
+  'includeOrderBy' | 'defaultPageSize' | 'maxPageSize'
+> &
+  BatchSizeOption;
 
 export interface ListWithCursor<Entity> {
   /** The entities of the page, or with `getRawManyWithCursor` its raw rows. */
@@ -33,7 +52,7 @@ export interface ListWithCursor<Entity> {
    * keyset query loads `pageSize + 1` rows, so it needs no total. Equivalent to `nextCursor !== null`.
    */
   hasMore: boolean;
-  /** The page size used: the `pageSize` given, rounded down, or `10` when it was missing or below 1. */
+  /** The page size used: the `pageSize` given, rounded down, or the default (`10` unless `defaultPageSize`) when it was missing or below 1; at most `maxPageSize`. */
   pageSize: number;
   /**
    * With `includeOrderBy` only: the ORDER BY the page was read in, the `orderBy` keys, then the primary
