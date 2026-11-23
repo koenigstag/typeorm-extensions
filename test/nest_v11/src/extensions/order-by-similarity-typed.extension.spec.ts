@@ -23,7 +23,8 @@ describe('order-by-similarity-typed.sql', () => {
 
     const alias = /AS "(similarity_[a-z0-9]{5})"/.exec(sql)?.[1];
     expect(sql).toMatch(/^SELECT u\.id, similarity\("u"\."firstName", \$1\) AS "similarity_[a-z0-9]{5}" FROM/);
-    expect(sql).toMatch(new RegExp(`ORDER BY ${alias} DESC NULLS LAST$`));
+    // TypeORM 1.x quotes the alias in ORDER BY
+    expect(sql).toMatch(new RegExp(`ORDER BY "?${alias}"? DESC NULLS LAST$`));
     expect(parameters).toEqual(['jon']);
   });
 
@@ -32,7 +33,7 @@ describe('order-by-similarity-typed.sql', () => {
       .orderBy('1', 'ASC')
       .addOrderBySimilarityTyped<UserEntity>((u) => u.firstName, 'jon', { alias: 'score', direction: 'ASC', nulls: 'first' });
 
-    expect(sqlOf(query)).toMatch(/ORDER BY 1 ASC, score ASC NULLS FIRST$/);
+    expect(sqlOf(query)).toMatch(/ORDER BY 1 ASC, "?score"? ASC NULLS FIRST$/);
   });
 
   it.each(['matchScore', 'order', 'a'.repeat(64), '1score', 'my-score'])('SHOULD throw for the alias %p', (alias) => {
@@ -44,7 +45,7 @@ describe('order-by-similarity-typed.sql', () => {
       sqlOf(
         pg().orderBySimilarityTyped<UserEntity>((u) => [u.firstName, u.lastName], 'jon', { alias: 'score', combine: 'greatest' }),
       ),
-    ).toMatch(/GREATEST\(similarity\("u"\."firstName", :(\w+)\), similarity\("u"\."lastName", :\1\)\) AS "score".* ORDER BY score DESC NULLS LAST$/);
+    ).toMatch(/GREATEST\(similarity\("u"\."firstName", :(\w+)\), similarity\("u"\."lastName", :\1\)\) AS "score".* ORDER BY "?score"? DESC NULLS LAST$/);
     expect(() => pg().orderBySimilarityTyped<UserEntity>((u) => [u.firstName, u.lastName], 'jon')).toThrow(
       /selects 2 columns/,
     );
@@ -59,7 +60,7 @@ describe('order-by-similarity-typed.sql', () => {
       .orderBySimilarityTyped<UserEntity>((u) => u.lastName, 'smith', { distance: true, function: fn, alias: 'dist' })
       .getQueryAndParameters();
 
-    expect(sql).toMatch(new RegExp(`"u"\\."lastName" ${operator} \\$1 AS "dist" FROM .* ORDER BY dist ASC NULLS LAST$`));
+    expect(sql).toMatch(new RegExp(`"u"\\."lastName" ${operator} \\$1 AS "dist" FROM .* ORDER BY "?dist"? ASC NULLS LAST$`));
   });
 
   it('SHOULD throw for distance on several columns, a weight or unaccent', () => {

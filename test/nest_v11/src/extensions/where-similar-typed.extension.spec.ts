@@ -13,13 +13,29 @@ const builderOf = (type: 'postgres' | 'mysql' | 'better-sqlite3') =>
 
 const pg = () => builderOf('postgres');
 
-const params = (query: { getQueryAndParameters(): [string, unknown[]] }) =>
-  query.getQueryAndParameters()[1];
+type Query = { getQuery(): string; getQueryAndParameters(): [string, unknown[]]; getParameters(): object };
+
+const params = (query: Query) => query.getQueryAndParameters()[1];
+
+// the values bound, once each: TypeORM 0.3.12 repeats a parameter used twice in getQueryAndParameters()
+const values = (query: Query) => Object.values(query.getParameters());
+
+// parameters numbered in order of appearance, `$1` each time one is repeated, as TypeORM 0.3.13+ writes them
+const numbered = (sql: string) => {
+  const names = new Map<string, string>();
+
+  return sql.replace(/(?<!:):(\w+)/g, (_reference, name: string) => {
+    if (!names.has(name)) {
+      names.set(name, `$${names.size + 1}`);
+    }
+
+    return names.get(name) as string;
+  });
+};
 
 // the entities order by id by default
-const whereOf = (query: { getQueryAndParameters(): [string, unknown[]] }) =>
-  query
-    .getQueryAndParameters()[0]
+const whereOf = (query: Query) =>
+  numbered(query.getQuery())
     .replace(/^.* WHERE /, '')
     .replace(/ ORDER BY [^)]*$/, '');
 
@@ -84,7 +100,7 @@ describe('where-similar-typed.sql', () => {
     const query = pg().whereSimilarTyped<UserEntity>((u) => u.firstName, 'jon', { operator, minScore: 0.5 });
 
     expect(whereOf(query)).toBe(sql);
-    expect(params(query)).toEqual(['jon', 0.5]);
+    expect(values(query)).toEqual(['jon', 0.5]);
   });
 
   it.each([-0.1, 1.5, NaN, '0.5'])('SHOULD throw for minScore %p', (minScore) => {
@@ -152,8 +168,8 @@ describe('where-similar-typed.sql', () => {
   });
 
   it('SHOULD combine the scores of several columns, weighted, with a score for NULL', () => {
-    const selectOf = (query: { getQueryAndParameters(): [string, unknown[]] }) =>
-      query.getQueryAndParameters()[0].replace(/^SELECT u\.id, (.*) FROM .*$/, '$1');
+    const selectOf = (query: Query) =>
+      numbered(query.getQuery()).replace(/^SELECT u\.id, (.*) FROM .*$/, '$1');
 
     expect(
       selectOf(pg().addSimilarityScoreTyped<UserEntity>((u) => [u.firstName, u.lastName], 'jon', 's', { combine: 'greatest' })),
@@ -198,7 +214,7 @@ describe('where-similar-typed.sql', () => {
     expect(whereOf(query)).toBe(
       'u.id > 0 AND ("u"."firstName" ILIKE $1 OR "u"."firstName" % $2 OR "u"."lastName" ILIKE $1 OR "u"."lastName" % $2)',
     );
-    expect(params(query)).toEqual(['%jon%', 'jon']);
+    expect(values(query)).toEqual(['jon', '%jon%']);
   });
 
   it('SHOULD match only by trigrams with substring: false, and parenthesize expressions once', () => {
@@ -208,7 +224,7 @@ describe('where-similar-typed.sql', () => {
     });
 
     expect(whereOf(query)).toBe(`similarity(("u"."firstName" || "u"."lastName"), $1) >= $2`);
-    expect(params(query)).toEqual(['jon', 0.2]);
+    expect(values(query)).toEqual(['jon', 0.2]);
     expect(() =>
       pg().whereSearchTyped<UserEntity>((u) => u.firstName, 'jon', { substring: false }),
     ).toThrow(/substring: false without similar leaves nothing to match/);
@@ -231,7 +247,7 @@ describe('where-similar-typed.sql', () => {
       .orWhereSimilarTyped<UserEntity>((u) => u.lastName, 'smith');
 
     expect(whereOf(query)).toBe('"u"."firstName" % $1 OR "u"."lastName" % $2');
-    expect(params(query)).toEqual(['jon', 'smith']);
+    expect(values(query)).toEqual(['jon', 'smith']);
   });
 });
 
