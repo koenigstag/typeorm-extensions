@@ -107,12 +107,17 @@ export function IsDistinctFrom<T>(value: T | null): FindOperator<T> {
 /**
  * `IS TRUE` on a boolean column. Unlike `= true` it is never NULL, so `Not(IsTrue())` is `IS NOT TRUE` and
  * matches NULL too, while `Not(Equal(true))` skips it. PostgreSQL, SQLite 3.23+, MySQL.
+ * PostgreSQL never uses a partial index declared `WHERE col` / `WHERE col = true` for `col IS TRUE`: for a positive
+ * filter on such a column use `Equal(true)`, which keeps the same rows in a `WHERE` clause.
  */
 export function IsTrue(): FindOperator<boolean> {
   return Raw((field) => `${field} IS TRUE`) as FindOperator<boolean>;
 }
 
-/** `IS FALSE` on a boolean column; `Not(IsFalse())` is `IS NOT FALSE` and matches NULL too, see `IsTrue`. */
+/**
+ * `IS FALSE` on a boolean column; `Not(IsFalse())` is `IS NOT FALSE` and matches NULL too. Like `IsTrue`, it never
+ * uses a partial index declared `WHERE NOT col` / `WHERE col = false`: use `Equal(false)` for a positive filter.
+ */
 export function IsFalse(): FindOperator<boolean> {
   return Raw((field) => `${field} IS FALSE`) as FindOperator<boolean>;
 }
