@@ -2,7 +2,7 @@
 
 ## [3.2.0] - Unreleased
 
-Published for testing as `3.2.0-rc.0` under the `next` dist-tag: `npm install typeorm-extensions@next`.
+Published for testing as `3.2.0-rc.1` under the `next` dist-tag: `npm install typeorm-extensions@next`.
 
 ### New Features
 
