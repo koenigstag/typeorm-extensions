@@ -161,7 +161,7 @@ export default dataSource
   .update()
   .set({ status: 'closed' })
   .whereIsNotDistinctFromTyped((t) => t.ownerId, null)
-  .returningTyped((t) => [t.id, t.status]);
+  .returningTyped((t) => ({ id: t.id, status: t.status }));
 `,
   ),
   example(
@@ -177,7 +177,7 @@ const u = tableHelper<User>('user');
 export default dataSource
   .getRepository(User)
   .createQueryBuilder('user')
-  .select(u.jsonColumn('metadata', '->>', 'settings', 'theme'), 'theme')
+  .select(u.jsonText((r) => r.metadata.settings.theme), 'theme')
   .addSelect(u.count(), 'users')
   .where(u.isNotNull('metadata'))
   .groupBy('theme')

@@ -2,9 +2,10 @@ import 'typeorm-extensions/extensions/order-by-array-position.extension';
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by-array-position.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import 'typeorm-extensions/extensions/where-is-any.extension';
-import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
+import { setupTest, createFakeUsers, createFakeImages, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
+import { ArticleEntity } from '../models/postgres/article.entity';
 
 // SQL generation does not depend on the database
 setupTest('order-by-array-position.sql', undefined, (context) => {
@@ -15,7 +16,7 @@ setupTest('order-by-array-position.sql', undefined, (context) => {
       .orderBy('user.email')
       .orderByArrayPosition('user.id', [3, 1, 2]);
 
-    const sql = query.getQuery();
+    const sql = sqlOf(query);
     const [, alias] = sql.match(/array_position\(:position_\w+, "user"\."id"\) AS "(array_position_\w+)"/) ?? [];
 
     expect(alias).toBe(alias?.toLowerCase());
@@ -25,24 +26,26 @@ setupTest('order-by-array-position.sql', undefined, (context) => {
   });
 
   it('SHOULD add to the ORDER BY with addOrderByArrayPosition', () => {
-    const sql = context.dataSource
-      .getRepository(UserEntity)
-      .createQueryBuilder('user')
-      .orderBy('user.email')
-      .addOrderByArrayPosition('user.id', [1], 'int[]')
-      .getQuery();
+    const sql = sqlOf(
+      context.dataSource
+        .getRepository(UserEntity)
+        .createQueryBuilder('user')
+        .orderBy('user.email')
+        .addOrderByArrayPosition('user.id', [1], 'int[]'),
+    );
 
     expect(sql).toMatch(/array_position\(CAST\(:position_\w+ AS int\[\]\), "user"\."id"\)/);
     expect(sql).toMatch(/ORDER BY "user"\."email" ASC, "?array_position_\w+"? ASC NULLS LAST$/);
   });
 
   it('SHOULD take the database column from the typed callback', () => {
-    const sql = context.dataSource
-      .getRepository(TicketEntity)
-      .createQueryBuilder('t')
-      .orderByArrayPositionTyped((t) => t.id, [2, 1])
-      .addOrderByArrayPositionTyped((t) => t.status, ['open'], 'text[]')
-      .getQuery();
+    const sql = sqlOf(
+      context.dataSource
+        .getRepository(TicketEntity)
+        .createQueryBuilder('t')
+        .orderByArrayPositionTyped((t) => t.id, [2, 1])
+        .addOrderByArrayPositionTyped((t) => t.status, ['open'], 'text[]'),
+    );
 
     expect(sql).toMatch(/array_position\(:position_\w+, "t"\."ticket_id"\)/);
     expect(sql).toMatch(/array_position\(CAST\(:position_\w+ AS text\[\]\), "t"\."ticket_status"\)/);
@@ -105,5 +108,59 @@ setupTest('order-by-array-position.postgres', undefined, (context) => {
 
     expect(result.map((user) => user.id)).toEqual(order.slice(0, 2));
     expect(result[1].images).toHaveLength(2);
+  });
+});
+
+// a path into a JSON column, cast to the type of the values: PostgreSQL only
+setupTest('order-by-array-position.json.postgres', { entities: [ArticleEntity] }, (context) => {
+  if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  it('SHOULD order by the position of a JSON value, a number compared as a number', async () => {
+    await context.dataSource.getRepository(ArticleEntity).save(
+      [
+        ['a', 'draft', 1],
+        ['b', 'live', 2],
+        ['c', 'archived', 3],
+      ].map(
+        ([title, status, score]) =>
+          new ArticleEntity({ title: title as string, tags: [], meta: { status: status as string, score: score as number } }),
+      ),
+    );
+
+    const articles = () => context.dataSource.getRepository(ArticleEntity).createQueryBuilder('a');
+
+    // jsonb keeps the scale: the text of this score is '3.0', which equals 3 only as a number
+    await context.dataSource.query(`UPDATE "articles" SET "meta" = '{"status": "archived", "score": 3.0}' WHERE "title" = 'c'`);
+
+    const byStatus = await articles().orderByArrayPositionTyped((a) => a.meta.status, ['live', 'archived', 'draft']).getMany();
+    const byScore = await articles().orderByArrayPositionTyped((a) => a.meta.score, [3, 1, 2]).getMany();
+    const byScoreAsIntegers = await articles().orderByArrayPositionTyped((a) => a.meta.score, [3, 1, 2], 'int[]').getMany();
+
+    expect(byStatus.map(({ title }) => title)).toEqual(['b', 'c', 'a']);
+    expect(byScore.map(({ title }) => title)).toEqual(['c', 'a', 'b']);
+    expect(byScoreAsIntegers.map(({ title }) => title)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('SHOULD put a JSON value of another type last instead of failing its cast', async () => {
+    await context.dataSource.getRepository(ArticleEntity).save(
+      [
+        ['a', 1],
+        ['b', 2],
+        ['c', 'n/a'],
+      ].map(([title, score]) => new ArticleEntity({ title: title as string, tags: [], meta: { status: 'live', score: score as number } })),
+    );
+
+    const byScore = await context.dataSource
+      .getRepository(ArticleEntity)
+      .createQueryBuilder('a')
+      .orderByArrayPositionTyped((a) => a.meta.score, [2, 1])
+      .getMany();
+
+    expect(byScore.map(({ title }) => title)).toEqual(['b', 'a', 'c']);
   });
 });

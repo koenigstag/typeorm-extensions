@@ -49,7 +49,7 @@ export const createFakeUsers = async (
   const users: UserEntity[] = [];
 
   for (let i = 0; i < props.count; i++) {
-    const userOverrides = (await props?.getOverrides?.(i)) ?? { id: i };
+    const userOverrides = (await props?.getOverrides?.(i)) ?? { id: i + 1 };
 
     const user = createFakeUser(userOverrides);
 
@@ -87,7 +87,7 @@ export const createFakeImages = async (
   const images: ImageEntity[] = [];
 
   for (let i = 0; i < props.count; i++) {
-    const imageOverrides = (await props?.getOverrides?.(i)) ?? { id: i };
+    const imageOverrides = (await props?.getOverrides?.(i)) ?? { id: i + 1 };
 
     const image = createFakeImage(imageOverrides);
 

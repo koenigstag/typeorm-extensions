@@ -58,10 +58,7 @@ qb.whereTyped((q) => q.price, '>', '10');
 qb.whereTyped((q) => q.status, '=', 'deleted');
 // @ts-expect-error a relation column is checked too
 qb.whereTyped((q) => q.community.name, '=', 5);
-// @ts-expect-error = NULL matches no row
-qb.whereTyped((q) => q.cityId, '=', { cityId: maybeCity });
-// @ts-expect-error = NULL matches no row
-qb.whereTyped((q) => q.cityId, '=', null);
+// null and undefined values: strict-null-checks.test.ts
 // @ts-expect-error the value is required
 qb.whereTyped((q) => q.id, '=');
 
@@ -146,5 +143,3 @@ qb.whereIsInTyped<Joins>((q) => q.e.price, ['unchecked']);
 qb.whereIsInTyped((q) => q.id, [1]);
 // @ts-expect-error not a Status
 qb.whereIsAnyTyped((q) => q.status, ['deleted']);
-// @ts-expect-error NULL never equals
-update.whereIsInTyped((q) => q.cityId, [null]);

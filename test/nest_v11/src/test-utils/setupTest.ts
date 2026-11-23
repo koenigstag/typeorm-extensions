@@ -1,7 +1,7 @@
 import { getRepositoryToken, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, Repository } from 'typeorm';
-import { describe, beforeEach } from '@jest/globals';
+import { describe, beforeEach, afterEach } from '@jest/globals';
 import { Class } from '../types';
 import { TypeOrmTestingModule } from './typeorm-testing.module';
 import { allEntities } from '../models/all-entities';
@@ -112,6 +112,12 @@ export const setupTest = <T extends readonly Class[] = typeof allEntities>(
       // sharedContext.repositories = getRepositories(sharedContext.moduleRef, props.entities);
 
       await props.beforeEach?.(sharedContext);
+    });
+
+    // every test builds its own module: without closing it, a pool that keeps idle connections
+    // (mysql2) runs the server out of connections
+    afterEach(async () => {
+      await sharedContext.moduleRef?.close();
     });
 
     tests(sharedContext);

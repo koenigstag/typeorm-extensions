@@ -7,9 +7,21 @@ sidebar_position: 5.6
 ## Description
 Typesafe conditions on PostgreSQL array columns: the column comes from an entity property instead of a string. They work like [whereArrayContains / ContainedBy / Overlaps](../where/whereArray.md): `@>`, `<@` and `&&` with the values bound as one array parameter.
 
-The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
+The property is mapped to its database column (`@Column({ name })`), and on `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column is not prefixed with an alias.
 
 **PostgreSQL only** (and compatible databases such as CockroachDB).
+
+### An array inside a JSON column
+
+A path into a JSON column (`a => a.meta.flags`) is compared with jsonb operators instead of the array ones, against the values as a JSON array:
+
+| Method | SQL |
+|---|---|
+| `whereArrayContainsTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) @> CAST(:values AS jsonb)` |
+| `whereArrayContainedByTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) <@ CAST(:values AS jsonb)` |
+| `whereArrayOverlapsTyped` | `CAST("a"."meta" -> 'flags' AS jsonb) ?| CAST(:values AS text[])` |
+
+Each condition also requires an array at the path, `jsonb_typeof(…) = 'array'`: jsonb reads a string `"x"` as contained by `["x", "y"]`, and `?|` looks at the keys of an object, so without it a string or an object would match. `?|` matches string elements, so the overlap takes strings only; `arrayType` is for array columns. Both throw a `TypeError` otherwise. `json`, `jsonb` and `simple-json` columns work alike. PostgreSQL only.
 
 ## Signature
 ```typescript

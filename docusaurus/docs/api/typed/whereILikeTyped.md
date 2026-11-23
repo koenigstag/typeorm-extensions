@@ -17,7 +17,7 @@ Typesafe case-insensitive pattern search on one column: `"user"."email" ILIKE :p
 | MySQL / MariaDB | `col LIKE :p` (case-insensitive with the default `_ci` collations) |
 | SQLite | `col LIKE :p ESCAPE '\'` (case-insensitive for ASCII) |
 
-The property is mapped to its database column (`@Column({ name })`). On `UpdateQueryBuilder` / `DeleteQueryBuilder` the column is not prefixed with an alias.
+The property is mapped to its database column (`@Column({ name })`). On `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column is not prefixed with an alias.
 
 ## Signature
 ```typescript

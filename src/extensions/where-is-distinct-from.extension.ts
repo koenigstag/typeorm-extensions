@@ -2,18 +2,14 @@ import {
   SelectQueryBuilder,
   WhereExpressionBuilder,
   ObjectLiteral,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-  DatabaseType,
 } from 'typeorm';
-import { patchPrototype } from '../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import { toFieldSql } from '../utils/query-builder.utils';
 import { WhereMethods } from '../types/extensions';
 import {
+  buildDistinctCondition,
   createUniqueParameterName,
   getDriverType,
-  isMysqlLikeDriver,
-  isSqliteLikeDriver,
 } from '../utils/sql.utils';
 
 // declarations
@@ -79,6 +75,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereDistinctMethods {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereDistinctMethods {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 
 // patching
@@ -103,37 +103,10 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 
-/** `field IS [NOT] DISTINCT FROM value` in the database's own null-safe syntax. */
-function buildDistinctCondition(
-  driver: DatabaseType | undefined,
-  field: string,
-  distinct: boolean,
-  value: string
-): string {
-  if (isMysqlLikeDriver(driver)) {
-    // `<=>` is MySQL's null-safe equality
-    return distinct ? `NOT (${field} <=> ${value})` : `${field} <=> ${value}`;
-  }
-
-  if (isSqliteLikeDriver(driver)) {
-    // SQLite's `IS` / `IS NOT` compare any values null-safely (IS DISTINCT FROM needs SQLite 3.39+)
-    return `${field} ${distinct ? 'IS NOT' : 'IS'} ${value}`;
-  }
-
-  return `${field} ${distinct ? 'IS DISTINCT FROM' : 'IS NOT DISTINCT FROM'} ${value}`;
-}
 
 function attachWhereDistinct<QB extends WhereExpressionBuilder>(
   builder: QB,

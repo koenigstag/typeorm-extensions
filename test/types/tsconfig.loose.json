@@ -1,0 +1,8 @@
+{
+  // the type tests again, as in a codebase built with "strict": false
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": false
+  },
+  "exclude": ["./strict-null-checks.test.ts"]
+}

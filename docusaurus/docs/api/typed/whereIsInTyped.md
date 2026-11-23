@@ -7,7 +7,7 @@ sidebar_position: 5
 ## Description
 `whereIsInTyped` and `whereIsNotInTyped` add typesafe `IN` / `NOT IN` conditions: the column comes from an entity property instead of a string. They work like [whereIsIn](../where/whereIsIn.md), including the empty array handling (`IN` → `FALSE`, `NOT IN` → `TRUE`).
 
-Available on `SelectQueryBuilder`, `UpdateQueryBuilder` and `DeleteQueryBuilder`. On `UpdateQueryBuilder` / `DeleteQueryBuilder` the column isn't prefixed with an alias (`UPDATE "users" … WHERE "firstName" = …`), since UPDATE / DELETE statements have none.
+Available on `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder` and `SoftDeleteQueryBuilder` (`softDelete()`, `restore()`). On `UpdateQueryBuilder` / `DeleteQueryBuilder` / `SoftDeleteQueryBuilder` the column isn't prefixed with an alias (`UPDATE "users" … WHERE "firstName" = …`), since UPDATE / DELETE statements have none.
 
 ## Signature
 ```typescript

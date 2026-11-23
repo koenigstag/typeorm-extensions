@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/order.extension';
-import { setupTest } from '../test-utils';
+import { setupTest, sqlOf } from '../test-utils';
 import { TicketEntity, UserEntity } from '../models';
 
 // TicketEntity: id → ticket_id, status → ticket_status, ownerId → owner_id
@@ -16,11 +16,11 @@ setupTest('order.column-names', undefined, (context) => {
     await seed();
 
     const ordered = query().applyOrder({ field: 'status' });
-    expect(ordered.getQuery()).toMatch(/ORDER BY "ticket_status" ASC$/);
+    expect(sqlOf(ordered)).toMatch(/ORDER BY "ticket_status" ASC$/);
     expect((await ordered.getMany()).map((t) => t.status)).toEqual(['a', 'b', 'c']);
 
     const byOwner = query().applyOrderFilter({ orderBy: [{ field: 'ownerId', direction: 'desc' }] });
-    expect(byOwner.getQuery()).toMatch(/ORDER BY "owner_id" DESC$/);
+    expect(sqlOf(byOwner)).toMatch(/ORDER BY "owner_id" DESC$/);
     expect((await byOwner.getMany()).map((t) => t.ownerId)).toEqual([2, 1, 0]);
   });
 
@@ -28,7 +28,7 @@ setupTest('order.column-names', undefined, (context) => {
     await seed();
 
     const ordered = query().applyOrder({ field: 'id', direction: -1 });
-    expect(ordered.getQuery()).toMatch(/ORDER BY "t"\."ticket_id" DESC$/);
+    expect(sqlOf(ordered)).toMatch(/ORDER BY "t"\."ticket_id" DESC$/);
     expect((await ordered.getMany()).map((t) => t.status)).toEqual(['a', 'c', 'b']);
   });
 
@@ -36,21 +36,20 @@ setupTest('order.column-names', undefined, (context) => {
     await seed();
 
     const ordered = query().applyOrder({ field: 'id', direction: 'desc' }, { useQuotes: false });
-    expect(ordered.getQuery()).toMatch(/ORDER BY "t"\."ticket_id" DESC$/);
+    expect(sqlOf(ordered)).toMatch(/ORDER BY "t"\."ticket_id" DESC$/);
     expect((await ordered.getMany()).map((t) => t.status)).toEqual(['a', 'c', 'b']);
 
     const unaliased = query().applyOrder({ field: 'status' }, { useQuotes: false });
-    expect(unaliased.getQuery()).toMatch(/ORDER BY ticket_status ASC$/);
+    expect(sqlOf(unaliased)).toMatch(/ORDER BY ticket_status ASC$/);
     expect((await unaliased.getMany()).map((t) => t.status)).toEqual(['a', 'b', 'c']);
   });
 
   it('SHOULD keep property names that are the column names', () => {
-    const sql = context.dataSource
+    const query = context.dataSource
       .getRepository(UserEntity)
       .createQueryBuilder('user')
-      .applyOrder({ field: 'createdAt', direction: 'desc' })
-      .getQuery();
+      .applyOrder({ field: 'createdAt', direction: 'desc' });
 
-    expect(sql).toMatch(/ORDER BY "user"\."createdAt" DESC$/);
+    expect(sqlOf(query)).toMatch(/ORDER BY "user"\."createdAt" DESC$/);
   });
 });

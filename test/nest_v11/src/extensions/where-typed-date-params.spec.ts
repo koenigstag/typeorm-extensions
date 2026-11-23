@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, sqlAndParametersOf, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 
 class EmailFilter {
@@ -15,9 +15,9 @@ setupTest('where-typed.date-params', undefined, (context) => {
   it('SHOULD bind a Date as the value, not compare with NULL', () => {
     const since = new Date('2024-01-01T00:00:00.000Z');
 
-    const [query, parameters] = queryUsers()
-      .whereTyped((u) => u.createdAt, '>', since)
-      .getQueryAndParameters();
+    const [query, parameters] = sqlAndParametersOf(
+      queryUsers().whereTyped((u) => u.createdAt, '>', since),
+    );
 
     expect(query).not.toMatch(/NULL/);
     expect(query).toMatch(/WHERE "user"\."createdAt" > (\$1|\?)/);
@@ -30,7 +30,7 @@ setupTest('where-typed.date-params', undefined, (context) => {
 
     const query = queryUsers().whereTyped((u) => u.createdAt, '>=', { since });
 
-    expect(query.getQuery()).toMatch(/WHERE "user"\."createdAt" >= :where\w+/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."createdAt" >= :where\w+/);
     expect(Object.values(query.getParameters())).toEqual([since]);
   });
 
@@ -39,14 +39,14 @@ setupTest('where-typed.date-params', undefined, (context) => {
 
     const query = queryUsers().whereTyped((u) => u.email, '=', bytes);
 
-    expect(query.getQuery()).toMatch(/WHERE "user"\."email" = :where\w+/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."email" = :where\w+/);
     expect(Object.values(query.getParameters())).toEqual([bytes]);
   });
 
   it('SHOULD compare an invalid Date with NULL, like NaN', () => {
     const query = queryUsers().whereTyped((u) => u.createdAt, '>', new Date('nope'));
 
-    expect(query.getQuery()).toMatch(/WHERE "user"\."createdAt" > NULL/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."createdAt" > NULL/);
   });
 
   it('SHOULD still read named parameters from class instances', () => {
@@ -56,7 +56,7 @@ setupTest('where-typed.date-params', undefined, (context) => {
       new EmailFilter('a@b.c'),
     );
 
-    expect(query.getQuery()).toMatch(/WHERE "user"\."email" = :email/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."email" = :email/);
     expect(query.getParameters()).toMatchObject({ email: 'a@b.c' });
   });
 

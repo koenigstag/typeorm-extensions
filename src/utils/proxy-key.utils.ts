@@ -1,15 +1,21 @@
-import { ObjectLiteral } from 'typeorm';
+import { DatabaseType, ObjectLiteral } from 'typeorm';
 import { stringToSQLIdentifier } from './sql.utils';
 import { DeepUnwrapArray, KeyProxyCallback } from '../types/modules/proxy-callback.types';
+
+// the members read through a key proxy; any other name is a key, so an entity may have a `push` column
+const PROXIED_MEMBERS: readonly string[] = ['getKeys', 'toSql', 'toString', 'valueOf'];
+
+const isKeyName = (key: string | symbol): key is string =>
+  typeof key === 'string' && !PROXIED_MEMBERS.includes(key);
 
 export class KeyHolder {
   constructor(private _keys: string[] = []) {
     this._keys = [..._keys];
   }
 
-  toSql(length: number = 2, useQuotes?: boolean) {
+  toSql(length: number = 2, useQuotes?: boolean, driver?: DatabaseType) {
     const string = this.toString(length);
-    const sql = useQuotes ? stringToSQLIdentifier(string) : string;
+    const sql = useQuotes ? stringToSQLIdentifier(string, driver) : string;
 
     return sql;
   }
@@ -34,11 +40,7 @@ export class KeyHolder {
   }
 
   push(key: string | symbol) {
-    if (
-      typeof key !== 'symbol' &&
-      !Object.getOwnPropertyNames(this).includes(key) && // check of getOwnPropertyNames(this) is questionable
-      !Object.getOwnPropertyNames(KeyHolder.prototype).includes(key)
-    ) {
+    if (isKeyName(key)) {
       this._keys.push(key);
     }
 
@@ -46,11 +48,7 @@ export class KeyHolder {
   }
 
   unshift(key: string | symbol) {
-    if (
-      typeof key !== 'symbol' &&
-      !Object.getOwnPropertyNames(this).includes(key) && // check of getOwnPropertyNames(this) is questionable
-      !Object.getOwnPropertyNames(KeyHolder.prototype).includes(key)
-    ) {
+    if (isKeyName(key)) {
       this._keys.unshift(key);
     }
 
@@ -72,10 +70,11 @@ export class TypedProxy {
 export class KeyProxy {
   public static defaultHandler: ProxyHandler<KeyHolder> = {
     get(target, key, receiver) {
-      const value = Reflect.get(target, key, receiver);
+      if (!isKeyName(key)) {
+        const value: unknown = Reflect.get(target, key, receiver);
 
-      if (value) {
-        return value;
+        // called on the holder: through the proxy, `this._keys` would read a key named `_keys`
+        return typeof value === 'function' ? value.bind(target) : value;
       }
 
       // for each key create new independent layer of KeyProxy
@@ -157,20 +156,21 @@ export type KeyPrefix = string | (() => string | undefined);
 export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 	callback: KeyProxyCallback<Type> | KeyHolder | string,
 	addPrefix?: KeyPrefix,
-	useQuotes?: boolean
+	useQuotes?: boolean,
+	driver?: DatabaseType
 ): string | string[] => {
 	if (typeof callback === 'string') return callback;
 
 	const keyHolder = getKeyHolder<Type>(callback);
 
 	if (Array.isArray(keyHolder)) {
-		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix, useQuotes) as string);
+		return keyHolder.map((holder) => getSqlKeyFromProxyCallback<Type>(holder, addPrefix, useQuotes, driver) as string);
 	}
 
 	// if select is like this: (proxy) => proxy.relation.column
 	if (keyHolder.getKeys().length > 1) {
 		// return unchanged
-		return keyHolder.toSql(undefined, useQuotes);
+		return keyHolder.toSql(undefined, useQuotes, driver);
 	}
 
 	// else if select is one layer depth like this: (proxy) => proxy.column
@@ -179,10 +179,10 @@ export const getSqlKeyFromProxyCallback = <Type extends ObjectLiteral>(
 
 	if (typeof prefix === 'string' && prefix.length >= 1) {
 		// a new holder: a KeyHolder passed in by the caller must stay as it was
-		return new KeyHolder([prefix, ...keyHolder.getKeys()]).toSql(undefined, useQuotes);
+		return new KeyHolder([prefix, ...keyHolder.getKeys()]).toSql(undefined, useQuotes, driver);
 	}
 
-	return keyHolder.toSql(undefined, useQuotes);
+	return keyHolder.toSql(undefined, useQuotes, driver);
 };
 
 // example of typed select

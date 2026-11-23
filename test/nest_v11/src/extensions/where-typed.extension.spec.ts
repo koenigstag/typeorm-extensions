@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
-import { setupTest, createFakeUsers, createRandomId } from '../test-utils';
+import { setupTest, createFakeUsers, createRandomId, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { selectElements } from '../utils';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
@@ -22,7 +22,7 @@ setupTest('where-typed.where', undefined, (context) => {
     );
     const whereInQuery = selectQuery.clone().whereTyped((u) => u.id, 'IN', userIds);
 
-    expect(whereInQuery.getQuery()).toContain('"user"."id" IN (');
+    expect(sqlOf(whereInQuery)).toContain('"user"."id" IN (');
 
     const result = await whereInQuery.select('user.id').getMany();
     expect(result).toHaveLength(userIds.length);
@@ -46,7 +46,7 @@ setupTest('where-typed.where', undefined, (context) => {
       createRandomId(1201, 1300),
     ]);
 
-    expect(whereInQuery.getQuery()).toContain('"user"."id" IN (');
+    expect(sqlOf(whereInQuery)).toContain('"user"."id" IN (');
 
     const result = await whereInQuery.select('user.id').getMany();
     expect(result).toHaveLength(0);
@@ -70,7 +70,7 @@ setupTest('where-typed.where', undefined, (context) => {
       userId,
     );
 
-    expect(whereQuery.getQuery()).toContain('"user"."id" = ');
+    expect(sqlOf(whereQuery)).toContain('"user"."id" = ');
 
     const result = await whereQuery.select('user.id').getMany();
     expect(result).toHaveLength(1);
@@ -96,7 +96,7 @@ setupTest('where-is-in.whereIsNotIn', undefined, (context) => {
     );
     const whereInQuery = selectQuery.clone().whereTyped((u) => u.id, 'NOT IN', userIds);
 
-    expect(whereInQuery.getQuery()).toContain('"user"."id" NOT IN (');
+    expect(sqlOf(whereInQuery)).toContain('"user"."id" NOT IN (');
 
     const otherIds = fakeUsers
       .map((u) => u.id)
@@ -123,7 +123,7 @@ setupTest('where-is-in.whereIsNotIn', undefined, (context) => {
       createRandomId(1201, 1300),
     ]);
 
-    expect(whereInQuery.getQuery()).toContain('"user"."id" NOT IN (');
+    expect(sqlOf(whereInQuery)).toContain('"user"."id" NOT IN (');
 
     const result = await whereInQuery.select('user.id').getMany();
     expect(result).toHaveLength(fakeUsers.length);
@@ -146,7 +146,7 @@ setupTest('where-is-in.whereIsNotIn', undefined, (context) => {
       createRandomId(1000, 1100),
     );
 
-    expect(whereNotQuery.getQuery()).toContain('"user"."id" != ');
+    expect(sqlOf(whereNotQuery)).toContain('"user"."id" != ');
 
     const otherUsers = await selectQuery.clone().select('user.id').getMany();
 
@@ -154,75 +154,6 @@ setupTest('where-is-in.whereIsNotIn', undefined, (context) => {
     expect(result).toHaveLength(otherUsers.length);
     expect(result.map((user) => user.id)).toEqual(
       otherUsers.map((user) => user.id),
-    );
-  });
-});
-
-setupTest('where-typed.jsonPath', undefined, (context) => {
-  const t = tableHelper<UserEntity>('user');
-
-  it('SHOULD generate correct SQL with jsonPath in conditions', async () => {
-    const usersRepository = context.dataSource.getRepository(UserEntity);
-    const selectQuery = usersRepository.createQueryBuilder('user');
-
-    const whereQuery = selectQuery.clone().whereTyped(
-      (u) => u.metadata,
-      `${t.jsonPath('metadata', '->>', 'role')} =`,
-      'admin',
-    );
-
-    expect(whereQuery.getQuery()).toContain(
-      '"user"."metadata" ->> \'role\' =',
-    );
-  });
-
-  it('SHOULD generate correct SQL with nested jsonPath', async () => {
-    const usersRepository = context.dataSource.getRepository(UserEntity);
-    const selectQuery = usersRepository.createQueryBuilder('user');
-
-    const whereQuery = selectQuery.clone().whereTyped(
-      (u) => u.metadata,
-      `${t.jsonPath('metadata', '->>', 'settings', 'theme')} =`,
-      'light',
-    );
-
-    expect(whereQuery.getQuery()).toContain(
-      '"user"."metadata" -> \'settings\' ->> \'theme\' =',
-    );
-  });
-
-  it('SHOULD work with andWhereTyped and jsonPath', async () => {
-    const usersRepository = context.dataSource.getRepository(UserEntity);
-
-    let fakeUsers = await createFakeUsers({ count: 5 });
-    fakeUsers = await usersRepository.save(fakeUsers);
-
-    const selectQuery = usersRepository.createQueryBuilder('user');
-
-    const whereQuery = selectQuery.clone()
-      .whereTyped((u) => u.id, '=', fakeUsers[0].id)
-      .andWhereTyped(
-        (u) => u.metadata,
-        `${t.jsonPath('metadata', '->>', 'role')} =`,
-        'admin',
-      );
-
-    const query = whereQuery.getQuery();
-    expect(query).toContain('"user"."id" =');
-    expect(query).toContain('"user"."metadata" ->> \'role\' =');
-  });
-
-  it('SHOULD work with -> operator for JSON object extraction', async () => {
-    const usersRepository = context.dataSource.getRepository(UserEntity);
-    const selectQuery = usersRepository.createQueryBuilder('user');
-
-    const whereQuery = selectQuery.clone().whereTyped(
-      (u) => u.metadata,
-      `${t.jsonPath('metadata', '->', 'settings')} @> '{"theme": "dark"}'`,
-    );
-
-    expect(whereQuery.getQuery()).toContain(
-      '"user"."metadata" -> \'settings\' @> \'{"theme": "dark"}\'',
     );
   });
 });
@@ -238,7 +169,7 @@ setupTest('where-typed.addValue', undefined, (context) => {
       .createQueryBuilder('user')
       .whereTyped((u) => u.id, '= :id', { id: fakeUsers[1].id });
 
-    expect(whereQuery.getQuery()).toMatch(/"user"\."id" = :id(?: |$)/);
+    expect(sqlOf(whereQuery)).toMatch(/"user"\."id" = :id(?: |$)/);
 
     const result = await whereQuery.getMany();
     expect(result.map((user) => user.id)).toEqual([fakeUsers[1].id]);
@@ -256,7 +187,7 @@ setupTest('where-typed.addValue', undefined, (context) => {
       .whereTyped((u) => u.id, 'IN (:...ids)', { ids })
       .orderBy('user.id', 'ASC');
 
-    expect(whereQuery.getQuery()).toContain('"user"."id" IN (:...ids)');
+    expect(sqlOf(whereQuery)).toContain('"user"."id" IN (:...ids)');
 
     const result = await whereQuery.getMany();
     expect(result.map((user) => user.id)).toEqual(ids);
@@ -272,7 +203,7 @@ setupTest('where-typed.addValue', undefined, (context) => {
       .createQueryBuilder('user')
       .whereTyped((u) => u.id, '=', { id: fakeUsers[2].id });
 
-    expect(whereQuery.getQuery()).toMatch(/"user"\."id" = :where_\w+(?: |$)/);
+    expect(sqlOf(whereQuery)).toMatch(/"user"\."id" = :where_\w+(?: |$)/);
 
     const result = await whereQuery.getMany();
     expect(result.map((user) => user.id)).toEqual([fakeUsers[2].id]);
@@ -285,7 +216,7 @@ setupTest('where-typed.addValue', undefined, (context) => {
       .createQueryBuilder('user')
       .whereTyped((u) => u.firstName, '::text =', 'John');
 
-    expect(whereQuery.getQuery()).toMatch(
+    expect(sqlOf(whereQuery)).toMatch(
       /"user"\."firstName" ::text = :where_\w+(?: |$)/,
     );
   });
@@ -299,6 +230,6 @@ setupTest('where-typed.addValue', undefined, (context) => {
         addValue: false,
       });
 
-    expect(whereQuery.getQuery()).toMatch(/"user"\."firstName" LIKE :search(?: |$)/);
+    expect(sqlOf(whereQuery)).toMatch(/"user"\."firstName" LIKE :search(?: |$)/);
   });
 });

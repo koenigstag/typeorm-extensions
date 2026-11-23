@@ -1,17 +1,18 @@
 import {
+  FindOperator,
   ObjectLiteral,
   SelectQueryBuilder,
   WhereExpressionBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { TypedWhereArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { TypedWhereCondition, TypedWhereConditionArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
+import { getTypedSingleColumnKey, isTypedJsonPath, toFieldSql } from '../../../utils/query-builder.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
-import { attachWhere, isParamsObject } from '../../../utils/where.utils';
+import { addCondition, attachWhere, getComparedValue, isParamsObject } from '../../../utils/where.utils';
+import { getFindOperatorValue, isFindOperator, renderFindOperator } from '../../../utils/find-operator.utils';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -19,6 +20,10 @@ import { attachWhere, isParamsObject } from '../../../utils/where.utils';
  * Typesafe WHERE conditions: the column comes from an entity property.
  * `Type` defaults to the query builder's entity; with the `strictParams` option (see `TypeormExtensionsConfig`)
  * the parameter is checked against the type of the selected column.
+ *
+ * The condition is SQL (`'IS NULL'`, `'>='` with a value) or a TypeORM find operator (`IsNull()`, `Not(IsNull())`,
+ * `MoreThanOrEqual(date)`, `In([…])`, `EqualColumn(…)`), written as `find({ where })` writes it. An operator's value
+ * is always checked against the column's type, except when `Type` is given: TypeScript then can't infer the column.
  */
 export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   /**
@@ -30,11 +35,11 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   whereTyped<
     Type extends ObjectLiteral = UnsetType,
     Value extends ProxyColumnValueType = ProxyColumnValueType,
-    Operator extends string = string,
+    Condition extends TypedWhereCondition<Value> = TypedWhereCondition<Value>,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
-    conditions: Operator,
-    ...args: TypedWhereArgs<Type, Operator, Value>
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
+    conditions: Condition,
+    ...args: TypedWhereConditionArgs<Type, Condition, Value>
   ): this;
 
   /**
@@ -44,11 +49,11 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   andWhereTyped<
     Type extends ObjectLiteral = UnsetType,
     Value extends ProxyColumnValueType = ProxyColumnValueType,
-    Operator extends string = string,
+    Condition extends TypedWhereCondition<Value> = TypedWhereCondition<Value>,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
-    conditions: Operator,
-    ...args: TypedWhereArgs<Type, Operator, Value>
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
+    conditions: Condition,
+    ...args: TypedWhereConditionArgs<Type, Condition, Value>
   ): this;
 
   /**
@@ -58,11 +63,11 @@ export interface TypedWhereMethods<Entity extends ObjectLiteral> {
   orWhereTyped<
     Type extends ObjectLiteral = UnsetType,
     Value extends ProxyColumnValueType = ProxyColumnValueType,
-    Operator extends string = string,
+    Condition extends TypedWhereCondition<Value> = TypedWhereCondition<Value>,
   >(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
-    conditions: Operator,
-    ...args: TypedWhereArgs<Type, Operator, Value>
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
+    conditions: Condition,
+    ...args: TypedWhereConditionArgs<Type, Condition, Value>
   ): this;
 }
 
@@ -82,15 +87,19 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereMethods<Entity> {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereMethods<Entity> {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
 // patching
 
 const createWhereTypedMethod = (method: WhereMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-    conditions: string,
+    conditions: string | FindOperator<unknown>,
     parameters?: unknown,
     options?: TypedWhereOptions
   ): SelectQueryBuilder<Entity> {
@@ -112,15 +121,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 
@@ -131,22 +132,54 @@ function attachTypedWhere<
   builder: QB,
   method: WhereMethods,
   where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  conditions: string,
+  conditions: string | FindOperator<unknown>,
   parameters?: unknown,
   options?: TypedWhereOptions
 ): QB {
   const { addValue } = options || {};
 
-  if (typeof where === 'function') {
-    // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
-    // a path into a JSON column is cast to the type of the value it is compared with
-    const value = isParamsObject(parameters) ? Object.values(parameters)[0] : parameters;
+  if (typeof where === 'function' && isFindOperator(conditions)) {
+    const value = getFindOperatorValue(conditions);
     const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
 
-    return attachWhere<QB>(builder, method, key, conditions, parameters, {
+    return addCondition(builder, method)(renderFindOperator(builder, toFieldSql(builder, key), conditions));
+  }
+
+  if (typeof where === 'function' && typeof conditions === 'string') {
+    // a JSON path compared by order with numeric text is compared as a number: as text '9' >= '10'
+    const params =
+      isOrderingCondition(conditions) && isTypedJsonPath<Type>(builder, where)
+        ? withNumericTextAsNumber(parameters)
+        : parameters;
+    // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
+    // a path into a JSON column is cast to the type of the value it is compared with
+    const value = getComparedValue(params);
+    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
+
+    return attachWhere<QB>(builder, method, key, conditions, params, {
       addValue,
     });
   }
 
   return builder;
+}
+
+// `>=`, or `>= :min` with the value in a params object
+const ORDERING_CONDITION = /^\s*(?:<=|>=|<|>)\s*(?::\w+\s*)?$/;
+const NUMERIC_TEXT = /^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?\s*$/i;
+
+const isOrderingCondition = (conditions: string): boolean =>
+  typeof conditions === 'string' && ORDERING_CONDITION.test(conditions);
+
+const toNumberIfNumericText = (value: unknown): unknown =>
+  typeof value === 'string' && NUMERIC_TEXT.test(value) ? Number(value) : value;
+
+function withNumericTextAsNumber(parameters: unknown): unknown {
+  if (!isParamsObject(parameters)) {
+    return toNumberIfNumericText(parameters);
+  }
+
+  const entries = Object.entries(parameters);
+
+  return entries.length === 1 ? { [entries[0][0]]: toNumberIfNumericText(entries[0][1]) } : parameters;
 }

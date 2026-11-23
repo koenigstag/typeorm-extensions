@@ -1,10 +1,29 @@
 import type { WhereExpressionBuilder } from 'typeorm';
 import type { PeriodFilter } from '../types/interfaces/period.interface';
 import type { ApplyPeriodOptions } from '../types/extensions/period.types';
-import { createUniqueParameterName } from './sql.utils';
+import { createUniqueParameterName, getDriverType, isSqliteLikeDriver } from './sql.utils';
 import { andWhereNarrowing } from './where.utils';
+import { assertTimeZone, readInTimeZone } from './time-zone.utils';
+import { isDate } from './common.utils';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+// a time followed by an offset: `T09:00:00.000Z`, ` 09:00+02:00`, `T09:00-0500`
+const TIME_WITH_OFFSET = /[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
+
+/**
+ * SQLite keeps a datetime as UTC text, `2024-01-31 10:00:00.000`, and compares it as text, so an ISO
+ * string would compare by its `T`. A string with an offset is bound as a Date, which TypeORM writes
+ * in the stored form.
+ */
+function toSqliteBound(value: Date | string): Date | string {
+  if (typeof value !== 'string' || !TIME_WITH_OFFSET.test(value)) {
+    return value;
+  }
+
+  const date = new Date(value);
+
+  return isNaN(date.getTime()) ? value : date;
+}
 
 /** `'2024-01-31'` as a UTC midnight Date, or a `TypeError` if it is not a calendar date (`'2024-02-30'`). */
 function parseDateOnly(value: string, name: string): Date {
@@ -23,8 +42,8 @@ function normalizeBoundary(value: unknown, name: string): Date | string | undefi
     return undefined;
   }
 
-  if (Object.prototype.toString.call(value) === '[object Date]') {
-    if (isNaN((value as Date).getTime())) {
+  if (isDate(value)) {
+    if (isNaN(value.getTime())) {
       throw new TypeError(`Invalid ${name}: invalid Date`);
     }
 
@@ -91,8 +110,13 @@ export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
   periodFilter: PeriodFilter | null | undefined,
   options?: ApplyPeriodOptions
 ): QB {
-  const { includeFrom = true, includeTo = true } = options ?? {};
+  const { includeFrom = true, includeTo = true, timeZone } = options ?? {};
 
+  if (timeZone) {
+    assertTimeZone(timeZone);
+  }
+
+  const sqlite = isSqliteLikeDriver(getDriverType(builder));
   const bounds = [
     { name: 'periodFrom' as const, include: includeFrom },
     { name: 'periodTo' as const, include: includeTo },
@@ -107,8 +131,14 @@ export function attachPeriodFilter<QB extends WhereExpressionBuilder>(
 
     const { operator, value } = getBoundCondition(boundary, name, include);
     const paramName = createUniqueParameterName(name);
+    const bound =
+      timeZone && typeof value === 'string'
+        ? readInTimeZone(value, timeZone, name)
+        : sqlite
+          ? toSqliteBound(value)
+          : value;
 
-    andWhereNarrowing(builder, `${column} ${operator} :${paramName}`, { [paramName]: value });
+    andWhereNarrowing(builder, `${column} ${operator} :${paramName}`, { [paramName]: bound });
   }
 
   return builder;

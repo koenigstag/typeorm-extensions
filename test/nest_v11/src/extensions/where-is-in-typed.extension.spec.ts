@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
-import { setupTest, createFakeUsers, createRandomId } from '../test-utils';
+import { setupTest, createFakeUsers, createRandomId, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { selectElements } from '../utils';
 
@@ -23,7 +23,7 @@ setupTest('where-is-in-typed.whereIsIn', undefined, (context) => {
       .clone()
       .whereIsInTyped((u) => u.id, userIds);
 
-    expect(whereInQuery.getQuery()).toContain('"user"."id" IN (');
+    expect(sqlOf(whereInQuery)).toContain('"user"."id" IN (');
 
     const result = await whereInQuery.select('user.id').getMany();
     expect(result).toHaveLength(userIds.length);
@@ -51,7 +51,7 @@ setupTest('where-is-in-typed.whereIsIn', undefined, (context) => {
         ],
       );
 
-    expect(whereInQuery.getQuery()).toContain('"user"."id" IN (');
+    expect(sqlOf(whereInQuery)).toContain('"user"."id" IN (');
 
     const result = await whereInQuery.select('user.id').getMany();
     expect(result).toHaveLength(0);
@@ -69,8 +69,8 @@ setupTest('where-is-in-typed.whereIsIn', undefined, (context) => {
     const selectQuery = usersRepository.createQueryBuilder('user');
     const whereInQuery = selectQuery.clone().whereIsInTyped((u) => u.id, []);
 
-    expect(whereInQuery.getQuery().toLowerCase()).toContain('false');
-    expect(whereInQuery.getQuery()).not.toContain('"user"."id" IN (');
+    expect(sqlOf(whereInQuery).toLowerCase()).toContain('false');
+    expect(sqlOf(whereInQuery)).not.toContain('"user"."id" IN (');
 
     const result = await whereInQuery.select('user.id').getMany();
     expect(result).toHaveLength(0);
@@ -101,7 +101,7 @@ setupTest('where-is-in-typed.whereIsNotIn', undefined, (context) => {
       .select('user.id')
       .where('user.id NOT IN (:...userIds)', { userIds });
 
-    expect(whereNotInQuery.getQuery()).toContain('"user"."id" NOT IN (');
+    expect(sqlOf(whereNotInQuery)).toContain('"user"."id" NOT IN (');
 
     const result = await whereNotInQuery.select('user.id').getMany();
     const users = await usersQuery.getMany();
@@ -133,7 +133,7 @@ setupTest('where-is-in-typed.whereIsNotIn', undefined, (context) => {
         ],
       );
 
-    expect(whereNotInQuery.getQuery()).toContain('"user"."id" NOT IN (');
+    expect(sqlOf(whereNotInQuery)).toContain('"user"."id" NOT IN (');
 
     const otherUsers = await selectQuery.clone().select('user.id').getMany();
 
@@ -158,7 +158,7 @@ setupTest('where-is-in-typed.whereIsNotIn', undefined, (context) => {
       .clone()
       .whereIsNotInTyped((u) => u.id, []);
 
-    expect(whereNotInQuery.getQuery()).not.toContain('"user"."id" NOT IN (');
+    expect(sqlOf(whereNotInQuery)).not.toContain('"user"."id" NOT IN (');
 
     const otherUsers = await selectQuery.clone().select('user.id').getMany();
 

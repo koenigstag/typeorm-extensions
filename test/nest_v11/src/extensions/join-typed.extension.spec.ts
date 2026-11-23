@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
-import { createFakeImages, createFakeUsers, setupTest } from '../test-utils';
+import { createFakeImages, createFakeUsers, setupTest, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 
 setupTest('join-typed', undefined, (context) => {
@@ -37,8 +37,8 @@ setupTest('join-typed', undefined, (context) => {
       .clone()
       .leftJoinTyped((u) => u.images, 'images');
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain(
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain(
       'LEFT JOIN "images" "images" ON "images"."userId"="user"."id"',
     );
 
@@ -71,8 +71,8 @@ setupTest('join-typed', undefined, (context) => {
       .clone()
       .innerJoinTyped((u) => u.images, 'images');
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain(
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain(
       'INNER JOIN "images" "images" ON "images"."userId"="user"."id"',
     );
 
@@ -116,8 +116,8 @@ setupTest('join-typed', undefined, (context) => {
       .clone()
       .leftJoinAndSelectTyped((u) => u.images, 'images');
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain(
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain(
       'LEFT JOIN "images" "images" ON "images"."userId"="user"."id"',
     );
 
@@ -162,8 +162,8 @@ setupTest('join-typed', undefined, (context) => {
       .clone()
       .innerJoinAndSelectTyped((u) => u.images, 'images');
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain(
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain(
       'INNER JOIN "images" "images" ON "images"."userId"="user"."id"',
     );
 

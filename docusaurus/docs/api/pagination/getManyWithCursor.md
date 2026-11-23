@@ -22,12 +22,12 @@ How it works:
 
 - The rows are ordered by `options.orderBy`, and the primary key is appended when it isn't listed, so the order is total even when the other keys repeat. It replaces any ORDER BY of the query.
 - With the same direction on every key, the condition is a row comparison `(a, b) < (:a, :b)` (PostgreSQL, MySQL, SQLite); with mixed directions it is `a <= :a AND (a < :a OR (a = :a AND b > :b))`.
-- `pageSize + 1` rows are loaded; the extra one only tells whether there is a next page.
+- `pageSize + 1` rows are loaded; the extra one only tells whether there is a next page, which is what `hasMore` reports. It is always a boolean here, never `null` as in [ListWithTotals](./types/ListWithTotals.md), because the keyset query needs no total to know it.
 - The cursor is opaque (base64url JSON of the key values of the last row). Date / time keys are read from the database as text, so PostgreSQL's microsecond timestamps keep their precision; a JS `Date` has only milliseconds and would skip rows.
 - The cursor condition narrows the whole WHERE clause: existing OR conditions are put in parentheses first.
 - The query builder itself is not changed.
 
-Key columns must not be `NULL`.
+Key columns must not be `NULL`. To order by a computed value, use [getRawManyWithCursor](./getRawManyWithCursor.md).
 
 ## Signature
 
@@ -45,23 +45,30 @@ interface CursorPaginationFilter {
 type GetManyWithCursorOptions<Entity> = {
   orderBy: Array<{ field: keyof Entity; direction?: OrderDirection }>;
   useTakeAndSkip?: boolean; // take instead of limit, for joined collections
+  includeOrderBy?: boolean; // add orderBy to the result
 };
 
 interface ListWithCursor<Entity> {
   list: Entity[];
   nextCursor: string | null; // null on the last page
+  hasMore: boolean;          // whether a next page follows; same as nextCursor !== null
+  pageSize: number;          // the pageSize given (a numeric string too), rounded down; 10 when missing or below 1
+  orderBy?: OrderType[];     // with includeOrderBy: options.orderBy, then the primary key
 }
 ```
+
+With `includeOrderBy: true`, `orderBy` is the order the cursors of these pages encode, as `alias.property` selectors. Like the `orderBy` of [ListWithTotals](./types/ListWithTotals.md), it is for logs and debugging, not for the client to send back.
 
 ## Arguments
 
 - cursorFilter: The cursor and the page size, e.g. from query parameters.
 - options.orderBy: Properties of the main entity to order by, with `'ASC'` (default) or `'DESC'` (any `OrderDirection`: `'desc'`, `-1`, `false`, …). An unknown property throws a `TypeError`.
-- options.useTakeAndSkip: Use `take` instead of `limit`. Needed when the query joins a collection (`leftJoinAndSelect(user.images)`), as with [applyPaginationFilter](./applyPaginationFilter.md).
+- options.useTakeAndSkip: Use `take` instead of `limit`. Needed when the query joins a collection (`leftJoinAndSelect(user.images)`), as with [applyPagination](./applyPagination.md).
+- options.includeOrderBy: Add `orderBy` to the result. Off by default.
 
 ## Errors
 
-A cursor that can't be decoded, or that was made for another `orderBy`, throws `InvalidCursorError` (a `TypeError`, exported from the package), e.g. to answer with 400:
+A cursor that can't be decoded, that was made for another `orderBy` (other fields, or the same fields in another direction), or whose key values don't fit their columns, throws `InvalidCursorError` (a `TypeError`, exported from the package), e.g. to answer with 400:
 
 ```typescript
 import { InvalidCursorError } from 'typeorm-extensions';
@@ -79,7 +86,12 @@ const page = await repository
     { orderBy: [{ field: 'createdAt', direction: 'DESC' }] },
   );
 
-// { list: Post[], nextCursor: 'eyJrIjpb…' | null }
+// {
+//   list: Post[],
+//   nextCursor: 'eyJrIjpb…' | null,
+//   hasMore: true | false,
+//   pageSize: 20,
+// }
 ```
 
 ```typescript
