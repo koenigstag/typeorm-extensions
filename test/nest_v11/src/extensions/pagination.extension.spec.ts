@@ -203,3 +203,16 @@ setupTest(
     // TODO Add negative test cases
   },
 );
+
+describe('pagination.getLimitAndOffset.defaultPageSize', () => {
+  it('SHOULD read pages of the default page size given, and keep the page size of the filter', () => {
+    expect(getLimitAndOffset({}, { defaultPageSize: 20 })).toEqual({ limit: 20, offset: 0, page: 1, pageSize: 20 });
+    expect(getLimitAndOffset({ page: 3 }, { defaultPageSize: 20 })).toMatchObject({ limit: 20, offset: 40 });
+    expect(getLimitAndOffset({ page: 3, pageSize: 5 }, { defaultPageSize: 20 })).toMatchObject({ limit: 5, offset: 10 });
+    expect(getLimitAndOffset({ pageSize: '0' as never }, { defaultPageSize: 20 })).toMatchObject({ limit: 20 });
+  });
+
+  it('SHOULD fall back to 10 for a default page size below 1', () => {
+    expect(getLimitAndOffset({ page: 2 }, { defaultPageSize: 0 })).toMatchObject({ limit: 10, offset: 10 });
+  });
+});

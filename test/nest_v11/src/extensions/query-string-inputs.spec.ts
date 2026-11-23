@@ -7,6 +7,7 @@ import 'typeorm-extensions/extensions/join-unnest.extension';
 import 'typeorm-extensions/extensions/period-filter.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
 import { postgresLikeDrivers, sqliteDrivers } from '../constants/database';
+import { disableStrictOrderInput, enableStrictOrderInput, InvalidOrderError } from 'typeorm-extensions/helpers';
 import { setupTest, createFakeUsers, createFakeImages, mysqlRun, nativeSql, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 
@@ -96,7 +97,43 @@ setupTest('query-string inputs', undefined, (context) => {
 
     it('SHOULD throw a TypeError for an order without a field', () => {
       expect(() => users().applyOrder({ direction: 'asc' } as never)).toThrow(TypeError);
-      expect(() => users().applyOrderFilter({ orderBy: ['id'] } as never)).toThrow(TypeError);
+      expect(() => users().applyOrderFilter({ orderBy: ['id'] } as never)).toThrow(InvalidOrderError);
+    });
+
+    it('SHOULD take the orders themselves as well as an order filter', () => {
+      const orders = [{ field: 'firstName' }, { field: 'id', direction: 'desc' as const }];
+
+      expect(sqlOf(users().applyOrderFilter(orders))).toBe(sqlOf(users().applyOrderFilter({ orderBy: orders })));
+      expect(sqlOf(users().applyOrderFilter(orders[1]))).toBe(sqlOf(users().applyOrderFilter({ orderBy: [orders[1]] })));
+    });
+
+    it('SHOULD refuse a name or a NULLS order it does not read, with strict order input on', () => {
+      const errorOf = (build: () => unknown): unknown => {
+        try {
+          build();
+        } catch (error) {
+          return error;
+        }
+
+        return undefined;
+      };
+
+      enableStrictOrderInput();
+
+      try {
+        expect(errorOf(() => users().applyOrder({ field: `${q}id${q} * (SELECT -1), ${q}id${q}` }))).toMatchObject({ part: 'field' });
+        expect(errorOf(() => users().applyOrder({ field: 'id', tableAlias: 'user; --' }))).toMatchObject({ part: 'tableAlias' });
+        expect(errorOf(() => users().applyOrderFilter([{ field: 'firstName', nulls: 'firstly' as 'first' }]))).toMatchObject({
+          part: 'nulls',
+          value: 'firstly',
+        });
+        expect(errorOf(() => users().applyOrder({ field: 'id', nulls: '' as 'first' }))).toBeInstanceOf(InvalidOrderError);
+        expect(() => users().applyOrder({ field: 'firstName', tableAlias: 'user', nulls: 'last', isReversed: 'maybe' as never })).not.toThrow();
+      } finally {
+        disableStrictOrderInput();
+      }
+
+      expect(() => users().applyOrder({ field: 'id', tableAlias: 'user; --', nulls: 'firstly' as 'first' })).not.toThrow();
     });
 
     it('SHOULD put NULLs first or last on every database', async () => {

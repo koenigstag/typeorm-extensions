@@ -20,6 +20,15 @@ import {
   isUnquotedIdentifierPath,
 } from '../utils/sql.utils';
 import { isCalculatedColumn, selectCalculatedForOrder } from '../utils/calculated-column.utils';
+import { assertStrictOrderInput, InvalidOrderError } from '../utils/order-input.utils';
+
+/** An order filter, or the orders themselves: one order, or a list of them. */
+export type OrderFilterInput<OrderEntity> =
+  | OrderFilter<OrderEntity>
+  | OrderParam<OrderEntity>
+  | readonly OrderParam<OrderEntity>[]
+  | null
+  | undefined;
 
 // declarations
 
@@ -31,7 +40,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       options?: ApplyOrderOptions
     ): this;
     applyOrderFilter<OrderEntity extends ObjectLiteral>(
-      orderFilter: OrderFilter<OrderEntity>,
+      orderFilter: OrderFilterInput<OrderEntity>,
       options?: ApplyOrderOptions
     ): this;
   }
@@ -54,7 +63,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<any>> } = {
     },
     applyOrderFilter<Entity extends ObjectLiteral, OrderEntity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
-      orderFilter: OrderFilter<OrderEntity>,
+      orderFilter: OrderFilterInput<OrderEntity>,
       options?: ApplyOrderOptions
     ): SelectQueryBuilder<Entity> {
       return applyOrderFilter<SelectQueryBuilder<Entity>, OrderEntity>(
@@ -100,6 +109,8 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
     nulls: nullsOrder,
     tableAlias: otherTableAlias,
   } = orderBy;
+
+  assertStrictOrderInput(field as string, otherTableAlias, nullsOrder);
 
   const alias =
     otherTableAlias || customAlias ||
@@ -171,17 +182,19 @@ function assertOrderParam(orderBy: unknown): void {
     param.field === '' ||
     (!isNil(param.tableAlias) && typeof param.tableAlias !== 'string')
   ) {
-    throw new TypeError(
+    throw new InvalidOrderError(
       `applyOrder expects an order such as { field: 'createdAt', direction: 'desc' }, got ${
         param === null ? 'null' : typeof param === 'object' ? 'an object without a string field' : typeof param
-      }`
+      }`,
+      'order',
+      orderBy
     );
   }
 }
 
-function assertUnquotedPath(name: string, label: string): void {
+function assertUnquotedPath(name: string, label: 'field' | 'alias'): void {
   if (!isUnquotedIdentifierPath(name)) {
-    throw new TypeError(`applyOrder with useQuotes: false takes column names only, got the ${label} "${name}"`);
+    throw new InvalidOrderError(`applyOrder with useQuotes: false takes column names only, got the ${label} "${name}"`, label, name);
   }
 }
 
@@ -222,12 +235,16 @@ function applyOrder<QB extends SelectQueryBuilder<any>, OrderEntity extends Obje
   return query.addOrderBy(selector, order, nulls);
 }
 
+// the orders themselves: a list, or one order (an object with a field), as a request filter hands them over
+const isOrderList = (input: unknown): boolean =>
+  Array.isArray(input) || (typeof input === 'object' && input !== null && 'field' in input && !('orderBy' in input));
+
 function applyOrderFilter<QB extends SelectQueryBuilder<any>, OrderEntity extends ObjectLiteral>(
   builder: QB,
-  orderFilter: OrderFilter<OrderEntity> | null | undefined,
+  orderFilter: OrderFilterInput<OrderEntity>,
   options?: ApplyOrderOptions
 ): QB {
-  const orderBy: unknown = orderFilter?.orderBy;
+  const orderBy: unknown = isOrderList(orderFilter) ? orderFilter : (orderFilter as OrderFilter<OrderEntity> | null | undefined)?.orderBy;
 
   if (isNil(orderBy)) {
     return builder;
