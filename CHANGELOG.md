@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.1.0] - 2026-11-23
+
+### New Features
+
+- **`enableStrictOrderInput()` / `disableStrictOrderInput()`** (from `typeorm-extensions/helpers`): with it on, every `applyOrder` / `applyOrderFilter` refuses an order whose `field` or `tableAlias` is not a name (`firstName`, `user.firstName`) or whose `nulls` is not `first` / `last` / `NULLS FIRST` / `NULLS LAST`, before the query is built. Off by default, where such an order is still taken as given: its names quoted as one identifier each, an unknown `nulls` left out. `direction` and `isReversed` stay lenient. Turn it on once where the extensions are loaded when orders come from requests, so a caller can't forget it.
+- **`InvalidOrderError`**, a `TypeError` with the `part` (`order`, `field`, `tableAlias`, `alias`, `nulls`) and the `value` it rejected: thrown by the strict check, and now also for an order without a string `field` and for an expression with `useQuotes: false`, which threw a plain `TypeError`. An application can answer it as a bad request in one place.
+- **`applyOrderFilter` takes the orders themselves**: a list (`applyOrderFilter(filter.orderedBy)`) or one order, as well as an `{ orderBy }` filter.
+- **`getLimitAndOffset` and `normalizePageSize` are exported** from `typeorm-extensions/helpers`, with a `defaultPageSize` option for a filter that gives no page size (10 when not given; a default below 1 is 10 too).
+
 ## [3.0.0] - 2026-11-23
 
 Tested as the release candidates `2.2.0-rc.1` … `2.2.0-rc.17` and `3.0.0-rc.0` … `3.0.0-rc.10`; the release is 3.0.0 because `returningTyped` changed shape.

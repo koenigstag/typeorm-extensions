@@ -13,8 +13,16 @@ const toPositiveInteger = (value: unknown, fallback: number): number => {
     : fallback;
 };
 
-/** The page size to read: a number or a numeric string of at least 1, rounded down; `defaultPageSize` otherwise. */
-export const normalizePageSize = (pageSize: unknown): number => toPositiveInteger(pageSize, defaultPageSize);
+export type PageSizeOptions = {
+  /** The page size when the filter has none, or none of at least 1; 10 when not given. */
+  defaultPageSize?: number;
+};
+
+const resolveDefaultPageSize = (options?: PageSizeOptions): number => toPositiveInteger(options?.defaultPageSize, defaultPageSize);
+
+/** The page size to read: a number or a numeric string of at least 1, rounded down; the default page size otherwise. */
+export const normalizePageSize = (pageSize: unknown, options?: PageSizeOptions): number =>
+  toPositiveInteger(pageSize, resolveDefaultPageSize(options));
 
 /** Limits the rows with `take`, which counts entities rather than rows when the query joins a collection, or with `limit`. */
 export const setPageLimit = <Entity extends ObjectLiteral>(
@@ -23,9 +31,13 @@ export const setPageLimit = <Entity extends ObjectLiteral>(
   useTakeAndSkip: boolean
 ): SelectQueryBuilder<Entity> => (useTakeAndSkip ? builder.take(limit) : builder.limit(limit));
 
-export const getLimitAndOffset = (paginationFilter: PaginationFilter | null | undefined) => {
+/**
+ * The `limit` and `offset` of a 1-based page: page 1 and the default page size when the filter doesn't give
+ * them (or gives text that is not a number of at least 1). Also returns the page and page size it used.
+ */
+export const getLimitAndOffset = (paginationFilter: PaginationFilter | null | undefined, options?: PageSizeOptions) => {
   const { page, pageSize } = paginationFilter ?? {};
-  const normalizedPageSize = normalizePageSize(pageSize);
+  const normalizedPageSize = normalizePageSize(pageSize, options);
   // a page past the last representable offset is just as empty
   const normalizedPage = Math.min(toPositiveInteger(page, 1), Math.floor(Number.MAX_SAFE_INTEGER / normalizedPageSize) + 1);
 

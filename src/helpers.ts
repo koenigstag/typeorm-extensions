@@ -1,5 +1,5 @@
 // Side-effect-free entry point: `typeorm-extensions/helpers`.
-// Exports helpers (tableHelper, escapeLikePattern, the reserved qualifier guard, @GeneratedColumn) only and patches nothing on import;
+// Exports helpers (tableHelper, escapeLikePattern, the reserved qualifier guard, strict order input, pagination math, @GeneratedColumn) only and patches nothing on import;
 // importing the package root (`typeorm-extensions`) installs every QueryBuilder extension.
 export * from './utils/table.utils';
 export * from './decorators/generated-column.decorator';
@@ -39,3 +39,7 @@ export {
   ReservedQualifierError,
 } from './utils/reserved-qualifier-guard.utils';
 export type { ReservedQualifierGuardOptions } from './utils/reserved-qualifier-guard.utils';
+export { disableStrictOrderInput, enableStrictOrderInput, InvalidOrderError } from './utils/order-input.utils';
+export type { InvalidOrderPart } from './utils/order-input.utils';
+export { getLimitAndOffset, normalizePageSize } from './utils/pagination.utils';
+export type { PageSizeOptions } from './utils/pagination.utils';

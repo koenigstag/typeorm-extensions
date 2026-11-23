@@ -12,15 +12,15 @@ sidebar_position: 3
 
 ```typescript
 applyOrderFilter(
-  orderFilter: OrderFilter<Entity>,
+  orderFilter: OrderFilter<Entity> | OrderParam<Entity> | readonly OrderParam<Entity>[] | null | undefined,
   orderOptions?: ApplyOrderOptions
 ): SelectQueryBuilder<Entity>
 ```
 
 ## Arguments
 
-- `orderFilter: OrderFilter<Entity>`: The order options to apply to the query. A missing filter or `orderBy` adds no order.
-  - `orderBy: Array<OrderParam>`: Order configurations. One `OrderParam` given as an object is read as a list of one, as a query string parses `?orderBy[field]=id`; an order without a string `field` throws a `TypeError`.
+- `orderFilter`: The orders to apply to the query: an `OrderFilter`, or the orders themselves, a list or one order (`applyOrderFilter(filter.orderedBy)`). A missing filter, list or `orderBy` adds no order.
+  - `orderBy: Array<OrderParam>`: Order configurations. One `OrderParam` given as an object is read as a list of one, as a query string parses `?orderBy[field]=id`; an order without a string `field` throws an [`InvalidOrderError`](../utils/strictOrderInput.md), a `TypeError`. With [strict order input](../utils/strictOrderInput.md) on, so does a `field` or `tableAlias` that is not a name, and a `nulls` it does not recognise.
 - `orderOptions?: ApplyOrderOptions`: Additional options to apply to the order filter.
   - `useQuotes?: boolean`: How the field reaches the ORDER BY, see [ApplyOrderOptions](./types/ApplyOrderOptions.md).
   - `resetPreviousOrder?: boolean`: Whether to reset previous orders (defaults to false).
