@@ -55,15 +55,26 @@ const fromBase64Url = (value: string): string => {
   );
 };
 
+// a parameter as TypeORM's drivers find it: `:name`, `:...name`
+const PARAMETER_REFERENCE = /:(\.\.\.)?([A-Za-z0-9_.]+)/g;
+
 /**
  * Short stable name of an SQL expression key, for the cursor to recognise its order by: a cursor
  * carries no SQL. 32-bit FNV-1a; telling orders apart doesn't need more.
+ *
+ * The parameters named in `parameterNames` hash as `:?`, so a key with a generated parameter name
+ * (`similarity(col, :similarity_ab12c)`) keeps its name from one request to the next. A key with
+ * none of them hashes as it always has.
  */
-export function getExpressionKeyName(selector: string): string {
+export function getExpressionKeyName(selector: string, parameterNames: Iterable<string> = []): string {
+  const names = new Set(parameterNames);
+  const sql = names.size
+    ? selector.replace(PARAMETER_REFERENCE, (reference, _spread, name: string) => (names.has(name) ? ':?' : reference))
+    : selector;
   let hash = 0x811c9dc5;
 
-  for (let i = 0; i < selector.length; i++) {
-    hash ^= selector.charCodeAt(i);
+  for (let i = 0; i < sql.length; i++) {
+    hash ^= sql.charCodeAt(i);
     hash = Math.imul(hash, 0x01000193);
   }
 

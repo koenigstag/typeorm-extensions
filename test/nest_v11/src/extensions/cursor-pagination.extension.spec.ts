@@ -1,6 +1,7 @@
 import 'typeorm-extensions/extensions/cursor-pagination.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { InvalidCursorError } from 'typeorm-extensions/extensions/cursor-pagination.extension';
+import { getExpressionKeyName } from 'typeorm-extensions/utils/cursor.utils';
 import type {
   GetManyWithCursorOptions,
   GetRawManyWithCursorOptions,
@@ -324,6 +325,22 @@ async function walkRaw(
 
 const rawIds = (rows: ObjectLiteral[]) => rows.map((row) => Number(row.id));
 
+describe('getExpressionKeyName', () => {
+  it('SHOULD name a key the same whatever its parameters are called', () => {
+    expect(getExpressionKeyName('similarity("u"."name", :similarity_ab12C)', ['similarity_ab12C'])).toBe(
+      getExpressionKeyName('similarity("u"."name", :similarity_Xy9z1)', ['similarity_Xy9z1']),
+    );
+    expect(getExpressionKeyName('"u"."id" IN (:...ids_a)', ['ids_a'])).toBe(getExpressionKeyName('"u"."id" IN (:...ids_b)', ['ids_b']));
+  });
+
+  it('SHOULD keep the names cursors already carry for keys without parameters', () => {
+    expect(getExpressionKeyName(`CASE "member"."role" WHEN 'owner' THEN 0 ELSE 1 END`, ['q'])).toBe('sql:4c2f2a04');
+    expect(getExpressionKeyName(`CAST("user"."createdAt" AS text)::text || '10:00'`, ['q', 'similarity_ab12C'])).toBe(
+      'sql:fdf7784a',
+    );
+  });
+});
+
 setupTest('cursor-pagination.raw', undefined, (context) => {
   const users = () => context.dataSource.getRepository(UserEntity);
   const rank = 'CASE WHEN user.id % 3 = 0 THEN 0 ELSE 1 END';
@@ -395,6 +412,28 @@ setupTest('cursor-pagination.raw', undefined, (context) => {
 
     expect(pages.map((page) => page.length)).toEqual([1, 1, 1]);
     expect(pages.flat().map((row) => Number(row.count))).toEqual([3, 2, 2]);
+  });
+
+  it('SHOULD page by a selection alias whose parameter gets a new name on every request', async () => {
+    await seedUsers(8);
+
+    let request = 0;
+    const grouped = () => {
+      const parameter = `group_${++request}`;
+
+      return rows().addSelect(`CASE WHEN user.id % :${parameter} = 0 THEN 0 ELSE 1 END`, 'grp').setParameter(parameter, 3);
+    };
+    const expected = await rows().orderBy(rank, 'ASC').addOrderBy('user.id', 'ASC').getRawMany();
+    const { pages } = await walkRaw(grouped, { orderBy: [{ alias: 'grp' }] }, 3);
+
+    expect(rawIds(pages.flat())).toEqual(rawIds(expected));
+    expect(Object.keys(pages[0][0]).sort()).toEqual(['createdAt', 'grp', 'id']);
+    await expect(rows().getRawManyWithCursor({ pageSize: 2 }, { orderBy: [{ alias: 'missing' }] })).rejects.toThrow(
+      /the query selects nothing as "missing"/,
+    );
+    await expect(
+      grouped().getRawManyWithCursor({ pageSize: 2 }, { orderBy: [{ alias: 'grp', selector: 'user.id' } as never] }),
+    ).rejects.toThrow(/a selector or an alias, not both/);
   });
 
   it('SHOULD reject a cursor made for another order, and not change the query builder', async () => {

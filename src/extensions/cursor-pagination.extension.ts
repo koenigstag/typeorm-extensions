@@ -2,6 +2,7 @@ import { ObjectLiteral } from 'typeorm';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import type { CursorPaginationFilter } from '../types/interfaces/cursor-pagination.interface';
+import type { OrderDirection } from '../types/interfaces/ordering.interface';
 import type {
   GetManyWithCursorOptions,
   GetRawManyWithCursorOptions,
@@ -297,15 +298,35 @@ function getExpressionKeys<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   orderBy: GetRawManyWithCursorOptions['orderBy']
 ): ExpressionKey[] {
-  const keys: ExpressionKey[] = (orderBy ?? []).map(({ selector, direction }) => {
+  const { expressionMap } = builder;
+
+  const keys: ExpressionKey[] = (orderBy ?? []).map((key) => {
+    const { selector, alias, direction } = (key ?? {}) as {
+      selector?: unknown;
+      alias?: unknown;
+      direction?: OrderDirection;
+    };
+
+    if (alias !== undefined) {
+      if (selector !== undefined) {
+        throw new TypeError('getRawManyWithCursor: an orderBy key takes a selector or an alias, not both');
+      }
+
+      const selection = expressionMap.selects.find((select) => select.aliasName === alias)?.selection;
+
+      if (typeof selection !== 'string' || !selection.trim()) {
+        throw new TypeError(`getRawManyWithCursor: the query selects nothing as ${JSON.stringify(alias)}`);
+      }
+
+      return { selector: selection, direction: toSqlOrderDirection(direction) };
+    }
+
     if (typeof selector !== 'string' || !selector.trim()) {
-      throw new TypeError('getRawManyWithCursor: every orderBy key needs a selector');
+      throw new TypeError('getRawManyWithCursor: every orderBy key needs a selector or an alias');
     }
 
     return { selector, direction: toSqlOrderDirection(direction) };
   });
-
-  const { expressionMap } = builder;
   const mainAlias = expressionMap.mainAlias;
   // grouped or distinct rows are not one per entity, and their primary key may not even be selectable
   const isRowPerEntity =
@@ -340,7 +361,8 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
 ): Promise<ListWithCursor<Row>> {
   const keys = getExpressionKeys(builder, options?.orderBy);
   const includeOrderBy = options?.includeOrderBy ?? false;
-  const fields = keys.map((key) => toCursorField(getExpressionKeyName(key.selector), key.direction));
+  const parameterNames = Object.keys(builder.getParameters());
+  const fields = keys.map((key) => toCursorField(getExpressionKeyName(key.selector, parameterNames), key.direction));
   const pageSize = normalizePageSize(cursorFilter?.pageSize);
 
   const query = builder.clone();
