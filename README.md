@@ -36,6 +36,8 @@ With the extensions a column is a property of the entity type, so the compiler c
 
 ```typescript
 .whereTyped(user => user.createdAt, '>', since)
+// or with a TypeORM find operator
+.whereTyped(user => user.createdAt, GreaterThan(since))
 
 const orders = tableHelper(OrderEntity, 'order');
 .andWhere(`${orders.userId} = :userId`, { userId }) // "order"."userId" = :userId
@@ -59,12 +61,12 @@ npm install typeorm-extensions
 **Pagination** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/pagination/))
 - `getManyWithTotals` and `getRawManyWithTotals`: the rows of a page, the total, `page` / `pageSize`, `hasMore` and the order it was read in
 - `getManyWithCursor` and `getRawManyWithCursor`: keyset pagination with an opaque cursor, by columns or by SQL expressions
-- `applyPagination` for a page of any query
+- `applyPagination` for a page of any query, `getLimitAndOffset` for its limit and offset
 
 **Filters and ordering** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/where/))
 - `whereIsIn` / `whereIsNotIn` that handle empty arrays, `whereIsAny`, null-safe `whereIsDistinctFrom`
 - case-insensitive search with escaped wildcards, `applyPeriodFilter` in a time zone
-- `applyOrder` from a client's order filter, `orderByArrayPosition`
+- `applyOrder` from a client's order filter, `orderByArrayPosition`; `enableStrictOrderInput` refuses an order whose names or `nulls` it does not recognise
 
 **Subqueries and joins**
 - `whereExists` / `whereNotExists`, with the subquery's parameters renamed so they never clash with the outer query's
