@@ -1,4 +1,5 @@
 import type { DatabaseType } from 'typeorm';
+import { isColumnRef } from './column-proxy.utils';
 import { buildDistinctCondition, isMysqlLikeDriver, isPostgresLikeDriver, isSqliteLikeDriver } from './sql.utils';
 import { filtered, sqlString } from './aggregate.utils';
 import { DATE_TRUNC_UNITS, toPostgresZone } from './time-zone.utils';
@@ -133,7 +134,10 @@ const toDialect = (driver?: DatabaseType): Dialect => {
   return isSqliteLikeDriver(driver) ? 'sqlite' : 'other';
 };
 
-function expression(method: string, value: unknown, position = 'argument'): string {
+function expression(method: string, input: unknown, position = 'argument'): string {
+  // a column of the returningTyped / onConflictTyped callbacks is typed as a string and becomes one only when read as one
+  const value = isColumnRef(input) ? String(input) : input;
+
   if (typeof value !== 'string' || !value.trim()) {
     throw new TypeError(`Sql.${method}(): the ${position} is an SQL expression, got ${JSON.stringify(value) ?? String(value)}`);
   }
@@ -207,7 +211,9 @@ function intervalUnit(method: string, unit: unknown): SqlIntervalUnit {
 }
 
 const list = (method: string, values: string | readonly string[], position: string): string =>
-  (typeof values === 'string' ? [values] : values).map((value) => expression(method, value, position)).join(', ');
+  (typeof values === 'string' || isColumnRef(values) ? [values] : values)
+    .map((value) => expression(method, value, position))
+    .join(', ');
 
 /**
  * SQL functions and keywords as helpers, for one database: see `Sql`. `Sql.for('mysql')` writes MySQL / MariaDB,

@@ -2,6 +2,7 @@ import 'typeorm-extensions/extensions/typed/typed-on-conflict/typed-on-conflict.
 import { setupTest } from '../test-utils';
 import { TicketEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
+import { Sql } from 'typeorm-extensions/utils/sql-functions.utils';
 
 setupTest('on-conflict-typed', undefined, (context) => {
   const tickets = () => context.dataSource.getRepository(TicketEntity);
@@ -73,6 +74,30 @@ setupTest('on-conflict-typed', undefined, (context) => {
       .onConflictTyped({ target: ['email'] })
       .execute();
     expect(await users().count()).toBe(1);
+  });
+
+  it('SHOULD take the proposed and the existing columns as Sql helper arguments', async () => {
+    if (isMySql()) {
+      return;
+    }
+
+    await users().save(new UserEntity({ firstName: 'Ann', lastName: 'Lee', email: 'ann@example.com' }));
+
+    // an empty proposed last name keeps the existing one
+    await users()
+      .createQueryBuilder()
+      .insert()
+      .values({ firstName: 'Bea', lastName: '', email: 'ann@example.com' })
+      .onConflictTyped({
+        target: ['email'],
+        set: ({ excluded, current }) => ({
+          firstName: excluded.firstName,
+          lastName: Sql.coalesce(Sql.nullif(excluded.lastName, "''"), current.lastName),
+        }),
+      })
+      .execute();
+
+    expect(await users().findOneByOrFail({ email: 'ann@example.com' })).toMatchObject({ firstName: 'Bea', lastName: 'Lee' });
   });
 
   it('SHOULD return the columns of the written row after the clause', async () => {
