@@ -7,3 +7,4 @@ sidebar_position: 1
 - [Pagination](./pagination): apply pagination to a query.
 - [OrderBy](./orderBy): apply ordering to a query.
 - [Typed queries](./typed): typed select, join, where and order; paths into JSON columns; a page with totals.
+- [Fuzzy search with pg_trgm](./fuzzy-search): trigram filters, scores and order on PostgreSQL; ranking bands, indexes, thresholds, keyset pages by score.

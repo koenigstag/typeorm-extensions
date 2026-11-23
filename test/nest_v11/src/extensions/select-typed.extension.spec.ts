@@ -1,8 +1,24 @@
 import 'typeorm-extensions/extensions/typed/typed-select/typed-select.extension';
+import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
 import { createFakeUsers, setupTest } from "../test-utils";
-import { UserEntity } from "../models";
+import { LegacyColumnsEntity, UserEntity } from "../models";
+import { sqlOf } from '../test-utils';
 
 setupTest('select-typed.where', undefined, (context) => {
+  it('SHOULD read a KeyHolder like a callback: under the main alias, with the column name when quoted', async () => {
+    const legacy = context.dataSource.getRepository(LegacyColumnsEntity);
+    await legacy.save([new LegacyColumnsEntity({ firstName: 'Bob' }), new LegacyColumnsEntity({ firstName: 'Ann' })]);
+
+    const quoted = legacy.createQueryBuilder('legacy').selectTyped(new KeyHolder(['firstName']), 'name', true);
+
+    expect(sqlOf(quoted)).toContain('SELECT "legacy"."first-name" AS "name"');
+    expect(await quoted.getRawMany()).toEqual([{ name: 'Bob' }, { name: 'Ann' }]);
+
+    const mapped = legacy.createQueryBuilder('legacy').selectTyped([new KeyHolder(['firstName'])]);
+
+    expect(sqlOf(mapped)).toContain('SELECT "legacy"."first-name" AS "legacy_first-name"');
+  });
+
   it('SHOULD select single column correctly', async () => {
     const usersRepository = context.dataSource.getRepository(UserEntity);
 
@@ -20,8 +36,8 @@ setupTest('select-typed.where', undefined, (context) => {
     const simpleSelectQuery = selectQuery.clone().select('user.id');
     const selectTypedQuery = selectQuery.clone().selectTyped((u) => u.id);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain('SELECT "user"."id" AS "user_id" FROM "users" "user"');
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain('SELECT "user"."id" AS "user_id" FROM "users" "user"');
 
     const result = await selectTypedQuery.getMany();
 
@@ -48,8 +64,8 @@ setupTest('select-typed.where', undefined, (context) => {
     const simpleSelectQuery = selectQuery.clone().select('user.id').addSelect('user.firstName');
     const selectTypedQuery = selectQuery.clone().selectTyped((u) => [u.id, u.firstName]);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain('SELECT "user"."id" AS "user_id", "user"."firstName" AS "user_firstName" FROM "users" "user"');
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain('SELECT "user"."id" AS "user_id", "user"."firstName" AS "user_firstName" FROM "users" "user"');
 
     const result = await selectTypedQuery.getMany();
 
@@ -57,6 +73,19 @@ setupTest('select-typed.where', undefined, (context) => {
     expect(result[0]?.id).toBeDefined();
     expect(result[0]?.firstName).toBeDefined();
     expect(result[0]?.lastName).toBeUndefined();
+  });
+
+  it('SHOULD read a boolean after a callback as useQuotes', async () => {
+    const legacy = context.dataSource.getRepository(LegacyColumnsEntity);
+    await legacy.save([new LegacyColumnsEntity({ firstName: 'Bob' })]);
+
+    const selected = legacy.createQueryBuilder('legacy').selectTyped((l) => [l.id, l.firstName], true);
+    const added = legacy.createQueryBuilder('legacy').select('legacy.id', 'id').addSelectTyped((l) => [l.firstName], true);
+
+    expect(sqlOf(selected)).toEqual(sqlOf(legacy.createQueryBuilder('legacy').selectTyped([(l) => l.id, (l) => l.firstName], true)));
+    expect(sqlOf(added)).toEqual(sqlOf(legacy.createQueryBuilder('legacy').select('legacy.id', 'id').addSelectTyped([(l) => l.firstName], true)));
+    expect(sqlOf(selected)).not.toContain('legacy.firstName');
+    expect(await selected.getRawMany()).toEqual([{ id: expect.anything(), 'first-name': 'Bob' }]);
   });
 
   it('SHOULD select empty list if quotes are applied', async () => {
@@ -76,8 +105,8 @@ setupTest('select-typed.where', undefined, (context) => {
     const simpleSelectQuery = selectQuery.clone().select('"user"."id"');
     const selectTypedQuery = selectQuery.clone().selectTyped((u) => u.id, undefined, true);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain('SELECT "user"."id" FROM "users" "user"');
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain('SELECT "user"."id" FROM "users" "user"');
 
     const result = await selectTypedQuery.getMany();
 

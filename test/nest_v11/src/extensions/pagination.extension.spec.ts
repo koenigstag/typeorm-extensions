@@ -5,12 +5,11 @@ import {
   setupTest,
   createFakeUsers,
   createFakeImages,
-  createEmail,
-} from '../test-utils';
+  createEmail, sqlOf } from '../test-utils';
 import { UserEntity, ImageEntity } from '../models';
 
 setupTest(
-  'pagination.applyPaginationFilter.limitAndOffset',
+  'pagination.applyPagination.limitAndOffset',
   undefined,
   (context) => {
     it('SHOULD apply limit and offset correctly', async () => {
@@ -29,7 +28,7 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...userIds)', { userIds: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({
+        .applyPagination({
           page,
           pageSize,
         });
@@ -41,9 +40,9 @@ setupTest(
         .limit(limit)
         .offset(offset);
 
-      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
-      expect(paginatedQuery.getQuery()).toContain(`OFFSET ${offset}`);
-      expect(paginatedQuery.getQuery()).toEqual(usersQuery.getQuery());
+      expect(sqlOf(paginatedQuery)).toContain(`LIMIT ${limit}`);
+      expect(sqlOf(paginatedQuery)).toContain(`OFFSET ${offset}`);
+      expect(sqlOf(paginatedQuery)).toEqual(sqlOf(usersQuery));
 
       const result = await paginatedQuery.getMany();
       const users = await usersQuery.getMany();
@@ -72,7 +71,7 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({
+        .applyPagination({
           page,
           pageSize,
         });
@@ -85,8 +84,8 @@ setupTest(
         .offset(offset);
 
       // the first page has no offset: recent TypeORM versions write `OFFSET 0`, older ones leave it out
-      expect(paginatedQuery.getQuery()).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
-      expect(paginatedQuery.getQuery()).toEqual(usersQuery.getQuery());
+      expect(sqlOf(paginatedQuery)).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
+      expect(sqlOf(paginatedQuery)).toEqual(sqlOf(usersQuery));
 
       const allUsersCount = await usersRepository
         .createQueryBuilder('user')
@@ -106,7 +105,7 @@ setupTest(
 );
 
 setupTest(
-  'pagination.applyPaginationFilter.takeAndSkip',
+  'pagination.applyPagination.takeAndSkip',
   undefined,
   (context) => {
     it('SHOULD apply limit and offset correctly using take and skip', async () => {
@@ -141,10 +140,10 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
+        .applyPagination({ page, pageSize }, { useTakeAndSkip: true });
 
-      expect(paginatedQuery.getQuery()).toContain(`LIMIT ${limit}`);
-      expect(paginatedQuery.getQuery()).toContain(`OFFSET ${offset}`);
+      expect(sqlOf(paginatedQuery)).toContain(`LIMIT ${limit}`);
+      expect(sqlOf(paginatedQuery)).toContain(`OFFSET ${offset}`);
 
       const result = await paginatedQuery.getMany();
 
@@ -184,10 +183,10 @@ setupTest(
         .select('user.id')
         .addSelect('user.email')
         .where('user.id IN (:...ids)', { ids: fakeUsers.map((u) => u.id) })
-        .applyPaginationFilter({ page, pageSize }, { useTakeAndSkip: true });
+        .applyPagination({ page, pageSize }, { useTakeAndSkip: true });
 
       // the first page has no offset: recent TypeORM versions write `OFFSET 0`, older ones leave it out
-      expect(paginatedQuery.getQuery()).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
+      expect(sqlOf(paginatedQuery)).toMatch(new RegExp(`LIMIT ${limit}( OFFSET ${offset})?$`));
 
       const allUsersCount = await usersRepository
         .createQueryBuilder('user')

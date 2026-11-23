@@ -1,7 +1,11 @@
 import type { ObjectLiteral, QueryBuilder, WhereExpressionBuilder } from 'typeorm';
 import type { WhereMethods } from '../types/extensions/where.types';
+
+export type HavingMethods = 'having' | 'andHaving' | 'orHaving';
 import { createUniqueParameterName } from './sql.utils';
 import { toFieldSql } from './query-builder.utils';
+import { getPlaceholderNames } from './parameter.utils';
+import { isDate } from './common.utils';
 
 export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   if (value === undefined || value === null || paramName === undefined) {
@@ -15,8 +19,46 @@ export function getValuePlaceholder<T>(value: T, paramName?: string): string {
   return `:${paramName}`;
 }
 
-const isDate = (value: unknown): value is Date =>
-  Object.prototype.toString.call(value) === '[object Date]';
+const SCALAR_TYPES: readonly string[] = ['string', 'number', 'bigint', 'boolean'];
+const ARRAY_INDEX = /^(?:0|[1-9]\d*)$/;
+
+const isIndexedObject = (value: object): boolean => {
+  const prototype = Object.getPrototypeOf(value);
+
+  return (prototype === Object.prototype || prototype === null) && Object.keys(value).every((key) => ARRAY_INDEX.test(key));
+};
+
+/**
+ * The values of an IN / ANY / unnest list. A query string gives one value as a string (`?ids=2`) and a
+ * long list as an object (`{ 0: '1', 1: '2' }`); `null`, `undefined` and `''` are an empty list.
+ * Anything else throws a `TypeError` rather than matching all rows or none.
+ */
+export function toValueList(values: unknown, methodName: string): readonly unknown[] {
+  if (values === undefined || values === null || values === '') {
+    return [];
+  }
+
+  if (Array.isArray(values)) {
+    return values;
+  }
+
+  if (SCALAR_TYPES.includes(typeof values) || isDate(values)) {
+    return [values];
+  }
+
+  if (typeof values === 'object' && isIndexedObject(values)) {
+    return Object.values(values);
+  }
+
+  throw new TypeError(`${methodName} expects an array of values, got ${typeof values}`);
+}
+
+/**
+ * A condition that ends with an operator, `=`, `>=`, `LIKE`, `IN`, `@>`: it needs a value after it. A word after
+ * `:` or `.` is a parameter or a column (`ILIKE :like`, `= t.in`), not an operator.
+ */
+const OPERATOR_AT_END = /(?:[=<>!~@&|?]|(?<![\w$:.])(?:LIKE|ILIKE|IN|SIMILAR TO|DISTINCT FROM|BETWEEN|ANY|ALL))\s*$/i;
+
 
 /**
  * Objects that are parameter values themselves, not `{ name: value }` params objects:
@@ -29,6 +71,11 @@ const isValueObject = (value: object): boolean =>
  * Whether `params` is a `{ name: value }` params object (a plain object or a class instance such
  * as a DTO), rather than the value itself (a primitive, an array, a `Date`, a `Buffer`).
  */
+/** The value a condition compares with: the value of a one-key params object, or the params themselves (a Date or a Buffer is a value too). */
+export function getComparedValue(params: unknown): unknown {
+  return isParamsObject(params) ? Object.values(params)[0] : params;
+}
+
 export function isParamsObject(params: unknown): params is Record<string, unknown> {
   return (
     params !== null &&
@@ -48,21 +95,38 @@ export function hasParamPlaceholder(conditions: string, params?: unknown): boole
     return false;
   }
 
-  const placeholderRegex = /:(?:\.\.\.)?([A-Za-z0-9_.]+)/g;
-  let match: RegExpExecArray | null;
+  return getPlaceholderNames(conditions).some((name) => Object.prototype.hasOwnProperty.call(params, name));
+}
 
-  while ((match = placeholderRegex.exec(conditions)) !== null) {
-    if (Object.prototype.hasOwnProperty.call(params, match[1])) {
-      return true;
-    }
+/**
+ * A params object whose value goes after the condition (`'='`, `{ id: 1 }`) holds that one value. With other
+ * keys only the first was used and the rest dropped; with none the column was compared with NULL.
+ */
+function assertSingleValueParams(field: string, params: unknown): void {
+  if (!isParamsObject(params)) {
+    return;
   }
 
-  return false;
+  const keys = Object.keys(params);
+
+  if (keys.length !== 1) {
+    throw new TypeError(
+      `Condition on "${field}": a params object without a placeholder in the condition holds the one value to compare with, ` +
+        `got ${keys.length} keys (${keys.join(', ') || 'none'}). Pass the value itself, or name the keys in the condition: '= :id'`
+    );
+  }
+}
+
+/** The builder's `where` / `having` method, bound to it: only a SelectQueryBuilder has `having`. */
+export function addCondition<QB extends WhereExpressionBuilder>(builder: QB, method: WhereMethods | HavingMethods) {
+  const add = (builder as unknown as Record<WhereMethods | HavingMethods, (condition: string, parameters?: ObjectLiteral) => QB>)[method];
+
+  return (condition: string, parameters?: ObjectLiteral): QB => add.call(builder, condition, parameters);
 }
 
 export function attachWhere<QB extends WhereExpressionBuilder>(
   builder: QB,
-  method: WhereMethods,
+  method: WhereMethods | HavingMethods,
   field: string,
   conditions: string,
   params?: unknown,
@@ -71,15 +135,24 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   let { addValue } = options || {};
 
   if (method && typeof field === 'string' && typeof conditions === 'string') {
+    const fieldName = field;
     field = toFieldSql(builder, field);
 
     const hasParams = typeof params !== 'undefined';
     // `addValue` defaults to `true` unless `conditions` already references one of the `params` keys
     addValue = addValue ?? !hasParamPlaceholder(conditions, params);
 
+    if (addValue && !hasParams && OPERATOR_AT_END.test(conditions)) {
+      throw new TypeError(
+        `The value after "${fieldName} ${conditions.trim()}" is undefined, which leaves the condition without ` +
+          `an operand. Pass the value, null to compare with NULL, or a condition without one ('IS NULL')`
+      );
+    }
+
     if (addValue && hasParams) {
-      // pick first value from params object or pass as is (a Date or a Buffer is a value too)
-      const firstValue = isParamsObject(params) ? Object.values(params)[0] : params;
+      assertSingleValueParams(fieldName, params);
+
+      const firstValue = getComparedValue(params);
 
       // 0, false, '' are valid values like any other
       // null, undefined, NaN and invalid dates are equal to NULL
@@ -97,22 +170,28 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
 
       const valuePlaceholder = getValuePlaceholder(firstValue, paramName);
 
-      return builder[method](
-        `${field} ${conditions} ${valuePlaceholder}`,
-        queryParams
-      );
+      return addCondition(builder, method)(`${field} ${conditions} ${valuePlaceholder}`, queryParams);
     } else {
-      return builder[method](`${field} ${conditions}`, params as ObjectLiteral);
+      return addCondition(builder, method)(`${field} ${conditions}`, params as ObjectLiteral);
     }
   }
 
   return builder;
 }
 
+// `||` is OR on MySQL; a match that is not an OR only adds parentheses
+const MAY_HOLD_OR = /\bor\b|\|\|/i;
+
+type WhereClause = QueryBuilder<ObjectLiteral>['expressionMap']['wheres'][number];
+
+const mayHoldOr = (where: WhereClause): boolean =>
+  where.type === 'or' || (typeof where.condition === 'string' && MAY_HOLD_OR.test(where.condition));
+
 /**
  * Adds an AND condition that narrows the whole WHERE clause. TypeORM's `andWhere` doesn't group
- * the conditions before it, so after `.where(a).orWhere(b)` it gives `a OR b AND c`, i.e.
- * `a OR (b AND c)`. Existing conditions with an OR are wrapped first: `(a OR b) AND c`.
+ * the conditions before it, so after `.where(a).orWhere(b)`, or `.where('a OR b')`, it gives
+ * `a OR b AND c`, i.e. `a OR (b AND c)`. Existing conditions that may hold an OR are wrapped first:
+ * `(a OR b) AND c`.
  */
 export function andWhereNarrowing<QB extends WhereExpressionBuilder>(
   builder: QB,
@@ -122,9 +201,9 @@ export function andWhereNarrowing<QB extends WhereExpressionBuilder>(
   const expressionMap = (builder as unknown as QueryBuilder<ObjectLiteral>).expressionMap;
   const wheres = expressionMap?.wheres;
 
-  if (wheres?.some((where) => where.type === 'or')) {
-    // a nested clause list is rendered in parentheses
-    expressionMap.wheres = [{ type: 'simple', condition: wheres }];
+  if (wheres?.some(mayHoldOr)) {
+    // `brackets` is always written in parentheses; a plain nested list of one clause is not
+    expressionMap.wheres = [{ type: 'simple', condition: { operator: 'brackets', condition: wheres } }];
   }
 
   return builder.andWhere(condition, parameters);

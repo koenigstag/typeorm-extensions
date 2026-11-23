@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/where-is-distinct-from.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-distinct-from.extension';
 import { DataSource } from 'typeorm';
-import { setupTest } from '../test-utils';
+import { setupTest, sqlAndParametersOf, sqlOf } from '../test-utils';
 import { TicketEntity } from '../models';
 import { postgresLikeDrivers, sqliteDrivers } from '../constants/database';
 
@@ -25,25 +25,28 @@ setupTest('where-is-distinct-from', undefined, (context) => {
     const type = context.typeormOptions.type;
 
     if (sqliteDrivers.includes(type as never)) {
-      expect(query.getQuery()).toMatch(
+      expect(sqlOf(query)).toMatch(
         /WHERE "t"\."owner_id" IS NOT :where\w+ AND "t"\."ticket_status" IS :andWhere_\w+/,
       );
     } else if (postgresLikeDrivers.includes(type as never)) {
-      expect(query.getQuery()).toMatch(
+      expect(sqlOf(query)).toMatch(
         /WHERE "t"\."owner_id" IS DISTINCT FROM :where\w+ AND "t"\."ticket_status" IS NOT DISTINCT FROM :andWhere_\w+/,
       );
     }
   });
 
   it('SHOULD compare with the NULL literal for null and undefined', () => {
-    const [query, parameters] = context.dataSource
-      .getRepository(TicketEntity)
-      .createQueryBuilder('t')
-      .whereIsNotDistinctFromTyped((t) => t.ownerId, null)
-      .orWhereIsDistinctFrom('t.owner_id', undefined)
-      .getQueryAndParameters();
+    const [query, parameters] = sqlAndParametersOf(
+      context.dataSource
+        .getRepository(TicketEntity)
+        .createQueryBuilder('t')
+        .whereIsNotDistinctFromTyped((t) => t.ownerId, null)
+        .orWhereIsDistinctFrom('t.owner_id', undefined),
+    );
 
-    expect(query).toMatch(/WHERE "t"\."owner_id" IS (NOT DISTINCT FROM )?NULL OR "t"\."owner_id" IS (DISTINCT FROM |NOT )NULL/);
+    expect(query).toMatch(
+      /WHERE ("t"\."owner_id" IS (NOT DISTINCT FROM )?NULL OR "t"\."owner_id" IS (DISTINCT FROM |NOT )NULL|"t"\."owner_id" <=> NULL OR NOT \("t"\."owner_id" <=> NULL\))/,
+    );
     expect(parameters).toEqual([]);
   });
 
@@ -91,7 +94,7 @@ setupTest('where-is-distinct-from', undefined, (context) => {
       .update()
       .set({ status: 'unassigned' })
       .whereIsNotDistinctFromTyped((t) => t.ownerId, null);
-    expect(update.getQuery()).toMatch(/WHERE "owner_id" IS (NOT DISTINCT FROM )?NULL$/);
+    expect(sqlOf(update)).toMatch(/WHERE "owner_id" (IS (NOT DISTINCT FROM )?|<=> )NULL$/);
     await update.execute();
 
     await repository

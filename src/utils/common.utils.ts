@@ -1,3 +1,6 @@
+/** A Date, also one from another realm (a vm context, a test runner's sandbox), where `instanceof Date` is false. */
+export const isDate = (value: unknown): value is Date => Object.prototype.toString.call(value) === '[object Date]';
+
 export const isNil = (val: unknown): boolean =>
   typeof val === 'undefined' || val === null;
 

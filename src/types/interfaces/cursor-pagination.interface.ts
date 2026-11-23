@@ -16,3 +16,27 @@ export type CursorOrderParam<Entity> = {
   /** `'ASC'` by default. */
   direction?: OrderDirection;
 };
+
+/** An SQL expression, or a selection of the query by its alias, that orders the rows of `getRawManyWithCursor`. */
+export type RawCursorOrderParam =
+  | {
+      /**
+       * A column (`user.createdAt`, `"user"."created_at"`) or a computed value
+       * (`CASE "member"."role" WHEN 'owner' THEN 0 ELSE 1 END`). It must be valid in WHERE, so not an
+       * aggregate, and must not be `NULL`.
+       */
+      selector: string;
+      alias?: never;
+      /** `'ASC'` by default. */
+      direction?: OrderDirection;
+    }
+  | {
+      /**
+       * The alias of a selection of the query, `addSelect(sql, 'score')` or `addSimilarityScoreTyped(…, 'score')`:
+       * its SQL is the key, with the parameters it has. The same rules as for `selector` apply to it.
+       */
+      alias: string;
+      selector?: never;
+      /** `'ASC'` by default. */
+      direction?: OrderDirection;
+    };

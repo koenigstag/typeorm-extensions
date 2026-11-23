@@ -1,5 +1,5 @@
 import 'typeorm-extensions/extensions/typed/typed-distinct/typed-distinct.extension';
-import { createFakeImages, createFakeUsers, setupTest } from '../test-utils';
+import { createFakeImages, createFakeUsers, setupTest, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -45,8 +45,8 @@ setupTest('distinct-typed', undefined, (context) => {
       .clone()
       .distinctOnTyped((u) => u.email);
 
-    expect(simpleSelectQuery.getQuery()).toEqual(selectTypedQuery.getQuery());
-    expect(selectTypedQuery.getQuery()).toContain(
+    expect(sqlOf(simpleSelectQuery)).toEqual(sqlOf(selectTypedQuery));
+    expect(sqlOf(selectTypedQuery)).toContain(
       'DISTINCT ON ("user"."email")',
     );
 

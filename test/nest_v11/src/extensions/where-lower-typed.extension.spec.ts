@@ -1,6 +1,6 @@
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-lower.extension';
 import { DataSource } from 'typeorm';
-import { setupTest, createFakeUsers } from '../test-utils';
+import { setupTest, createFakeUsers, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { postgresLikeDrivers } from '../constants/database';
 
@@ -26,7 +26,7 @@ describe('where-lower-typed.sql', () => {
       .whereLowerEqualsTyped<UserEntity>((u) => u.email, 'a')
       .orWhereLowerEqualsTyped<UserEntity>((u) => u.firstName, 'b', { normalize: lowerTrim });
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE LOWER\("u"\."email"\) = LOWER\(:where_\w+\) OR LOWER\(TRIM\("u"\."firstName"\)\) = LOWER\(TRIM\(:orWhere_\w+\)\)$/,
     );
   });
@@ -37,7 +37,7 @@ describe('where-lower-typed.sql', () => {
       .where('u.id > 0')
       .andWhereIsInLowerTyped<UserEntity>((u) => u.email, emails, { normalize: lowerTrim });
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE u\.id > 0 AND LOWER\(TRIM\("u"\."email"\)\) IN \(LOWER\(TRIM\(:(andWhere_\w+)_0\)\), LOWER\(TRIM\(:\1_1\)\)\)$/,
     );
     expect(params(query)).toEqual(['A@b.c', 'd@E.f']);
@@ -120,7 +120,7 @@ setupTest('where-lower-typed', undefined, (context) => {
       .set({ lastName: 'Updated' })
       .whereLowerEqualsTyped((u) => u.email, 'CAROL@example.com');
 
-    expect(query.getQuery()).toMatch(/WHERE LOWER\("email"\) = LOWER\(:where_\w+\)$/);
+    expect(sqlOf(query)).toMatch(/WHERE LOWER\("email"\) = LOWER\(:where_\w+\)$/);
     expect((await query.execute()).affected).toBe(1);
   });
 });

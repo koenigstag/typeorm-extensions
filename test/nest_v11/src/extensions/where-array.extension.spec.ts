@@ -1,14 +1,25 @@
 import 'typeorm-extensions/extensions/where-array.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-array.extension';
-import { setupTest } from '../test-utils';
+import { SelectQueryBuilder } from 'typeorm';
+import { setupTest, sqlOf } from '../test-utils';
 import { UserEntity } from '../models';
 import { ArticleEntity } from '../models/postgres/article.entity';
 import { postgresLikeDrivers } from '../constants/database';
 
 const isPostgres = (type: string) => postgresLikeDrivers.includes(type as never);
 
-// SQL generation does not depend on the database
 setupTest('where-array.sql', undefined, (context) => {
+  if (!isPostgres(context.typeormOptions.type)) {
+    it('SHOULD refuse array conditions on a database without PostgreSQL array operators', () => {
+      const users = () => context.dataSource.getRepository(UserEntity).createQueryBuilder('user');
+
+      expect(() => users().whereArrayOverlaps('user.tags', ['z'])).toThrow('is a PostgreSQL array operator');
+      expect(() => users().andWhereArrayContains('user.tags', ['z'])).toThrow(TypeError);
+    });
+
+    return;
+  }
+
   it('SHOULD build @>, <@ and && with the whole array as one parameter', () => {
     const query = context.dataSource
       .getRepository(UserEntity)
@@ -17,7 +28,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .andWhereArrayContainedBy('user.tags', ['a', 'b', 'c'])
       .orWhereArrayOverlaps('user.tags', ['z']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."tags" @> :where_\w+ AND "user"\."tags" <@ :andWhere_\w+ OR "user"\."tags" && :orWhere_\w+/,
     );
 
@@ -31,7 +42,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .createQueryBuilder('user')
       .whereArrayContains('user.ids', [1], 'int[]');
 
-    expect(query.getQuery()).toMatch(/WHERE "user"\."ids" @> CAST\(:where_\w+ AS int\[\]\)/);
+    expect(sqlOf(query)).toMatch(/WHERE "user"\."ids" @> CAST\(:where_\w+ AS int\[\]\)/);
 
     expect(() =>
       query.clone().whereArrayOverlaps('user.ids', [1], 'int[]) OR (TRUE'),
@@ -66,7 +77,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .whereArrayContainsTyped((u) => u.firstName, ['a'], 'text[]')
       .andWhereArrayOverlapsTyped((u) => u.email, ['b']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "user"\."firstName" @> CAST\(:where\w+ AS text\[\]\) AND "user"\."email" && :andWhere\w+/,
     );
   });
@@ -78,7 +89,7 @@ setupTest('where-array.sql', undefined, (context) => {
       .delete()
       .whereArrayContainedByTyped((u) => u.firstName, ['a']);
 
-    expect(query.getQuery()).toMatch(/^DELETE FROM "users" WHERE "firstName" <@ :where\w+$/);
+    expect(sqlOf(query)).toMatch(/^DELETE FROM "users" WHERE "firstName" <@ :where\w+$/);
   });
 
   it('SHOULD throw WHEN the typed callback selects several columns', () => {
@@ -204,5 +215,68 @@ setupTest('where-array.postgres', { entities: [ArticleEntity] }, (context) => {
     });
 
     expect(JSON.stringify(plan)).toMatch(/Bitmap Index Scan on articles_tags_gin/);
+  });
+});
+
+// an array inside a JSON column: jsonb operators, PostgreSQL only
+setupTest('where-array.json.postgres', { entities: [ArticleEntity] }, (context) => {
+  if (!isPostgres(context.typeormOptions.type)) {
+    it.skip('only supported on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  const seed = () =>
+    context.dataSource.getRepository(ArticleEntity).save(
+      [
+        ['a', ['x', 'y']],
+        ['b', ['x']],
+        ['c', ['z']],
+        ['d', null],
+      ].map(
+        ([title, flags]) =>
+          new ArticleEntity({
+            title: title as string,
+            tags: [],
+            meta: flags ? { status: 'live', flags: flags as string[] } : null,
+            legacyMeta: flags ? { status: 'live', flags: flags as string[] } : null,
+          }),
+      ),
+    );
+
+  const titles = async (build: (query: SelectQueryBuilder<ArticleEntity>) => unknown) => {
+    const query = context.dataSource.getRepository(ArticleEntity).createQueryBuilder('a').orderBy('a.id');
+    build(query);
+
+    return (await query.getMany()).map((article) => article.title);
+  };
+
+  it('SHOULD match by @>, <@ and ?| on a jsonb and a json column', async () => {
+    await seed();
+
+    expect(await titles((q) => q.whereArrayContainsTyped((a) => a.meta.flags, ['x']))).toEqual(['a', 'b']);
+    expect(await titles((q) => q.whereArrayContainedByTyped((a) => a.meta.flags, ['x', 'y']))).toEqual(['a', 'b']);
+    expect(await titles((q) => q.whereArrayOverlapsTyped((a) => a.meta.flags, ['y', 'z']))).toEqual(['a', 'c']);
+    expect(await titles((q) => q.whereArrayContainsTyped((a) => a.legacyMeta.flags, ['x']))).toEqual(['a', 'b']);
+  });
+
+  it('SHOULD match arrays only, not a string or an object at the path', async () => {
+    await seed();
+    await context.dataSource.getRepository(ArticleEntity).save([
+      new ArticleEntity({ title: 'e', tags: [], meta: { status: 'live', flags: 'x' as never } }),
+      new ArticleEntity({ title: 'f', tags: [], meta: { status: 'live', flags: { x: 1 } as never } }),
+    ]);
+
+    // jsonb reads "x" <@ ["x", "y"] as true, and ?| looks at the keys of an object
+    expect(await titles((q) => q.whereArrayContainedByTyped((a) => a.meta.flags, ['x', 'y']))).toEqual(['a', 'b']);
+    expect(await titles((q) => q.whereArrayOverlapsTyped((a) => a.meta.flags, ['x']))).toEqual(['a', 'b']);
+  });
+
+  it('SHOULD reject an overlap with other values than strings, and arrayType', () => {
+    const query = context.dataSource.getRepository(ArticleEntity).createQueryBuilder('a');
+
+    expect(() => query.whereArrayOverlapsTyped((a) => a.meta.flags, [1] as never)).toThrow(/takes strings/);
+    expect(() => query.whereArrayContainsTyped((a) => a.meta.flags, ['x'], 'text[]')).toThrow(/arrayType/);
   });
 });

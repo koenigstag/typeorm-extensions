@@ -1,0 +1,5 @@
+{
+  // the typed extensions loaded one by one, without the rest of the root import
+  "extends": "../tsconfig.json",
+  "include": ["./*.ts"]
+}

@@ -2,16 +2,14 @@ import '../../where-is-in.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  WhereExpressionBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { TypedArrayArg, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
-import { WhereInMethods } from '../../../types/extensions';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
+import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
+import { WhereIsInMethodName } from '../../../types/extensions';
 import { ArgsType } from '../../../types/util-types';
+import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
 // declarations
 
@@ -22,7 +20,7 @@ export interface TypedWhereIsInMethods<Entity extends ObjectLiteral> {
    * calling this function will override previously set WHERE conditions.
    */
   whereIsInTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>
   ): this;
 
@@ -30,7 +28,7 @@ export interface TypedWhereIsInMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE IN condition in the query builder.
    */
   andWhereIsInTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>
   ): this;
 
@@ -38,7 +36,7 @@ export interface TypedWhereIsInMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE IN condition in the query builder.
    */
   orWhereIsInTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>
   ): this;
 
@@ -48,7 +46,7 @@ export interface TypedWhereIsInMethods<Entity extends ObjectLiteral> {
    * calling this function will override previously set WHERE conditions.
    */
   whereIsNotInTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>
   ): this;
 
@@ -56,7 +54,7 @@ export interface TypedWhereIsInMethods<Entity extends ObjectLiteral> {
    * Adds new AND WHERE NOT IN condition in the query builder.
    */
   andWhereIsNotInTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>
   ): this;
 
@@ -64,7 +62,7 @@ export interface TypedWhereIsInMethods<Entity extends ObjectLiteral> {
    * Adds new OR WHERE NOT IN condition in the query builder.
    */
   orWhereIsNotInTyped<Type extends ObjectLiteral = UnsetType, Value extends ProxyColumnValueType = ProxyColumnValueType>(
-    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, Entity>>) => Value,
+    where: (proxy: DeepUnwrapArray<TypeOrDefault<Type, TypedRoot<Entity, this>>>) => Value,
     array?: TypedArrayArg<Type, Value>
   ): this;
 }
@@ -85,17 +83,21 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereIsInMethods<Entity> {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereIsInMethods<Entity> {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
 // patching
 
-const createWhereIsInTypedMethod = (method: WhereInMethods) =>
-  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = Entity>(
+const createWhereIsInTypedMethod = (method: WhereIsInMethodName) =>
+  function <Entity extends ObjectLiteral, Type extends ObjectLiteral = TypedRoot<Entity>>(
     this: SelectQueryBuilder<Entity>,
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     array?: ArgsType
   ): SelectQueryBuilder<Entity> {
-    return attachWhereIsIn<Type, SelectQueryBuilder<Entity>>(this, method, where, array);
+    return attachTypedColumnWhere<Type, SelectQueryBuilder<Entity>>(this, method, where, { value: array }, array);
   };
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
@@ -109,34 +111,5 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
-
-// implementation
-
-function attachWhereIsIn<
-  Type extends ObjectLiteral,
-  QB extends WhereExpressionBuilder
->(
-  builder: QB,
-  method: WhereInMethods,
-  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  array?: ArgsType
-): QB {
-  if (typeof where === 'function') {
-    // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
-    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value: array });
-
-    // .andWhere(`"table"."column"   IN (:...values)`, { values: ['value'] })
-    return builder[method](key, array);
-  }
-
-  return builder;
-}

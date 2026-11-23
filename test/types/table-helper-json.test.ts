@@ -1,0 +1,91 @@
+import { tableHelper } from 'typeorm-extensions';
+
+interface Address {
+  city: string;
+  geo?: { lat: number; lng: number };
+}
+
+class Profile {
+  address: Address;
+  tags: string[];
+  meta: Record<string, unknown>;
+  extra: unknown;
+  birthday: Date;
+}
+
+class Person {
+  id: number;
+  profile: Profile | null;
+  settings: { theme: string };
+  free: Record<string, unknown>;
+  anything: object;
+}
+
+const person = tableHelper<Person>('person');
+
+// json / jsonText: the path as a callback
+person.jsonText((p) => p.profile.address.city);
+person.json((p) => p.profile.address.geo);
+person.jsonText((p) => p.profile.address.geo.lat);
+person.jsonText((p) => p.profile.tags[0]);
+person.jsonText((p) => p.profile.meta.any.depth);
+person.jsonText((p) => p.profile.extra.anything);
+person.jsonText((p) => p.free.a.b);
+person.jsonText((p) => p.anything.a.b);
+// @ts-expect-error not a key of the interface
+person.jsonText((p) => p.profile.address.street);
+// @ts-expect-error a string has no keys
+person.jsonText((p) => p.profile.address.city.length);
+// @ts-expect-error a Date ends the path
+person.jsonText((p) => p.profile.birthday.getTime);
+// @ts-expect-error not a column of the entity
+person.jsonText((p) => p.missing.key);
+
+// interface and class types are checked like type aliases
+person.jsonText((r) => r.profile.address.city);
+person.json((r) => r.profile.address.geo);
+person.jsonText((r) => r.profile.address.geo.lat);
+person.jsonText((r) => r.profile.tags);
+person.jsonText((r) => r.settings.theme);
+// unknown values, records of unknown and bare objects take any keys below them
+person.jsonText((r) => r.profile.meta.any.depth);
+person.jsonText((r) => r.profile.extra.anything);
+person.jsonText((r) => r.free.a.b);
+person.jsonText((r) => r.anything.a.b);
+
+// @ts-expect-error not a key of the interface
+person.jsonText((r) => r.profile.address.town);
+// @ts-expect-error not a key of the class
+person.jsonText((r) => r.profile.adress);
+// @ts-expect-error a date has no keys
+person.jsonText((r) => r.profile.birthday.year);
+// @ts-expect-error an array's items have no keys
+person.jsonText((r) => r.profile.tags.length);
+
+type JobRule = { kind: 'reminder'; remindAt: string } | { kind: 'alert'; threshold: { value: number } };
+
+class Job {
+  rules: JobRule;
+}
+
+const job = tableHelper<Job>('job');
+
+// a union takes the keys of any of its members
+job.jsonText((r) => r.rules.kind);
+job.jsonText((r) => r.rules.remindAt);
+job.jsonText((r) => r.rules.threshold.value);
+// @ts-expect-error a key of no member
+job.jsonText((r) => r.rules.remindOn);
+// @ts-expect-error a key of no member, one level down
+job.jsonText((r) => r.rules.threshold.limit);
+
+class Tree {
+  root: { a: { b: { c: { d: { leaf: string } } } } };
+}
+
+const tree = tableHelper<Tree>('tree');
+
+// a path is checked to its end, however deep
+tree.jsonText((r) => r.root.a.b.c.d.leaf);
+// @ts-expect-error a wrong key five levels down
+tree.jsonText((r) => r.root.a.b.c.d.leaves);

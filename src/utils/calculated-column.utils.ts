@@ -1,0 +1,151 @@
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import { DriverUtils } from 'typeorm/driver/DriverUtils';
+import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
+import { createUniqueParameterName } from './sql.utils';
+import { detachedSubQuery, toSubQuerySql } from './parameter.utils';
+import type { SubQueryFactory } from '../types/extensions/sub-query.types';
+
+const ORDER_ALIAS_PREFIX = 'calculated';
+const ORDER_ALIAS_PATTERN = new RegExp(`^${ORDER_ALIAS_PREFIX}_\\w+$`);
+
+type ResolvedCalculatedColumn = {
+  /** The key TypeORM reads the column's value from when it builds the entity. */
+  key: string;
+  /** `Entity.property`, for error messages. */
+  label: string;
+};
+
+function findCalculatedColumn<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  property: string,
+  aliasName?: string
+): { aliasName: string; entityName: string; column: ColumnMetadata | undefined } | undefined {
+  const { expressionMap } = builder;
+  const alias =
+    aliasName === undefined
+      ? expressionMap.mainAlias
+      : expressionMap.aliases.find((candidate) => candidate.name === aliasName);
+
+  if (!alias?.hasMetadata) {
+    return undefined;
+  }
+
+  return {
+    aliasName: alias.name,
+    entityName: alias.metadata.name,
+    column: alias.metadata.findColumnWithPropertyPath(property),
+  };
+}
+
+// @CalculatedColumn: a virtual property without the query of TypeORM's @VirtualColumn
+export const isCalculated = (column: ColumnMetadata | undefined): column is ColumnMetadata =>
+  !!column?.isVirtualProperty && !column.query;
+
+/** Whether `property` of the entity of `aliasName` (the main alias by default) is a `@CalculatedColumn`. */
+export function isCalculatedColumn<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  property: string,
+  aliasName?: string
+): boolean {
+  return isCalculated(findCalculatedColumn(builder, property, aliasName)?.column);
+}
+
+/** The `@CalculatedColumn` `property` of the entity of `aliasName`; throws a `TypeError` for anything else. */
+export function resolveCalculatedColumn<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  property: string,
+  aliasName: string | undefined,
+  methodName: string
+): ResolvedCalculatedColumn {
+  const found = findCalculatedColumn(builder, property, aliasName);
+
+  if (!found) {
+    throw new TypeError(
+      `${methodName}: the alias "${aliasName ?? builder.expressionMap.mainAlias?.name}" has no entity with "${property}"`
+    );
+  }
+
+  const label = `${found.entityName}.${property}`;
+
+  if (!isCalculated(found.column)) {
+    throw new TypeError(`${methodName}: ${label} is not a @CalculatedColumn`);
+  }
+
+  // shortened past the driver's alias length limit, as TypeORM does it
+  const key = DriverUtils.buildAlias(builder.connection.driver, {}, found.aliasName, found.column.databaseName);
+
+  return { key, label };
+}
+
+/**
+ * Selects the value of a `@CalculatedColumn`, already selected with `addSelectCalculated`, a second
+ * time under a generated lower-case alias, and returns the alias to order by.
+ *
+ * The alias the entity is built from can't be ordered by: PostgreSQL folds it unquoted
+ * (`user_imagesCount` → `user_imagescount`), and quoted it breaks the DISTINCT query TypeORM pages
+ * through with `take` / `skip` and joins, which takes only select aliases it knows unquoted.
+ *
+ * A value already selected for order keeps its alias, so ORDER BY and DISTINCT ON name the same
+ * column: PostgreSQL requires DISTINCT ON to match the leading ORDER BY.
+ */
+export function selectCalculatedForOrder<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  property: string,
+  aliasName: string | undefined,
+  methodName: string
+): string {
+  const { key, label } = resolveCalculatedColumn(builder, property, aliasName, methodName);
+  const select = builder.expressionMap.selects.find((candidate) => candidate.aliasName === key);
+
+  if (!select) {
+    throw new TypeError(`${methodName}: ${label} isn't selected: select it with addSelectCalculated first`);
+  }
+
+  // TypeORM keeps a subquery selection as its SQL, with its parameters already on the builder
+  return selectForOrder(builder, select.selection);
+}
+
+/**
+ * Selects `selection` under a generated lower-case alias, once per builder, and returns the alias
+ * ORDER BY and DISTINCT ON refer to it by; see `selectCalculatedForOrder` for why not the alias it was selected under.
+ */
+export function selectForOrder<Entity extends ObjectLiteral>(builder: SelectQueryBuilder<Entity>, selection: string): string {
+  // found by its SQL rather than kept aside, so a clone of the builder finds it too
+  const selectedForOrder = builder.expressionMap.selects.find(
+    (candidate) =>
+      candidate.aliasName !== undefined &&
+      ORDER_ALIAS_PATTERN.test(candidate.aliasName) &&
+      candidate.selection === selection
+  );
+
+  if (selectedForOrder?.aliasName) {
+    return selectedForOrder.aliasName;
+  }
+
+  const orderAlias = createUniqueParameterName(ORDER_ALIAS_PREFIX).toLowerCase();
+
+  builder.addSelect(selection, orderAlias);
+
+  return orderAlias;
+}
+
+/** Selects `selection` into the `@CalculatedColumn` `property` of the entity of `aliasName` (the main alias by default). */
+export function addSelectCalculatedColumn<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  selection: string | SubQueryFactory<SubEntity>,
+  property: string,
+  aliasName: string | undefined,
+  methodName: string
+): SelectQueryBuilder<Entity> {
+  const { key } = resolveCalculatedColumn(builder, property, aliasName, methodName);
+
+  if (typeof selection === 'function') {
+    // TypeORM's subQuery() would set its parameters on the outer query under their own names: two
+    // factories that both bind `:status` would read one value
+    const [sql, parameters] = toSubQuerySql(selection(detachedSubQuery(builder)));
+
+    return builder.addSelect(`(${sql})`, key).setParameters(parameters);
+  }
+
+  return builder.addSelect(selection, key);
+}

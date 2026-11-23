@@ -1,7 +1,7 @@
 import 'typeorm-extensions/extensions/where-json.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where-json.extension';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
-import { setupTest } from '../test-utils';
+import { setupTest, sqlOf } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
 import { ArticleEntity } from '../models/postgres/article.entity';
 import { postgresLikeDrivers } from '../constants/database';
@@ -18,7 +18,7 @@ setupTest('where-json.sql', undefined, (context) => {
       .andWhereJsonHasKey('user.metadata', 'settings')
       .orWhereJsonContainsTyped((u) => u.metadata, ['a']);
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE CAST\("user"\."metadata" AS jsonb\) @> CAST\(:where_\w+ AS jsonb\) AND CAST\("user"\."metadata" AS jsonb\) \? :andWhere_\w+ OR CAST\("user"\."metadata" AS jsonb\) @> CAST\(:orWhere\w+ AS jsonb\)/,
     );
 
@@ -32,10 +32,10 @@ setupTest('where-json.sql', undefined, (context) => {
     const query = context.dataSource
       .getRepository(UserEntity)
       .createQueryBuilder('user')
-      .whereJsonHasKey(u.jsonColumn('metadata', '->', 'settings'), 'theme');
+      .whereJsonHasKey(u.json((r) => r.metadata.settings), 'theme');
 
-    expect(query.getQuery()).toMatch(
-      /WHERE CAST\("user"\."metadata" -> 'settings' AS jsonb\) \? :where_\w+/,
+    expect(sqlOf(query)).toMatch(
+      /WHERE CAST\(\("user"\."metadata" -> 'settings'\) AS jsonb\) \? :where_\w+/,
     );
   });
 
@@ -59,7 +59,7 @@ setupTest('where-json.sql', undefined, (context) => {
       .delete()
       .whereJsonHasKeyTyped((u) => u.metadata, 'role');
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /^DELETE FROM "users" WHERE CAST\("metadata" AS jsonb\) \? :where\w+$/,
     );
   });
@@ -163,7 +163,7 @@ setupTest('where-json.postgres', { entities: [ArticleEntity, UserEntity, ImageEn
     const result = await context.dataSource
       .getRepository(ArticleEntity)
       .createQueryBuilder('a')
-      .whereJsonHasKey(a.jsonColumn('meta', '->', 'author'), 'name')
+      .whereJsonHasKey(a.json((r) => r.meta.author), 'name')
       .getMany();
 
     expect(titles(result)).toEqual(['a', 'b']);

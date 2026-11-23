@@ -1,11 +1,14 @@
 import 'typeorm-extensions/extensions/get-many-with-totals.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
-import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
+import type { PaginationFilter } from 'typeorm-extensions/types/interfaces/pagination.interface';
+import { postgresLikeDrivers } from '../constants/database';
+import { setupTest, createFakeUsers, createFakeImages, mysqlRun } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 
 setupTest('tableHelper.count rows', undefined, (context) => {
-  it('SHOULD count all, distinct and matching rows in one query, with CASE and FILTER', async () => {
+  // MySQL has no FILTER clause and no CAST(… AS integer)
+  (mysqlRun ? it.skip : it)('SHOULD count all, distinct and matching rows in one query, with CASE and FILTER', async () => {
     const tickets = context.dataSource.getRepository(TicketEntity);
     await tickets.save(
       [
@@ -54,5 +57,241 @@ setupTest('getManyWithTotals.useTakeAndSkip', undefined, (context) => {
     expect(page.total).toBe(3);
     expect(page.list.map((user) => user.id)).toEqual([users[0].id, users[1].id]);
     expect(page.list[0].images).toHaveLength(4);
+  });
+});
+
+setupTest('getManyWithTotals.hasMore', undefined, (context) => {
+  it('SHOULD report hasMore while pages are left and false on the last page', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    const users = context.dataSource.getRepository(UserEntity);
+
+    const first = await users.createQueryBuilder('user').getManyWithTotals({ page: 1, pageSize: 2 });
+    const last = await users.createQueryBuilder('user').getManyWithTotals({ page: 2, pageSize: 2 });
+
+    expect(first).toMatchObject({ total: 3, page: 1, pageSize: 2, offset: 0, hasMore: true });
+    expect(first.list).toHaveLength(2);
+    expect(last).toMatchObject({ total: 3, page: 2, pageSize: 2, offset: 2, hasMore: false });
+    expect(last.list).toHaveLength(1);
+  });
+
+  it('SHOULD return the page and page size it read, defaults included', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 0 });
+
+    expect(page).toMatchObject({ page: 1, pageSize: 10, limit: 10, offset: 0 });
+  });
+
+  // an unparsed query parameter: "2" + 1 would have probed "21" rows
+  it('SHOULD read numeric strings as numbers and round fractions down', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 5 }));
+    const filter = { page: '2', pageSize: '2.5' } as unknown as PaginationFilter;
+
+    const counted = await context.dataSource.getRepository(UserEntity).createQueryBuilder('user').getManyWithTotals(filter);
+    const probed = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals(filter, { disableTotalsCalculation: true });
+
+    for (const result of [counted, probed]) {
+      expect(result).toMatchObject({ page: 2, pageSize: 2, limit: 2, offset: 2, hasMore: true });
+      expect(result.list.map(({ id }) => id)).toEqual([3, 4]);
+    }
+  });
+
+  it('SHOULD report hasMore as null only with loadAll', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+
+    const all = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({}, { loadAll: true });
+
+    expect(all).toMatchObject({ total: 3, page: null, pageSize: null, limit: null, offset: null, hasMore: null });
+    expect(all.list).toHaveLength(3);
+  });
+
+  // without a total, the page is read one row longer and the extra row is dropped
+  it('SHOULD know hasMore without a count query, and not return the probe row', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    const users = context.dataSource.getRepository(UserEntity);
+    const options = { disableTotalsCalculation: true };
+
+    const first = await users.createQueryBuilder('user').getManyWithTotals({ page: 1, pageSize: 2 }, options);
+    const last = await users.createQueryBuilder('user').getManyWithTotals({ page: 2, pageSize: 2 }, options);
+
+    expect(first).toMatchObject({ total: null, limit: 2, offset: 0, hasMore: true });
+    expect(first.list).toHaveLength(2);
+    expect(last).toMatchObject({ total: null, limit: 2, offset: 2, hasMore: false });
+    expect(last.list).toHaveLength(1);
+
+    // the pages stay the pages: no row is skipped or repeated by the probe
+    const all = await users.createQueryBuilder('user').orderBy('user.id', 'ASC').getMany();
+    expect([...first.list, ...last.list].map((user) => user.id)).toEqual(all.map((user) => user.id));
+  });
+
+  it('SHOULD drop the probe row with useTakeAndSkip and a joined collection', async () => {
+    const users = await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+    await context.dataSource.getRepository(ImageEntity).save(
+      await createFakeImages({ count: 4, getOverrides: (i) => ({ id: i + 1, userId: users[0].id }) }),
+    );
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .leftJoinAndSelectTyped((u) => u.images, 'images')
+      .orderBy('user.id', 'ASC')
+      .getManyWithTotals(
+        { page: 1, pageSize: 2 },
+        { disableTotalsCalculation: true, useTakeAndSkip: true },
+      );
+
+    expect(page).toMatchObject({ total: null, hasMore: true });
+    expect(page.list.map((user) => user.id)).toEqual([users[0].id, users[1].id]);
+    expect(page.list[0].images).toHaveLength(4);
+  });
+});
+
+setupTest('getManyWithTotals.orderBy', undefined, (context) => {
+  it('SHOULD leave orderBy out unless includeOrderBy is set', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderBy('user.firstName', 'DESC')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    expect(page).not.toHaveProperty('orderBy');
+    expect(page.list).toHaveLength(2);
+  });
+
+  it('SHOULD return the ORDER BY clauses the query was built with', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderBy('user.firstName', 'DESC')
+      .addOrderBy('user.id', 'ASC')
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
+
+    expect(page.orderBy).toEqual([
+      { selector: 'user.firstName', order: 'DESC' },
+      { selector: 'user.id', order: 'ASC' },
+    ]);
+  });
+
+  // UserEntity is @Entity({ orderBy: { id: 'ASC' } }), which the SQL falls back to
+  it("SHOULD return the entity's default order when the query sets none", async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
+
+    expect(page.orderBy).toEqual([{ selector: 'user.id', order: 'ASC' }]);
+  });
+
+  it('SHOULD return an empty orderBy when the global order is disabled', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .setOption('disable-global-order')
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
+
+    expect(page.orderBy).toEqual([]);
+  });
+});
+
+setupTest('getManyWithTotals.concurrency', undefined, (context) => {
+  const seed = async (): Promise<UserEntity[]> =>
+    context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+
+  it('SHOULD count the whole query while the page is read, not the page itself', async () => {
+    await seed();
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    // the count runs on a clone taken before the page query applies its limit
+    expect(page).toMatchObject({ total: 3, limit: 2, offset: 0, hasMore: true });
+    expect(page.list).toHaveLength(2);
+  });
+
+  // the count sees every condition already on the builder, pagination aside: a condition that
+  // belongs to one page narrows the total too, which is a trap worth pinning down
+  it('SHOULD count the query as it is, conditions included', async () => {
+    const users = await seed();
+    const after = users[0].id;
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .where('user.id > :after', { after })
+      .getManyWithTotals({ page: 1, pageSize: 1 });
+
+    // 3 users were seeded, 2 are past the boundary: the count follows the WHERE, not the table
+    expect(page).toMatchObject({ total: 2, limit: 1, offset: 0, hasMore: true });
+    expect(page.list).toHaveLength(1);
+  });
+
+  // a transaction is one connection: the two queries have to run one after another there
+  it('SHOULD count and page inside a transaction', async () => {
+    await seed();
+
+    const page = await context.dataSource.transaction((manager) =>
+      manager.createQueryBuilder(UserEntity, 'user').getManyWithTotals({ page: 1, pageSize: 2 }),
+    );
+
+    expect(page).toMatchObject({ total: 3, limit: 2, offset: 0, hasMore: true });
+    expect(page.list).toHaveLength(2);
+  });
+
+  // with a pool, useTransaction gives each query its own connection and transaction, so the two
+  // still run together; on SQLite they share one runner, so only one of them opens a transaction
+  it('SHOULD count and page with useTransaction on the builder', async () => {
+    await seed();
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .useTransaction(true)
+      .getManyWithTotals({ page: 2, pageSize: 2 });
+
+    expect(page).toMatchObject({ total: 3, limit: 2, offset: 2, hasMore: false });
+    expect(page.list).toHaveLength(1);
+  });
+});
+
+// NULLS FIRST / LAST: PostgreSQL only
+setupTest('getManyWithTotals.orderBy.postgres', undefined, (context) => {
+  if (!postgresLikeDrivers.includes(context.typeormOptions.type as never)) {
+    it.skip('only on postgres', () => {
+      expect(true).toBeTruthy();
+    });
+    return;
+  }
+
+  it('SHOULD carry the nulls ordering through', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderBy('user.firstName', 'DESC', 'NULLS LAST')
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
+
+    expect(page.orderBy).toEqual([
+      { selector: 'user.firstName', order: 'DESC', nulls: 'NULLS LAST' },
+    ]);
   });
 });

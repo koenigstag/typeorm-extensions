@@ -17,6 +17,15 @@ const IDENTIFIER = `(?:${UNQUOTED_IDENTIFIER}|${DOUBLE_QUOTED_IDENTIFIER}|${BACK
 // `id`, `user.id`, `"user"."id"`, `schema.table.column`, optionally ending with `.*`
 const IDENTIFIER_PATH = new RegExp(`^${IDENTIFIER}(?:\\.${IDENTIFIER})*(?:\\.\\*)?$`, 'u');
 const IDENTIFIER_PATH_SEGMENT = new RegExp(`${IDENTIFIER}|\\*`, 'gu');
+const SINGLE_DOUBLE_QUOTED_IDENTIFIER = new RegExp(`^${DOUBLE_QUOTED_IDENTIFIER}$`, 'u');
+const SINGLE_BACK_QUOTED_IDENTIFIER = new RegExp(`^${BACK_QUOTED_IDENTIFIER}$`, 'u');
+const UNQUOTED_IDENTIFIER_PATH = new RegExp(`^${UNQUOTED_IDENTIFIER}(?:\\.${UNQUOTED_IDENTIFIER})*$`, 'u');
+
+/** `user.firstName`, `firstName`: unquoted identifiers joined by dots, nothing else. */
+export const isUnquotedIdentifierPath = (value: string): boolean => UNQUOTED_IDENTIFIER_PATH.test(value);
+
+/** `"user"."firstName"`, `user.id`: identifiers, quoted or not, joined by dots; not an expression. */
+export const isIdentifierPath = (value: string): boolean => IDENTIFIER_PATH.test(value);
 
 /** MySQL, MariaDB and Aurora MySQL: backtick identifiers, `<=>` null-safe comparison. */
 export const isMysqlLikeDriver = (driver?: DatabaseType): boolean =>
@@ -44,6 +53,26 @@ export const isPostgresLikeDriver = (driver?: DatabaseType): boolean =>
 export const isSqliteLikeDriver = (driver?: DatabaseType): boolean =>
   driver !== undefined && SQLITE_LIKE_DRIVERS.includes(driver);
 
+/** `field IS [NOT] DISTINCT FROM value` in the database's own null-safe syntax. */
+export function buildDistinctCondition(
+  driver: DatabaseType | undefined,
+  field: string,
+  distinct: boolean,
+  value: string
+): string {
+  if (isMysqlLikeDriver(driver)) {
+    // `<=>` is MySQL's null-safe equality
+    return distinct ? `NOT (${field} <=> ${value})` : `${field} <=> ${value}`;
+  }
+
+  if (isSqliteLikeDriver(driver)) {
+    // SQLite's `IS` / `IS NOT` compare any values null-safely (IS DISTINCT FROM needs SQLite 3.39+)
+    return `${field} ${distinct ? 'IS NOT' : 'IS'} ${value}`;
+  }
+
+  return `${field} ${distinct ? 'IS DISTINCT FROM' : 'IS NOT DISTINCT FROM'} ${value}`;
+}
+
 /** Database type of the query builder's connection, e.g. `'postgres'`; undefined without one. */
 export function getDriverType(builder: WhereExpressionBuilder): DatabaseType | undefined {
   return (builder as unknown as QueryBuilder<ObjectLiteral>).connection?.driver?.options?.type;
@@ -57,7 +86,8 @@ export const quoteIdentifier = (name: string, driver?: DatabaseType): string => 
   const mysql = isMysqlLikeDriver(driver);
   const quote = mysql ? BACKTICK : '"';
 
-  if (name.length >= 2 && name.startsWith(quote) && name.endsWith(quote)) {
+  // only one whole quoted identifier is kept: `"id" * (SELECT …), "id"` starts and ends with a quote too
+  if ((mysql ? SINGLE_BACK_QUOTED_IDENTIFIER : SINGLE_DOUBLE_QUOTED_IDENTIFIER).test(name)) {
     return name;
   }
 
@@ -84,16 +114,27 @@ export const stringToSQLIdentifier = (
     return str;
   }
 
-  const quote = isMysqlLikeDriver(driver)
-    ? wrapWithBackQoutes
-    : wrapWithDoubleQoutes;
+  const mysql = isMysqlLikeDriver(driver);
+  const ownQuote = mysql ? BACKTICK : '"';
+  const quote = mysql ? wrapWithBackQoutes : wrapWithDoubleQoutes;
 
   return (str.match(IDENTIFIER_PATH_SEGMENT) ?? [])
-    .map((segment) =>
-      segment === '*' || segment.startsWith('"') || segment.startsWith(BACKTICK)
-        ? segment
-        : quote(segment)
-    )
+    .map((segment) => {
+      if (segment === '*' || segment.startsWith(ownQuote)) {
+        return segment;
+      }
+
+      // quoted the other way: MySQL reads `"…"` as a string literal with backslash escapes, so it is
+      // unquoted and quoted again for the database rather than passed on
+      if (segment.startsWith('"') || segment.startsWith(BACKTICK)) {
+        const otherQuote = segment[0];
+        const name = segment.slice(1, -1).split(otherQuote + otherQuote).join(otherQuote);
+
+        return `${ownQuote}${name.split(ownQuote).join(ownQuote + ownQuote)}${ownQuote}`;
+      }
+
+      return quote(segment);
+    })
     .join('.');
 };
 

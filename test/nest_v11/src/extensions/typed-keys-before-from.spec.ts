@@ -4,7 +4,7 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extens
 import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extension';
 import 'typeorm-extensions/extensions/typed/typed-distinct/typed-distinct.extension';
 import { KeyHolder } from 'typeorm-extensions/utils/proxy-key.utils';
-import { setupTest, createFakeUsers, createFakeImages } from '../test-utils';
+import { setupTest, createFakeUsers, createFakeImages, nativeSql, sqlOf } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
 
 // alias-keyed types: the first key is the alias given to from()
@@ -58,7 +58,7 @@ setupTest('typed-keys.before-from', undefined, (context) => {
       .addSelectTyped([new KeyHolder(['base', 'email'])])
       .from(UserEntity, 'base');
 
-    const sql = query.getQuery();
+    const sql = sqlOf(query);
     expect(sql).toContain('"base"."id" AS "base_id"');
     expect(sql).toContain('"base"."firstName" AS "base_firstName"');
     expect(sql).toContain('"base"."email" AS "base_email"');
@@ -78,7 +78,7 @@ setupTest('typed-keys.before-from', undefined, (context) => {
           .whereTyped<Img>((q) => q.image.url, 'LIKE', '%.png')
           .getQuery();
 
-        return `"user"."id" IN ${subQuery}`;
+        return `${nativeSql('"user"."id"')} IN ${subQuery}`;
       })
       .orderBy('user.id', 'ASC')
       .getMany();
@@ -96,7 +96,7 @@ setupTest('typed-keys.before-from', undefined, (context) => {
       .addOrderByTyped<Base>((q) => q.base.id, 'ASC', undefined, { useQuotes: true })
       .from(UserEntity, 'base');
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /WHERE "base"\."firstName" = :where_\w+ AND "base"\."lastName" IN \(:\.\.\.andWhere_\w+\) ORDER BY "base"\."email" DESC, "base"\."id" ASC$/,
     );
   });
@@ -109,7 +109,7 @@ setupTest('typed-keys.before-from', undefined, (context) => {
       .selectTyped<{ t: TicketEntity }>((q) => q.t.status, undefined, true)
       .whereTyped<{ t: TicketEntity }>((q) => q.t.status, '=', 'open');
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /^SELECT "t"\."ticket_status" FROM "tickets" "t" WHERE "t"\."ticket_status" = :where_\w+ ORDER BY "t"\."ticket_id" ASC$/,
     );
   });
@@ -131,7 +131,7 @@ setupTest('typed-keys.before-from', undefined, (context) => {
       .selectTyped<UserEntity>((u) => u.firstName)
       .whereTyped<UserEntity>((u) => u.lastName, '=', 'Doe');
 
-    expect(query.getQuery()).toMatch(
+    expect(sqlOf(query)).toMatch(
       /^SELECT "u"\."firstName" AS "u_firstName" FROM "users" "u" WHERE "u"\."lastName" = :where_\w+ ORDER BY "u"\."id" ASC$/,
     );
   });

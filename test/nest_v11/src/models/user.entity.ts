@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { ImageEntity } from './image.entity';
 import type { Json } from 'typeorm-extensions/types/modules/proxy-callback.types';
+import { CalculatedColumn } from 'typeorm-extensions/decorators/calculated-column.decorator';
 import { dateColumn } from '../constants/columns';
 
 export type UserMetadata = {
@@ -62,15 +63,12 @@ export class UserEntity {
 
   @CreateDateColumn({
     type: dateColumn,
-    default: () => 'CURRENT_TIMESTAMP',
     nullable: false,
   })
   public createdAt: Date;
 
   @UpdateDateColumn({
     type: dateColumn,
-    default: () => 'CURRENT_TIMESTAMP',
-    onUpdate: 'CURRENT_TIMESTAMP',
     nullable: false,
   })
   public updatedAt: Date;
@@ -80,4 +78,26 @@ export class UserEntity {
   })
   @JoinColumn({ name: 'id', referencedColumnName: 'userId' })
   public images?: ImageEntity[];
+
+  // filled by addSelectCalculated, no columns of the table
+  @CalculatedColumn()
+  public imagesCount?: number;
+
+  @CalculatedColumn('varchar')
+  public latestImageUrl?: string | null;
+
+  @CalculatedColumn()
+  public averageImageId?: number;
+
+  @CalculatedColumn()
+  public hasImages?: boolean;
+
+  @CalculatedColumn('integer')
+  public imagesCountInteger?: number | null;
+
+  @CalculatedColumn('numeric')
+  public averageImageIdNumeric?: number | null;
+
+  @CalculatedColumn({ type: 'integer', transformer: { from: (value: unknown) => ({ value }), to: (value: unknown) => value } })
+  public imagesCountTransformed?: { value: unknown } | null;
 }
