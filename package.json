@@ -1,20 +1,26 @@
 {
   "name": "typeorm-extensions",
-  "version": "2.2.0-rc.3",
+  "version": "3.0.0",
   "description": "typeorm commonly used extensions",
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "helpers", "LICENSE", "README.md", "package.json"],
+  "files": [
+    "dist",
+    "helpers",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
   "type": "commonjs",
   "homepage": "https://koenigstag.github.io/typeorm-extensions/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/koenigstag/typeorm-extensions.git"
+    "url": "git+https://github.com/koenigstag/typeorm-extensions.git"
   },
   "scripts": {
     "build": "tsc -p .",
     "lint": "eslint . --ext .ts",
-    "test:types": "tsc -p test/types && tsc -p test/types/tsconfig.loose.json"
+    "test:types": "tsc -p test/types && tsc -p test/types/tsconfig.loose.json && tsc -p test/types/typed-imports && tsc -p test/types/typed-imports/tsconfig.loose.json"
   },
   "keywords": [
     "typeorm",

@@ -1,7 +1,7 @@
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import type { UnionCteOptions, UnionOptions, UnionQuery } from '../types/extensions/union.types';
 import { patchPrototype } from '../utils/prototype.utils';
-import { withUniqueParameterNames } from '../utils/parameter.utils';
+import { toSubQuerySql } from '../utils/parameter.utils';
 import { getDriverType, isSqliteLikeDriver } from '../utils/sql.utils';
 
 // declarations
@@ -85,31 +85,39 @@ function unionSql<Entity extends ObjectLiteral>(
     }
 
     // SQLite takes neither parentheses around a part of a UNION nor an ORDER BY / LIMIT inside one
-    // (a query of an entity with a default `orderBy` has an ORDER BY): such a part becomes a subquery.
-    // Only such a part: the recursive part of a CTE can't refer to the CTE from a subquery
-    return ordersOrLimits(query, sql) ? `SELECT * FROM (${sql})` : sql;
+    // (a query of an entity with a default `orderBy` has an ORDER BY), nor a WITH after the first part:
+    // such a part becomes a subquery. Only such a part: the recursive part of a CTE can't refer to the
+    // CTE from a subquery
+    return needsSubquery(query, sql) ? `SELECT * FROM (${sql})` : sql;
   });
 
   return branches.join(options?.all ? ' UNION ALL ' : ' UNION ');
 }
 
 const ORDER_OR_LIMIT = /\b(?:ORDER\s+BY|LIMIT|OFFSET)\b/i;
+const STARTS_WITH_CTE = /^\s*WITH\b/i;
 
-function ordersOrLimits(query: UnionQuery, sql: string): boolean {
+function needsSubquery(query: UnionQuery, sql: string): boolean {
   if (typeof query === 'string' || !('expressionMap' in query)) {
-    return ORDER_OR_LIMIT.test(sql);
+    return ORDER_OR_LIMIT.test(sql) || STARTS_WITH_CTE.test(sql);
   }
 
-  const { allOrderBys, limit, offset, take, skip } = (query as SelectQueryBuilder<ObjectLiteral>).expressionMap;
+  const { allOrderBys, limit, offset, take, skip, commonTableExpressions } = (
+    query as SelectQueryBuilder<ObjectLiteral>
+  ).expressionMap;
 
-  return Object.keys(allOrderBys ?? {}).length > 0 || [limit, offset, take, skip].some((value) => value !== undefined);
+  return (
+    Object.keys(allOrderBys ?? {}).length > 0 ||
+    [limit, offset, take, skip].some((value) => value !== undefined) ||
+    (commonTableExpressions?.length ?? 0) > 0
+  );
 }
 
 function bindParameters<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   query: Exclude<UnionQuery, string>
 ): string {
-  const [sql, parameters] = withUniqueParameterNames(query.getQuery(), query.getParameters());
+  const [sql, parameters] = toSubQuerySql(query);
 
   builder.setParameters(parameters);
 

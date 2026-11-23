@@ -84,15 +84,15 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
   it('SHOULD look in a one-to-many relation, with conditions and parameters of its own', async () => {
     await seedImages();
 
-    expect(await userIds(users().andWhereRelationExists((u) => u.images, 'image'))).toEqual([1, 2]);
-    expect(await userIds(users().andWhereRelationNotExists((u) => u.images, 'image'))).toEqual([3]);
+    expect(await userIds(users().andWhereRelationExistsTyped((u) => u.images, 'image'))).toEqual([1, 2]);
+    expect(await userIds(users().andWhereRelationNotExistsTyped((u) => u.images, 'image'))).toEqual([3]);
 
     // the subquery's :url doesn't take the outer one's value
     expect(
       await userIds(
         users()
           .where('user.firstName <> :url', { url: 'nobody' })
-          .andWhereRelationExists((u) => u.images, 'image', (images) => images.andWhere('image.url = :url', { url: 'image-3' })),
+          .andWhereRelationExistsTyped((u) => u.images, 'image', (images) => images.andWhere('image.url = :url', { url: 'image-3' })),
       ),
     ).toEqual([2]);
   });
@@ -102,7 +102,7 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
 
     // the callback's `where` comes first and can't replace it, and its `orWhere` can't escape it:
     // `url = image-1 OR url = image-3 AND <join>` would let user 3 in through image 1
-    const query = users().andWhereRelationExists((u) => u.images, 'image', (images) =>
+    const query = users().andWhereRelationExistsTyped((u) => u.images, 'image', (images) =>
       images
         .where('image.url = :first', { first: 'image-1' })
         .orWhere('image.url = :third', { third: 'image-3' })
@@ -121,12 +121,12 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
 
     expect(
       await userIds(
-        users().andWhereRelationExists((u) => u.images, 'image', (images) => images.groupBy('image.url').having('COUNT(*) > 1')),
+        users().andWhereRelationExistsTyped((u) => u.images, 'image', (images) => images.groupBy('image.url').having('COUNT(*) > 1')),
       ),
     ).toEqual([2]);
     expect(
       await userIds(
-        users().andWhereRelationNotExists((u) => u.images, 'image', (images) => images.groupBy('image.url').having('COUNT(*) > 1')),
+        users().andWhereRelationNotExistsTyped((u) => u.images, 'image', (images) => images.groupBy('image.url').having('COUNT(*) > 1')),
       ),
     ).toEqual([1, 3]);
   });
@@ -137,7 +137,7 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
     const images = await context.dataSource
       .getRepository(ImageEntity)
       .createQueryBuilder('image')
-      .andWhereRelationExists((i) => i.user, 'owner', (owner) => owner.andWhere('owner.id = :id', { id: 1 }))
+      .andWhereRelationExistsTyped((i) => i.user, 'owner', (owner) => owner.andWhere('owner.id = :id', { id: 1 }))
       .getMany();
 
     expect(images.map(({ id }) => id)).toEqual([1, 2]);
@@ -148,7 +148,7 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
       .getRepository(ImageEntity)
       .createQueryBuilder('image')
       .innerJoin('image.user', 'owner')
-      .andWhereRelationExists<ImageEntity, Joins>((j) => j.owner.images, 'sibling', (siblings) =>
+      .andWhereRelationExistsTyped<ImageEntity, Joins>((j) => j.owner.images, 'sibling', (siblings) =>
         siblings.andWhere('sibling.id <> image.id'),
       )
       .getMany();
@@ -163,12 +163,12 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
     const groups = () => context.dataSource.getRepository(GroupEntity).createQueryBuilder('grp');
 
     expect(
-      await names(members().andWhereRelationExists((m) => m.groups, 'g', (g) => g.andWhere('g.name = :name', { name: 'b' }))),
+      await names(members().andWhereRelationExistsTyped((m) => m.groups, 'g', (g) => g.andWhere('g.name = :name', { name: 'b' }))),
     ).toEqual(['ann', 'bob']);
     expect(
-      await names(groups().andWhereRelationExists((g) => g.members, 'm', (m) => m.andWhere('m.name = :name', { name: 'ann' }))),
+      await names(groups().andWhereRelationExistsTyped((g) => g.members, 'm', (m) => m.andWhere('m.name = :name', { name: 'ann' }))),
     ).toEqual(['a', 'b']);
-    expect(await names(groups().andWhereRelationNotExists((g) => g.members, 'm'))).toEqual(['c']);
+    expect(await names(groups().andWhereRelationNotExistsTyped((g) => g.members, 'm'))).toEqual(['c']);
   });
 
   it('SHOULD look in a one-to-one relation, from either side', async () => {
@@ -176,23 +176,23 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
 
     expect(
       await names(
-        context.dataSource.getRepository(MemberEntity).createQueryBuilder('member').andWhereRelationExists((m) => m.leads, 'led'),
+        context.dataSource.getRepository(MemberEntity).createQueryBuilder('member').andWhereRelationExistsTyped((m) => m.leads, 'led'),
       ),
     ).toEqual(['ann']);
     expect(
       await names(
-        context.dataSource.getRepository(GroupEntity).createQueryBuilder('grp').andWhereRelationExists((g) => g.leader, 'lead'),
+        context.dataSource.getRepository(GroupEntity).createQueryBuilder('grp').andWhereRelationExistsTyped((g) => g.leader, 'lead'),
       ),
     ).toEqual(['a']);
   });
 
   it('SHOULD throw for a property that is no relation, and for an alias of the outer query', () => {
-    expect(() => users().andWhereRelationExists((u) => u.firstName as never, 'x')).toThrow(
-      /andWhereRelationExists: user\.firstName is not a relation/,
+    expect(() => users().andWhereRelationExistsTyped((u) => u.firstName as never, 'x')).toThrow(
+      /andWhereRelationExistsTyped: user\.firstName is not a relation/,
     );
-    expect(() => users().andWhereRelationExists((u) => u.images, 'user')).toThrow(/the alias "user" is already used/);
+    expect(() => users().andWhereRelationExistsTyped((u) => u.images, 'user')).toThrow(/the alias "user" is already used/);
     // SQLite would read "USER" as the outer "user"
-    expect(() => users().andWhereRelationExists((u) => u.images, 'USER')).toThrow(/the alias "USER" is already used/);
+    expect(() => users().andWhereRelationExistsTyped((u) => u.images, 'USER')).toThrow(/the alias "USER" is already used/);
   });
 
   it('SHOULD look in a relation inside Brackets', async () => {
@@ -202,7 +202,7 @@ setupTest('where-relation-exists', { entities: [UserEntity, ImageEntity, GroupEn
     const query = users()
       .where(
         new Brackets((where) =>
-          (where as SelectQueryBuilder<UserEntity>).whereRelationExists((u) => u.images, 'image').orWhere('user.id = 3'),
+          (where as SelectQueryBuilder<UserEntity>).whereRelationExistsTyped((u) => u.images, 'image').orWhere('user.id = 3'),
         ),
       )
       .andWhere('user.id <> 1')

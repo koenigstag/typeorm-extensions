@@ -2,16 +2,16 @@ import {
   SelectQueryBuilder,
   WhereExpressionBuilder,
   ObjectLiteral,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
-import { patchPrototype } from '../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 import { toFieldSql } from '../utils/query-builder.utils';
 import { ArgsType } from '../types/util-types';
 import { WhereMethods } from '../types/extensions';
 import {
   assertArrayType,
   createUniqueParameterName,
+  getDriverType,
+  isPostgresLikeDriver,
 } from '../utils/sql.utils';
 
 // declarations
@@ -93,6 +93,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereArrayMethods {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends WhereArrayMethods {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 
 // patching
@@ -131,15 +135,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
-
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
 // implementation
 
@@ -153,6 +149,13 @@ function attachWhereArray<QB extends WhereExpressionBuilder>(
 ): QB {
   if (!method || typeof field !== 'string') {
     return builder;
+  }
+
+  const driver = getDriverType(builder);
+
+  // MySQL reads `&&` as a logical AND: the condition would run and match the wrong rows
+  if (driver !== undefined && !isPostgresLikeDriver(driver)) {
+    throw new TypeError(`Array condition on "${field}": ${operator} is a PostgreSQL array operator, ${driver} has none`);
   }
 
   if (!Array.isArray(values)) {

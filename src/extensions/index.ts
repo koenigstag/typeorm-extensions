@@ -11,6 +11,7 @@ export * from './cursor-pagination.extension';
 export * from './order-by-array-position.extension';
 export * from './typed';
 export * from './union.extension';
+export * from './common-table-expression.extension';
 export * from './calculated-column.extension';
 export * from './join-unnest.extension';
 export * from './join-lateral.extension';

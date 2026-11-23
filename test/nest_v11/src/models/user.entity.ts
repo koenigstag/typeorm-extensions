@@ -91,4 +91,13 @@ export class UserEntity {
 
   @CalculatedColumn()
   public hasImages?: boolean;
+
+  @CalculatedColumn('integer')
+  public imagesCountInteger?: number | null;
+
+  @CalculatedColumn('numeric')
+  public averageImageIdNumeric?: number | null;
+
+  @CalculatedColumn({ type: 'integer', transformer: { from: (value: unknown) => ({ value }), to: (value: unknown) => value } })
+  public imagesCountTransformed?: { value: unknown } | null;
 }

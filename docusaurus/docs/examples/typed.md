@@ -72,7 +72,7 @@ import { tableHelper } from 'typeorm-extensions';
 const t = tableHelper<UserEntity>('user');
 
 // SELECT "user"."metadata" ->> 'role' AS "role" …
-query.addSelect(t.jsonColumn('metadata', '->>', 'role'), 'role')
+query.addSelect(t.jsonText((r) => r.metadata.role), 'role')
 ```
 
 ## Join condition with tableHelper

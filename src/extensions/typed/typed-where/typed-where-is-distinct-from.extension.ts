@@ -2,13 +2,10 @@ import '../../where-is-distinct-from.extension';
 import {
   ObjectLiteral,
   SelectQueryBuilder,
-  WhereExpressionBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
-import { patchPrototype } from '../../../utils/prototype.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
+import { attachTypedColumnWhere } from '../../../utils/typed-where.utils';
 import type { WhereDistinctMethods } from '../../where-is-distinct-from.extension';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
 
@@ -24,7 +21,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -32,7 +29,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column IS DISTINCT FROM :value` condition: the column differs from the value, `NULL` included.
    */
-  andWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -40,7 +37,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column IS DISTINCT FROM :value` condition: the column differs from the value, `NULL` included.
    */
-  orWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereIsDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -50,7 +47,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
    * If you had previously WHERE expression defined,
    * calling this function will override previously set WHERE conditions.
    */
-  whereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  whereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -58,7 +55,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new AND WHERE `column IS NOT DISTINCT FROM :value` condition: the column equals the value, `NULL` included.
    */
-  andWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  andWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -66,7 +63,7 @@ export interface TypedWhereDistinctMethods<Entity extends ObjectLiteral> {
   /**
    * Adds new OR WHERE `column IS NOT DISTINCT FROM :value` condition: the column equals the value, `NULL` included.
    */
-  orWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity>>(
+  orWhereIsNotDistinctFromTyped<Type extends ObjectLiteral = TypedRoot<Entity, this>>(
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): this;
@@ -88,6 +85,10 @@ declare module 'typeorm/query-builder/UpdateQueryBuilder' {
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereDistinctMethods<Entity> {}
 }
+
+declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
+  interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral> extends TypedWhereDistinctMethods<Entity> {}
+}
 /* eslint-enable @typescript-eslint/no-empty-interface */
 
 // patching
@@ -98,7 +99,7 @@ const createWhereDistinctTypedMethod = (method: keyof WhereDistinctMethods) =>
     where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
     value: unknown
   ): SelectQueryBuilder<Entity> {
-    return attachWhereDistinctTyped<Type, SelectQueryBuilder<Entity>>(this, method, where, value);
+    return attachTypedColumnWhere<Type, SelectQueryBuilder<Entity>>(this, method, where, { value }, value);
   };
 
 const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
@@ -112,33 +113,5 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   },
 };
 
-const queryBuilders = [
-  SelectQueryBuilder,
-  UpdateQueryBuilder,
-  DeleteQueryBuilder,
-];
+patchPrototypes(WHERE_QUERY_BUILDERS, extension);
 
-queryBuilders.forEach((builder) => {
-  patchPrototype(builder, extension);
-});
-
-// implementation
-
-function attachWhereDistinctTyped<
-  Type extends ObjectLiteral,
-  QB extends WhereExpressionBuilder
->(
-  builder: QB,
-  method: keyof WhereDistinctMethods,
-  where: (proxy: DeepUnwrapArray<Type>) => ProxyColumnValueType,
-  value: unknown
-): QB {
-  if (typeof where !== 'function') {
-    return builder;
-  }
-
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
-
-  // .andWhereIsDistinctFrom(`"table"."column"`, value)
-  return builder[method](key, value);
-}

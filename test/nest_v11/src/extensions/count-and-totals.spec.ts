@@ -1,6 +1,7 @@
 import 'typeorm-extensions/extensions/get-many-with-totals.extension';
 import 'typeorm-extensions/extensions/typed/typed-joins/typed-joins.extension';
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
+import type { PaginationFilter } from 'typeorm-extensions/types/interfaces/pagination.interface';
 import { postgresLikeDrivers } from '../constants/database';
 import { setupTest, createFakeUsers, createFakeImages, mysqlRun } from '../test-utils';
 import { ImageEntity, TicketEntity, UserEntity } from '../models';
@@ -67,10 +68,38 @@ setupTest('getManyWithTotals.hasMore', undefined, (context) => {
     const first = await users.createQueryBuilder('user').getManyWithTotals({ page: 1, pageSize: 2 });
     const last = await users.createQueryBuilder('user').getManyWithTotals({ page: 2, pageSize: 2 });
 
-    expect(first).toMatchObject({ total: 3, offset: 0, hasMore: true });
+    expect(first).toMatchObject({ total: 3, page: 1, pageSize: 2, offset: 0, hasMore: true });
     expect(first.list).toHaveLength(2);
-    expect(last).toMatchObject({ total: 3, offset: 2, hasMore: false });
+    expect(last).toMatchObject({ total: 3, page: 2, pageSize: 2, offset: 2, hasMore: false });
     expect(last.list).toHaveLength(1);
+  });
+
+  it('SHOULD return the page and page size it read, defaults included', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 3 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals({ page: 0 });
+
+    expect(page).toMatchObject({ page: 1, pageSize: 10, limit: 10, offset: 0 });
+  });
+
+  // an unparsed query parameter: "2" + 1 would have probed "21" rows
+  it('SHOULD read numeric strings as numbers and round fractions down', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 5 }));
+    const filter = { page: '2', pageSize: '2.5' } as unknown as PaginationFilter;
+
+    const counted = await context.dataSource.getRepository(UserEntity).createQueryBuilder('user').getManyWithTotals(filter);
+    const probed = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .getManyWithTotals(filter, { disableTotalsCalculation: true });
+
+    for (const result of [counted, probed]) {
+      expect(result).toMatchObject({ page: 2, pageSize: 2, limit: 2, offset: 2, hasMore: true });
+      expect(result.list.map(({ id }) => id)).toEqual([3, 4]);
+    }
   });
 
   it('SHOULD report hasMore as null only with loadAll', async () => {
@@ -81,7 +110,7 @@ setupTest('getManyWithTotals.hasMore', undefined, (context) => {
       .createQueryBuilder('user')
       .getManyWithTotals({}, { loadAll: true });
 
-    expect(all).toMatchObject({ total: 3, limit: null, offset: null, hasMore: null });
+    expect(all).toMatchObject({ total: 3, page: null, pageSize: null, limit: null, offset: null, hasMore: null });
     expect(all.list).toHaveLength(3);
   });
 
@@ -127,6 +156,19 @@ setupTest('getManyWithTotals.hasMore', undefined, (context) => {
 });
 
 setupTest('getManyWithTotals.orderBy', undefined, (context) => {
+  it('SHOULD leave orderBy out unless includeOrderBy is set', async () => {
+    await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
+
+    const page = await context.dataSource
+      .getRepository(UserEntity)
+      .createQueryBuilder('user')
+      .orderBy('user.firstName', 'DESC')
+      .getManyWithTotals({ page: 1, pageSize: 2 });
+
+    expect(page).not.toHaveProperty('orderBy');
+    expect(page.list).toHaveLength(2);
+  });
+
   it('SHOULD return the ORDER BY clauses the query was built with', async () => {
     await context.dataSource.getRepository(UserEntity).save(await createFakeUsers({ count: 2 }));
 
@@ -135,7 +177,7 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
       .createQueryBuilder('user')
       .orderBy('user.firstName', 'DESC')
       .addOrderBy('user.id', 'ASC')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([
       { selector: 'user.firstName', order: 'DESC' },
@@ -150,7 +192,7 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
     const page = await context.dataSource
       .getRepository(UserEntity)
       .createQueryBuilder('user')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([{ selector: 'user.id', order: 'ASC' }]);
   });
@@ -162,7 +204,7 @@ setupTest('getManyWithTotals.orderBy', undefined, (context) => {
       .getRepository(UserEntity)
       .createQueryBuilder('user')
       .setOption('disable-global-order')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([]);
   });
@@ -246,7 +288,7 @@ setupTest('getManyWithTotals.orderBy.postgres', undefined, (context) => {
       .getRepository(UserEntity)
       .createQueryBuilder('user')
       .orderBy('user.firstName', 'DESC', 'NULLS LAST')
-      .getManyWithTotals({ page: 1, pageSize: 2 });
+      .getManyWithTotals({ page: 1, pageSize: 2 }, { includeOrderBy: true });
 
     expect(page.orderBy).toEqual([
       { selector: 'user.firstName', order: 'DESC', nulls: 'NULLS LAST' },

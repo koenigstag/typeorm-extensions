@@ -167,6 +167,20 @@ setupTest('typed JSON paths on postgres', { entities: [ArticleEntity] }, (contex
     expect(titles(await query.getMany())).toEqual(['ten']);
   });
 
+  it('SHOULD compare numeric text by order as a number, as a query string gives it', async () => {
+    await seed();
+
+    const atLeast = articles().whereTyped((a) => a.meta.score, '>=', '10' as never);
+    const below = articles().whereTyped((a) => a.meta.score, '< :max', { max: ' 10 ' } as never);
+    const equal = articles().whereTyped((a) => a.meta.status, '=', 'done');
+
+    expect(sqlOf(atLeast)).toContain(`CAST("article"."meta" ->> 'score' AS numeric) >=`);
+    expect(titles(await atLeast.getMany())).toEqual(['ten']);
+    expect(titles(await below.getMany())).toEqual(['nine']);
+    expect(Object.values(atLeast.getParameters())).toEqual([10]);
+    expect(sqlOf(equal)).not.toContain('numeric');
+  });
+
   it('SHOULD cast booleans and the values of IN and ANY', async () => {
     await seed();
 

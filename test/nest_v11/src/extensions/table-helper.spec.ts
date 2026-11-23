@@ -1,4 +1,5 @@
 import { tableHelper } from 'typeorm-extensions/utils/table.utils';
+import { inspect } from 'util';
 import { UserEntity } from '../models';
 import { setupTest, createFakeUsers } from '../test-utils';
 import { sqliteDrivers } from '../constants/database';
@@ -157,96 +158,108 @@ describe('tableHelper', () => {
     });
   });
 
-  describe('jsonColumn', () => {
-    it('SHOULD return column with ->> operator', () => {
+  describe('json / jsonText', () => {
+    it('SHOULD write the path the callback walks, -> on every key or ->> on the last, in parentheses', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.jsonColumn('firstName', '->>', 'nested')).toBe('"user"."firstName" ->> \'nested\'');
-    });
+      expect(table.jsonText((u) => u.metadata.role)).toBe('("user"."metadata" ->> \'role\')');
+      expect(table.json((u) => u.metadata.settings.theme)).toBe('("user"."metadata" -> \'settings\' -> \'theme\')');
 
-    it('SHOULD use -> json operator', () => {
-      const table = tableHelper<UserEntity>('user');
+      type Rows = { data: { items: { name: string }[] } };
 
-      expect(table.jsonColumn('firstName', '->', 'nested')).toBe('"user"."firstName" -> \'nested\'');
-    });
-
-    it('SHOULD support nested path with rest params', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->>', 'billing', 'amount')).toBe(
-        '"user"."firstName" -> \'billing\' ->> \'amount\''
+      expect(tableHelper<Rows>('r').jsonText((r) => r.data.items[0].name)).toBe('("r"."data" -> \'items\' -> 0 ->> \'name\')');
+      expect(tableHelper<Rows>('r', { driver: 'mysql' }).jsonText((r) => r.data.items[0].name)).toBe(
+        'JSON_UNQUOTE(JSON_EXTRACT(`r`.`data`, \'$."items"[0]."name"\'))'
       );
     });
 
-    it('SHOULD support deeply nested path (3+ levels)', () => {
+    it('SHOULD refuse a path with no key inside the column', () => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.jsonColumn('firstName', '->>', 'a', 'b', 'c')).toBe(
-        '"user"."firstName" -> \'a\' -> \'b\' ->> \'c\''
-      );
-    });
-
-    it('SHOULD use -> for all segments when jsonOperator is ->', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->', 'a', 'b')).toBe(
-        '"user"."firstName" -> \'a\' -> \'b\''
-      );
-    });
-
-    it('SHOULD escape single quotes in keys', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonColumn('firstName', '->>', "o'brien")).toBe(
-        '"user"."firstName" ->> \'o\'\'brien\''
-      );
-    });
-
-    it('SHOULD keep a quote-injection attempt inside the key literal', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(
-        table.jsonColumn('firstName', '->>', "x' OR '1'='1", 'y'),
-      ).toBe(
-        '"user"."firstName" -> \'x\'\' OR \'\'1\'\'=\'\'1\' ->> \'y\''
-      );
+      expect(() => table.jsonText((u) => u.metadata)).toThrow(/needs a key inside the column/);
+      expect(() => table.json(() => 'metadata')).toThrow(/the callback returns a path/);
     });
   });
 
-  describe('jsonPath', () => {
-    it('SHOULD return only operator fragment', () => {
-      const table = tableHelper<UserEntity>('user');
+  describe('column accessor', () => {
+    type Row = { id: number; userId: string; 'first-name': string; alias: string; count: number };
 
-      expect(table.jsonPath('firstName', '->>', 'role')).toBe("->> 'role'");
+    it('SHOULD give what column() gives for a column read as a property', () => {
+      const table = tableHelper<UserEntity>('user');
+      const row = tableHelper<Row>('row');
+
+      expect(table.firstName).toBe(table.column('firstName'));
+      expect(table.firstName).toBe('"user"."firstName"');
+      expect(row.userId).toBe('"row"."userId"');
+      expect(row['first-name']).toBe(row.column('first-name'));
+      expect(row['first-name']).toBe('"row"."first-name"');
     });
 
-    it('SHOULD return nested operators without column', () => {
-      const table = tableHelper<UserEntity>('user');
-
-      expect(table.jsonPath('firstName', '->>', 'billing', 'amount')).toBe(
-        "-> 'billing' ->> 'amount'"
-      );
+    it('SHOULD follow the alias and the options, as column() does', () => {
+      expect(tableHelper<Row>().userId).toBe('"userId"');
+      expect(tableHelper<Row>('row', { useQuotes: false }).userId).toBe('row.userId');
+      expect(tableHelper<Row>('row', { driver: 'mysql' }).userId).toBe('`row`.`userId`');
+      expect(tableHelper<Row>('my.row').userId).toBe(tableHelper<Row>('my.row').column('userId'));
     });
 
-    it('SHOULD support deeply nested path', () => {
-      const table = tableHelper<UserEntity>('user');
+    it('SHOULD give the members of the helper, not columns of the same name', () => {
+      const row = tableHelper<Row>('row');
 
-      expect(table.jsonPath('firstName', '->>', 'a', 'b', 'c')).toBe(
-        "-> 'a' -> 'b' ->> 'c'"
-      );
+      expect(row.alias).toBe('row');
+      expect(row.count('id')).toBe('CAST(COUNT("row"."id") AS integer)');
+      expect(row.column('count')).toBe('"row"."count"');
+
+      for (const member of Object.keys(row)) {
+        expect(row[member as keyof typeof row]).not.toBe(row.column(member as keyof Row));
+      }
     });
 
-    it('SHOULD escape single quotes in keys', () => {
+    it.each([
+      'then',
+      'toJSON',
+      'toString',
+      'valueOf',
+      'constructor',
+      'inspect',
+      'asymmetricMatch',
+      '$$typeof',
+      'nodeType',
+      '__proto__',
+      'hasOwnProperty',
+      'isPrototypeOf',
+      'propertyIsEnumerable',
+      'toLocaleString',
+    ])('SHOULD not read %s as a column', (key) => {
       const table = tableHelper<UserEntity>('user');
 
-      expect(table.jsonPath('firstName', '->>', "it's", 'ok')).toBe(
-        "-> 'it''s' ->> 'ok'"
-      );
+      expect((table as Record<string, unknown>)[key]).toBe(({} as Record<string, unknown>)[key]);
+    });
+
+    it('SHOULD not read symbols as columns', () => {
+      const table = tableHelper<UserEntity>('user') as unknown as Record<symbol, unknown>;
+
+      expect(table[Symbol.iterator]).toBeUndefined();
+      expect(table[Symbol.toPrimitive]).toBeUndefined();
+      expect(table[Symbol.toStringTag]).toBeUndefined();
+      expect(table[Symbol.for('nodejs.util.inspect.custom')]).toBeUndefined();
+    });
+
+    it('SHOULD log, serialize, await and compare like a plain object', async () => {
+      const table = tableHelper<UserEntity>('user');
+
+      expect(JSON.stringify(table)).toBe('{"alias":"user"}');
+      expect(String(table)).toBe('[object Object]');
+      expect(`${table}`).toBe('[object Object]');
+      expect(inspect(table)).toContain("alias: 'user'");
+      expect(await Promise.resolve(table)).toBe(table);
+      expect(table).toEqual(expect.objectContaining({ alias: 'user' }));
+      expect(Object.keys(table)).toContain('column');
+      expect('firstName' in table).toBe(false);
     });
   });
 });
 
-setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
+setupTest('tableHelper.jsonText (database)', undefined, (context) => {
   // `metadata` is a `simple-json` (text) column: SQLite's `->>` works on JSON text,
   // PostgreSQL's needs a json/jsonb column
   if (!sqliteDrivers.includes(context.typeormOptions.type as never)) {
@@ -271,7 +284,7 @@ setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
 
     const result = await usersRepository
       .createQueryBuilder('user')
-      .where(`${t.jsonColumn('metadata', '->>', "o'brien")} = :value`, {
+      .where(`${t.jsonText((r) => r.metadata["o'brien"])} = :value`, {
         value: 'yes',
       })
       .getMany();
@@ -287,7 +300,7 @@ setupTest('tableHelper.jsonColumn (database)', undefined, (context) => {
     const result = await usersRepository
       .createQueryBuilder('user')
       .where(
-        `${t.jsonColumn('metadata', '->>', "x' OR 1=1 OR '")} = :value`,
+        `${t.jsonText((r) => r.metadata["x' OR 1=1 OR '"])} = :value`,
         { value: 'yes' },
       )
       .getMany();

@@ -5,6 +5,73 @@ const DATE_TIME =
   /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?$/i;
 const OFFSET = /^([+-])(\d{2}):?(\d{2})?$/;
 
+type UtcOffset = { sign: '+' | '-'; hours: string; minutes: string };
+
+/** The parts of an ISO 8601 UTC offset (`+02:00`, `-0530`, `+02`); `null` for other text, a `TypeError` past 23:59. */
+export function parseUtcOffset(text: string, errorMessage: string): UtcOffset | null {
+  const offset = OFFSET.exec(text);
+
+  if (offset === null) {
+    return null;
+  }
+
+  const [, sign, hours, minutes = '00'] = offset;
+
+  if (Number(hours) > 23 || Number(minutes) > 59) {
+    throw new TypeError(errorMessage);
+  }
+
+  return { sign: sign as UtcOffset['sign'], hours, minutes };
+}
+
+/**
+ * PostgreSQL reads `'+02:00'` as a POSIX zone, whose offsets count west: UTC−2. An ISO 8601 offset is
+ * written as the POSIX zone of the same offset, `'<+0200>-02:00'`, so `'+02:00'` is UTC+2 as everywhere else.
+ */
+export function toPostgresZone(method: string, timeZone: string): string {
+  const offset = parseUtcOffset(timeZone.trim(), `${method}(): "${timeZone}" is not a UTC offset`);
+
+  if (offset === null) {
+    return timeZone;
+  }
+
+  const { sign, hours, minutes } = offset;
+
+  return `<${sign}${hours}${minutes}>${sign === '+' ? '-' : '+'}${hours}:${minutes}`;
+}
+
+/** The units of PostgreSQL's `date_trunc`. */
+export type DateTruncUnit =
+  | 'microseconds'
+  | 'milliseconds'
+  | 'second'
+  | 'minute'
+  | 'hour'
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'year'
+  | 'decade'
+  | 'century'
+  | 'millennium';
+
+export const DATE_TRUNC_UNITS: readonly DateTruncUnit[] = [
+  'microseconds',
+  'milliseconds',
+  'second',
+  'minute',
+  'hour',
+  'day',
+  'week',
+  'month',
+  'quarter',
+  'year',
+  'decade',
+  'century',
+  'millennium',
+];
+
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
 function getFormatter(timeZone: string): Intl.DateTimeFormat {
@@ -118,11 +185,7 @@ function getOffsetMinutes(offset: string, value: string, name: string): number {
     return 0;
   }
 
-  const [, sign, hours, minutes = '00'] = OFFSET.exec(offset) as RegExpExecArray;
-
-  if (Number(hours) > 23 || Number(minutes) > 59) {
-    throw new TypeError(`Invalid ${name} "${value}": not a UTC offset`);
-  }
+  const { sign, hours, minutes } = parseUtcOffset(offset, `Invalid ${name} "${value}": not a UTC offset`) as UtcOffset;
 
   return (sign === '-' ? -1 : 1) * (Number(hours) * 60 + Number(minutes));
 }

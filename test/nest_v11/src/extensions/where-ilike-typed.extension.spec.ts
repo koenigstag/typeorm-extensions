@@ -128,6 +128,15 @@ describe('where-search-typed.sql', () => {
     expect(new Set(params(query))).toEqual(new Set(['%jo%']));
   });
 
+  it('SHOULD take one callback selecting the columns', () => {
+    const search = (query: ReturnType<typeof pg>) => query.getQuery().replace(/andWhere_\w+/g, ':p');
+
+    expect(search(pg().andWhereSearchTyped<UserEntity>((u) => [u.firstName, u.email], 'jo'))).toBe(
+      search(pg().andWhereSearchTyped<UserEntity>([(u) => u.firstName, (u) => u.email], 'jo')),
+    );
+    expect(() => pg().whereSearchTyped<UserEntity>(() => [], 'jo')).toThrow(/non-empty array of columns/);
+  });
+
   it('SHOULD skip the parentheses for a single column', () => {
     expect(pg().whereSearchTyped<UserEntity>([(u) => u.firstName], 'jo').getQuery()).toMatch(
       /WHERE "u"\."firstName" ILIKE :where_\w+$/,

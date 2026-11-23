@@ -1,6 +1,6 @@
-import { ObjectLiteral, QueryRunner, SelectQueryBuilder } from 'typeorm';
-import type { LateralSubQuery } from '../types/extensions/join-lateral.types';
-import { withUniqueParameterNames } from '../utils/parameter.utils';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import type { SubQuery } from '../types/extensions/sub-query.types';
+import { detachedSubQuery, toSubQuerySql } from '../utils/parameter.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 
 // declarations
@@ -15,7 +15,7 @@ export interface JoinLateralMethods {
    * The subquery's columns are raw: select them with `addSelect('"alias"."column"', 'name')`.
    */
   leftJoinLateral<SubEntity extends ObjectLiteral = ObjectLiteral>(
-    subQuery: LateralSubQuery<SubEntity>,
+    subQuery: string | SubQuery<SubEntity>,
     alias: string,
     condition?: string,
     parameters?: ObjectLiteral
@@ -23,7 +23,7 @@ export interface JoinLateralMethods {
 
   /** `INNER JOIN LATERAL`: as `leftJoinLateral`, but rows without a match are dropped. */
   innerJoinLateral<SubEntity extends ObjectLiteral = ObjectLiteral>(
-    subQuery: LateralSubQuery<SubEntity>,
+    subQuery: string | SubQuery<SubEntity>,
     alias: string,
     condition?: string,
     parameters?: ObjectLiteral
@@ -42,7 +42,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     leftJoinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
-      subQuery: LateralSubQuery<SubEntity>,
+      subQuery: string | SubQuery<SubEntity>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
@@ -51,7 +51,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
     },
     innerJoinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
-      subQuery: LateralSubQuery<SubEntity>,
+      subQuery: string | SubQuery<SubEntity>,
       alias: string,
       condition?: string,
       parameters?: ObjectLiteral
@@ -70,7 +70,7 @@ type LateralSql = { sql: string; parameters: ObjectLiteral };
 function joinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   method: 'leftJoin' | 'innerJoin',
-  subQuery: LateralSubQuery<SubEntity>,
+  subQuery: string | SubQuery<SubEntity>,
   alias: string,
   condition = 'TRUE',
   parameters?: ObjectLiteral
@@ -90,7 +90,7 @@ function joinLateral<Entity extends ObjectLiteral, SubEntity extends ObjectLiter
 
 function toLateralSql<Entity extends ObjectLiteral, SubEntity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
-  subQuery: LateralSubQuery<SubEntity>
+  subQuery: string | SubQuery<SubEntity>
 ): LateralSql {
   if (typeof subQuery === 'string') {
     // raw SQL: its placeholders are the query's own parameters, set with `parameters` or setParameter
@@ -100,25 +100,7 @@ function toLateralSql<Entity extends ObjectLiteral, SubEntity extends ObjectLite
   const subBuilder =
     typeof subQuery === 'function' ? subQuery(detachedSubQuery(builder)) : subQuery;
 
-  const query = subBuilder.getQuery();
-  // a builder from subQuery() wraps itself in parentheses, any other doesn't
-  const wrapped = subBuilder.expressionMap.subQuery ? query : `(${query})`;
-  const [sql, parameters] = withUniqueParameterNames(wrapped, subBuilder.getParameters());
+  const [sql, parameters] = toSubQuerySql(subBuilder);
 
-  return { sql, parameters };
-}
-
-/**
- * A subquery builder for a factory, as TypeORM's `subQuery()` but without a parent: TypeORM's would
- * set the factory's parameters on the outer query under their own names, before they can be renamed.
- */
-function detachedSubQuery<Entity extends ObjectLiteral>(
-  builder: SelectQueryBuilder<Entity>
-): SelectQueryBuilder<ObjectLiteral> {
-  const queryRunner = (builder as unknown as { queryRunner?: QueryRunner }).queryRunner;
-  const subQuery = builder.connection.createQueryBuilder(queryRunner);
-
-  subQuery.expressionMap.subQuery = true;
-
-  return subQuery;
+  return { sql: `(${sql})`, parameters };
 }

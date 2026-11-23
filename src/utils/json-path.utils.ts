@@ -1,6 +1,7 @@
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import type { DatabaseType } from 'typeorm';
 import { isPostgresLikeDriver, isSqliteLikeDriver } from './sql.utils';
+import { isDate } from './common.utils';
 
 /** `->>` gives the value as text (as an SQL value on SQLite), `->` as JSON. */
 export type JsonAccessor = 'text' | 'json';
@@ -19,7 +20,6 @@ export function buildJsonPath(fieldNames: readonly string[], jsonOperator: '->>'
     .join(' ');
 }
 
-const isDate = (value: unknown): value is Date => Object.prototype.toString.call(value) === '[object Date]';
 
 /**
  * PostgreSQL type to compare a `->>` value (text) with `value` as: text compares `'9' >= '10'` as true.

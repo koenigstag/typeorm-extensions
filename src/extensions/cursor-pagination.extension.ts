@@ -2,20 +2,27 @@ import { ObjectLiteral } from 'typeorm';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
 import type { CursorPaginationFilter } from '../types/interfaces/cursor-pagination.interface';
+import type { OrderDirection } from '../types/interfaces/ordering.interface';
 import type {
   GetManyWithCursorOptions,
+  GetRawManyWithCursorOptions,
   ListWithCursor,
 } from '../types/extensions/cursor-pagination.types';
-import { defaultPageSize } from '../constants';
+import { normalizePageSize, setPageLimit } from '../utils/pagination.utils';
 import { patchPrototype } from '../utils/prototype.utils';
 import { toSqlOrderDirection } from '../utils/order.utils';
 import { andWhereNarrowing } from '../utils/where.utils';
 import { createUniqueParameterName } from '../utils/sql.utils';
+import { getAppliedOrderBy } from '../utils/query-builder.utils';
+import { isDate } from '../utils/common.utils';
 import {
   buildKeysetCondition,
+  CursorValue,
   decodeCursor,
   encodeCursor,
+  getExpressionKeyName,
   getTextCastType,
+  InvalidCursorError,
   supportsRowValueComparison,
 } from '../utils/cursor.utils';
 
@@ -25,6 +32,8 @@ export { InvalidCursorError } from '../utils/cursor.utils';
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
+    // generic over the entity of `this`: the property names of `orderBy` in a parameter would make the builder
+    // invariant in its entity, and no SelectQueryBuilder<Entity> assignable to SelectQueryBuilder<ObjectLiteral>
     /**
      * Loads a page with keyset (cursor) pagination: instead of OFFSET, the rows after the last row of
      * the previous page, `WHERE (createdAt, id) < (:lastCreatedAt, :lastId)`. Pages stay fast however
@@ -36,10 +45,27 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * The query builder itself is not changed. Throws `InvalidCursorError` for a cursor that can't
      * be decoded or was made for another order.
      */
-    getManyWithCursor(
+    getManyWithCursor<CursorEntity extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<CursorEntity>,
       cursorFilter: CursorPaginationFilter | null | undefined,
-      options: GetManyWithCursorOptions<Entity>
-    ): Promise<ListWithCursor<Entity>>;
+      options: GetManyWithCursorOptions<CursorEntity>
+    ): Promise<ListWithCursor<CursorEntity>>;
+
+    /**
+     * `getManyWithCursor` for raw rows (`getRawMany()`), ordered by SQL expressions, so a computed
+     * value can be a key too: `CASE "member"."role" WHEN 'owner' THEN 0 ELSE 1 END`.
+     *
+     * Orders the query by `options.orderBy`, replacing its ORDER BY, and appends the primary key of
+     * the main alias when the query is on an entity and has no GROUP BY or DISTINCT. Loads
+     * `pageSize + 1` rows with LIMIT and returns `nextCursor` together with `hasMore`. The cursor
+     * names the keys by a hash of their SQL, not the SQL itself.
+     * The query builder itself is not changed. Throws `InvalidCursorError` for a cursor that can't
+     * be decoded or was made for another order.
+     */
+    getRawManyWithCursor<Row = ObjectLiteral>(
+      cursorFilter: CursorPaginationFilter | null | undefined,
+      options: GetRawManyWithCursorOptions
+    ): Promise<ListWithCursor<Row>>;
   }
 }
 
@@ -53,6 +79,13 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       options: GetManyWithCursorOptions<Entity>
     ): Promise<ListWithCursor<Entity>> {
       return getManyWithCursor<Entity>(this, cursorFilter, options);
+    },
+    getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
+      this: SelectQueryBuilder<Entity>,
+      cursorFilter: CursorPaginationFilter | null | undefined,
+      options: GetRawManyWithCursorOptions
+    ): Promise<ListWithCursor<Row>> {
+      return getRawManyWithCursor<Entity, Row>(this, cursorFilter, options);
     },
   },
 };
@@ -68,6 +101,42 @@ type CursorKey = {
 
 const isDateColumn = (column: ColumnMetadata): boolean =>
   column.type === Date || (typeof column.type === 'string' && /date|time/i.test(column.type));
+
+const NUMERIC_TYPES: readonly string[] = [
+  'int', 'int2', 'int4', 'int8', 'integer', 'smallint', 'mediumint', 'bigint', 'tinyint',
+  'float', 'float4', 'float8', 'double', 'double precision', 'real', 'decimal', 'numeric', 'dec', 'number',
+];
+const NUMBER_TEXT = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
+const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// the text PostgreSQL, MySQL and SQLite give a date, a timestamp or a time
+const TEMPORAL_TEXT =
+  /^(?:\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?|\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:Z|[+-]\d{2}(?::?\d{2})?)?$/i;
+
+/**
+ * Whether a cursor value can be compared with its column, so a cursor edited by a client gives an
+ * `InvalidCursorError` rather than a database error (`invalid input syntax for type integer`).
+ */
+function fitsColumn(value: CursorValue | Date, column: ColumnMetadata, knownTextCast: boolean): boolean {
+  const type = typeof column.type === 'string' ? column.type.toLowerCase() : column.type;
+
+  if (type === Number || NUMERIC_TYPES.includes(type as string)) {
+    return typeof value === 'number' || (typeof value === 'string' && NUMBER_TEXT.test(value.trim()));
+  }
+
+  if (type === 'uuid' || column.generationStrategy === 'uuid') {
+    return typeof value === 'string' && UUID_TEXT.test(value);
+  }
+
+  if (isDateColumn(column)) {
+    return isDate(value) || (typeof value === 'string' && (!knownTextCast || TEMPORAL_TEXT.test(value.trim())));
+  }
+
+  if (type === Boolean || type === 'boolean' || type === 'bool') {
+    return typeof value === 'boolean' || value === 0 || value === 1;
+  }
+
+  return true;
+}
 
 /** The columns of `orderBy`, followed by the primary key columns that aren't among them. */
 function getCursorKeys<Entity extends ObjectLiteral>(
@@ -105,21 +174,17 @@ function getCursorKeys<Entity extends ObjectLiteral>(
   return keys;
 }
 
-const getPageSize = (pageSize: number | undefined): number =>
-  typeof pageSize === 'number' && Number.isFinite(pageSize) && pageSize >= 1
-    ? Math.floor(pageSize)
-    : defaultPageSize;
-
 async function getManyWithCursor<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
   cursorFilter: CursorPaginationFilter | null | undefined,
   options: GetManyWithCursorOptions<Entity>
 ): Promise<ListWithCursor<Entity>> {
-  const { orderBy, useTakeAndSkip = false } = options ?? {};
+  const { orderBy, useTakeAndSkip = false, includeOrderBy = false } = options ?? {};
 
   const keys = getCursorKeys(builder, orderBy);
   const fields = keys.map((key) => key.column.propertyPath);
-  const pageSize = getPageSize(cursorFilter?.pageSize);
+  const cursorFields = keys.map((key, i) => toCursorField(fields[i], key.direction));
+  const pageSize = normalizePageSize(cursorFilter?.pageSize);
 
   const query = builder.clone();
   const alias = query.alias;
@@ -130,7 +195,14 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     `${query.escape(alias)}.${query.escape(column.databaseName)}`;
 
   if (cursorFilter?.cursor) {
-    const values = decodeCursor(cursorFilter.cursor, fields);
+    const values = decodeCursor(cursorFilter.cursor, cursorFields);
+    const knownTextCast = textCastType === 'text' || textCastType === 'char';
+
+    keys.forEach((key, i) => {
+      if (!fitsColumn(values[i], key.column, knownTextCast)) {
+        throw new InvalidCursorError(`Invalid cursor: its value of "${fields[i]}" doesn't fit the column`);
+      }
+    });
 
     const keysetColumns = keys.map((key, i) => {
       const paramName = createUniqueParameterName(`cursor${i}`);
@@ -144,6 +216,7 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
 
   query.orderBy();
   keys.forEach((key) => query.addOrderBy(`${alias}.${key.column.propertyPath}`, key.direction));
+  const appliedOrderBy = includeOrderBy ? { orderBy: getAppliedOrderBy(query) } : {};
 
   // the key values of the last row are read from the raw result: dates and times as text, so the
   // cursor keeps the database's precision (PostgreSQL timestamps have microseconds, a JS Date has not)
@@ -157,31 +230,40 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     return keyAlias;
   });
 
+  // a date key is read as text, which never equals the entity's Date: such a key is also read as is
   const primaryAliases = keys
     .map((key, i) => ({ key, i }))
     .filter(({ key }) => key.column.isPrimary)
-    .map(({ key, i }) => ({ column: key.column, keyAlias: keyAliases[i] }));
+    .map(({ key, i }) => {
+      if (!(isDateColumn(key.column) && textCastType)) {
+        return { column: key.column, keyAlias: keyAliases[i], hydrate: false };
+      }
 
-  if (useTakeAndSkip) {
-    query.take(pageSize + 1);
-  } else {
-    query.limit(pageSize + 1);
-  }
+      const matchAlias = `cursor_match_${i}`;
+      query.addSelect(quotedColumn(key.column), matchAlias);
+
+      return { column: key.column, keyAlias: matchAlias, hydrate: true };
+    });
+
+  setPageLimit(query, pageSize + 1, useTakeAndSkip);
 
   const { entities, raw } = await query.getRawAndEntities();
 
   const list = entities.slice(0, pageSize);
 
   if (entities.length <= pageSize) {
-    return { list, nextCursor: null, hasMore: false };
+    return { list, nextCursor: null, hasMore: false, pageSize, ...appliedOrderBy };
   }
 
   // with joined collections there are several raw rows per entity: find one of the last entity's
   const last = list[list.length - 1];
+  const comparable = (value: unknown): unknown => (isDate(value) ? value.getTime() : String(value));
   const lastRaw = raw.find((row) =>
-    primaryAliases.every(
-      ({ column, keyAlias }) => String(row[keyAlias]) === String(column.getEntityValue(last))
-    )
+    primaryAliases.every(({ column, keyAlias, hydrate }) => {
+      const value = hydrate ? query.connection.driver.prepareHydratedValue(row[keyAlias], column) : row[keyAlias];
+
+      return comparable(value) === comparable(column.getEntityValue(last));
+    })
   );
 
   if (!lastRaw) {
@@ -200,5 +282,155 @@ async function getManyWithCursor<Entity extends ObjectLiteral>(
     return value;
   });
 
-  return { list, nextCursor: encodeCursor(fields, values), hasMore: true };
+  return { list, nextCursor: encodeCursor(cursorFields, values), hasMore: true, pageSize, ...appliedOrderBy };
+}
+
+// a cursor names its keys with their direction: one made for `id DESC` would read as a position in `id ASC`
+const toCursorField = (name: string, direction: 'ASC' | 'DESC'): string => (direction === 'DESC' ? `-${name}` : name);
+
+type ExpressionKey = {
+  selector: string;
+  direction: 'ASC' | 'DESC';
+};
+
+/** The expressions of `orderBy`, followed by the primary key of the main alias when it identifies a row. */
+function getExpressionKeys<Entity extends ObjectLiteral>(
+  builder: SelectQueryBuilder<Entity>,
+  orderBy: GetRawManyWithCursorOptions['orderBy']
+): ExpressionKey[] {
+  const { expressionMap } = builder;
+
+  const keys: ExpressionKey[] = (orderBy ?? []).map((key) => {
+    const { selector, alias, direction } = (key ?? {}) as {
+      selector?: unknown;
+      alias?: unknown;
+      direction?: OrderDirection;
+    };
+
+    if (alias !== undefined) {
+      if (selector !== undefined) {
+        throw new TypeError('getRawManyWithCursor: an orderBy key takes a selector or an alias, not both');
+      }
+
+      const selection = expressionMap.selects.find((select) => select.aliasName === alias)?.selection;
+
+      if (typeof selection !== 'string' || !selection.trim()) {
+        throw new TypeError(`getRawManyWithCursor: the query selects nothing as ${JSON.stringify(alias)}`);
+      }
+
+      return { selector: selection, direction: toSqlOrderDirection(direction) };
+    }
+
+    if (typeof selector !== 'string' || !selector.trim()) {
+      throw new TypeError('getRawManyWithCursor: every orderBy key needs a selector or an alias');
+    }
+
+    return { selector, direction: toSqlOrderDirection(direction) };
+  });
+  const mainAlias = expressionMap.mainAlias;
+  // grouped or distinct rows are not one per entity, and their primary key may not even be selectable
+  const isRowPerEntity =
+    expressionMap.groupBys.length === 0 &&
+    !expressionMap.selectDistinct &&
+    !expressionMap.selectDistinctOn?.length;
+
+  if (mainAlias?.hasMetadata && isRowPerEntity) {
+    const lastDirection = keys.length ? keys[keys.length - 1].direction : 'ASC';
+
+    for (const column of mainAlias.metadata.primaryColumns) {
+      const quoted = `${builder.escape(mainAlias.name)}.${builder.escape(column.databaseName)}`;
+      const path = `${mainAlias.name}.${column.propertyPath}`;
+
+      if (!keys.some((key) => key.selector === quoted || key.selector === path)) {
+        keys.push({ selector: quoted, direction: lastDirection });
+      }
+    }
+  }
+
+  if (!keys.length) {
+    throw new TypeError('getRawManyWithCursor: orderBy is empty and the query has no primary key to order by');
+  }
+
+  return keys;
+}
+
+async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
+  builder: SelectQueryBuilder<Entity>,
+  cursorFilter: CursorPaginationFilter | null | undefined,
+  options: GetRawManyWithCursorOptions
+): Promise<ListWithCursor<Row>> {
+  const keys = getExpressionKeys(builder, options?.orderBy);
+  const includeOrderBy = options?.includeOrderBy ?? false;
+  const parameterNames = Object.keys(builder.getParameters());
+  const fields = keys.map((key) => toCursorField(getExpressionKeyName(key.selector, parameterNames), key.direction));
+  const pageSize = normalizePageSize(cursorFilter?.pageSize);
+
+  const query = builder.clone();
+  const driver = query.connection.driver.options.type;
+  const textCastType = getTextCastType(driver);
+
+  if (cursorFilter?.cursor) {
+    const values = decodeCursor(cursorFilter.cursor, fields);
+
+    const keysetColumns = keys.map((key, i) => {
+      const paramName = createUniqueParameterName(`cursor${i}`);
+      query.setParameter(paramName, values[i]);
+
+      // in parentheses: an expression may bind looser than the comparison
+      return { column: `(${key.selector})`, direction: key.direction, paramName };
+    });
+
+    andWhereNarrowing(query, buildKeysetCondition(keysetColumns, supportsRowValueComparison(driver)));
+  }
+
+  query.orderBy();
+  keys.forEach((key) => query.addOrderBy(key.selector, key.direction));
+  const appliedOrderBy = includeOrderBy ? { orderBy: getAppliedOrderBy(query) } : {};
+
+  // the type of an expression is unknown here: each key is also read as text, which the cursor
+  // takes instead when the driver returned a Date, so timestamps keep the database's precision
+  const keyAliases = keys.map((key, i) => {
+    const valueAlias = `cursor_key_${i}`;
+    const textAlias = textCastType ? `cursor_text_${i}` : undefined;
+
+    query.addSelect(key.selector, valueAlias);
+
+    if (textAlias) {
+      query.addSelect(`CAST((${key.selector}) AS ${textCastType})`, textAlias);
+    }
+
+    return { valueAlias, textAlias };
+  });
+
+  const addedAliases = new Set(
+    keyAliases.flatMap(({ valueAlias, textAlias }) => (textAlias ? [valueAlias, textAlias] : [valueAlias]))
+  );
+
+  query.limit(pageSize + 1);
+
+  const rows: ObjectLiteral[] = await query.getRawMany();
+  const page = rows.slice(0, pageSize);
+  const list = page.map(
+    (row) => Object.fromEntries(Object.entries(row).filter(([column]) => !addedAliases.has(column))) as Row
+  );
+
+  if (rows.length <= pageSize) {
+    return { list, nextCursor: null, hasMore: false, pageSize, ...appliedOrderBy };
+  }
+
+  const last = page[page.length - 1];
+
+  const values = keyAliases.map(({ valueAlias, textAlias }, i) => {
+    const value = last[valueAlias];
+
+    if (value === null || value === undefined) {
+      throw new TypeError(
+        `getRawManyWithCursor: "${keys[i].selector}" is NULL in the last row; cursor keys must not be NULL`
+      );
+    }
+
+    return isDate(value) && textAlias ? last[textAlias] : value;
+  });
+
+  return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, ...appliedOrderBy };
 }

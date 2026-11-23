@@ -1,14 +1,11 @@
 import {
-  DeleteQueryBuilder,
   ObjectLiteral,
   SelectQueryBuilder,
-  UpdateQueryBuilder,
   WhereExpressionBuilder,
 } from 'typeorm';
-import { SoftDeleteQueryBuilder } from 'typeorm/query-builder/SoftDeleteQueryBuilder';
-import type { WhereMethods } from '../types/extensions';
-import { patchPrototype } from '../utils/prototype.utils';
-import { withUniqueParameterNames } from '../utils/parameter.utils';
+import type { SubQuery, SubQueryFactory } from '../types/extensions/sub-query.types';
+import { attachExists, toExistsSql } from '../utils/exists.utils';
+import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../utils/prototype.utils';
 
 // declarations
 
@@ -19,11 +16,11 @@ import { withUniqueParameterNames } from '../utils/parameter.utils';
  */
 export interface WhereExistsMethods {
   /** Sets `WHERE EXISTS (subQuery)`, replacing the WHERE conditions set before. */
-  whereExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  whereExists<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): this;
   /** Adds `AND EXISTS (subQuery)`. */
-  andWhereExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  andWhereExists<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): this;
   /** Adds `OR EXISTS (subQuery)`. */
-  orWhereExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  orWhereExists<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): this;
 }
 
 /**
@@ -32,44 +29,63 @@ export interface WhereExistsMethods {
  */
 export interface WhereNotExistsMethods {
   /** Sets `WHERE NOT EXISTS (subQuery)`, replacing the WHERE conditions set before. */
-  whereNotExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  whereNotExists<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): this;
   /** Adds `AND NOT EXISTS (subQuery)`. */
-  andWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  andWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): this;
   /** Adds `OR NOT EXISTS (subQuery)`. */
-  orWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: SelectQueryBuilder<SubEntity>): this;
+  orWhereNotExists<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): this;
+}
+
+/**
+ * `EXISTS (subquery)` and `NOT EXISTS (subquery)` as SQL, for a place the `where*Exists` methods don't reach: an `OR`
+ * group, a `CASE`, a selection, an ordering, a join condition. The subquery is built as for `whereExists`; its
+ * parameters get unique names and are set on this query when the method is called, so the SQL can go anywhere in it:
+ * `.where((qb) => \`"user"."id" = :id OR ${qb.existsSql((sub) => …)}\`, { id })`.
+ */
+export interface ExistsSqlMethods {
+  /** Returns `EXISTS (subQuery)`, and sets the subquery's parameters on this query. */
+  existsSql<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): string;
+  /** Returns `NOT EXISTS (subQuery)`, and sets the subquery's parameters on this query. */
+  notExistsSql<SubEntity extends ObjectLiteral>(subQuery: SubQuery<SubEntity>): string;
 }
 
 /* eslint-disable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 declare module 'typeorm/query-builder/WhereExpressionBuilder' {
-  interface WhereExpressionBuilder extends WhereExistsMethods, WhereNotExistsMethods {}
+  interface WhereExpressionBuilder extends WhereExistsMethods, WhereNotExistsMethods, ExistsSqlMethods {}
 }
 
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity extends ObjectLiteral> extends WhereNotExistsMethods {}
+  interface SelectQueryBuilder<Entity extends ObjectLiteral> extends WhereNotExistsMethods, ExistsSqlMethods {
+    // TypeORM's own EXISTS methods take a builder; these overloads add the factory form
+    whereExists<SubEntity extends ObjectLiteral>(subQuery: SubQueryFactory<SubEntity>): this;
+    andWhereExists<SubEntity extends ObjectLiteral>(subQuery: SubQueryFactory<SubEntity>): this;
+    orWhereExists<SubEntity extends ObjectLiteral>(subQuery: SubQueryFactory<SubEntity>): this;
+  }
 }
 
 declare module 'typeorm/query-builder/UpdateQueryBuilder' {
   interface UpdateQueryBuilder<Entity extends ObjectLiteral>
     extends WhereExistsMethods,
-      WhereNotExistsMethods {}
+      WhereNotExistsMethods,
+      ExistsSqlMethods {}
 }
 
 declare module 'typeorm/query-builder/DeleteQueryBuilder' {
   interface DeleteQueryBuilder<Entity extends ObjectLiteral>
     extends WhereExistsMethods,
-      WhereNotExistsMethods {}
+      WhereNotExistsMethods,
+      ExistsSqlMethods {}
 }
 
 declare module 'typeorm/query-builder/SoftDeleteQueryBuilder' {
   interface SoftDeleteQueryBuilder<Entity extends ObjectLiteral>
     extends WhereExistsMethods,
-      WhereNotExistsMethods {}
+      WhereNotExistsMethods,
+      ExistsSqlMethods {}
 }
 /* eslint-enable @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars */
 
 // patching
-
-type SubQuery = SelectQueryBuilder<ObjectLiteral>;
 
 const existsMethods: { prototype: WhereExistsMethods } = {
   prototype: {
@@ -99,44 +115,31 @@ const notExistsMethods: { prototype: WhereNotExistsMethods } = {
   } as WhereNotExistsMethods,
 };
 
+const existsSqlMethods: { prototype: ExistsSqlMethods } = {
+  prototype: {
+    existsSql(this: WhereExpressionBuilder, subQuery: SubQuery) {
+      return toExistsSql(this, subQuery, false);
+    },
+    notExistsSql(this: WhereExpressionBuilder, subQuery: SubQuery) {
+      return toExistsSql(this, subQuery, true);
+    },
+  } as ExistsSqlMethods,
+};
+
 // only where the builder lacks them: SelectQueryBuilder keeps TypeORM's own whereExists /
 // andWhereExists / orWhereExists, and a later TypeORM that adds any of these keeps its own
-[SelectQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder, SoftDeleteQueryBuilder].forEach((builder) => {
-  patchPrototype(builder, existsMethods, { onlyMissing: true });
-  patchPrototype(builder, notExistsMethods, { onlyMissing: true });
-});
+patchPrototypes(WHERE_QUERY_BUILDERS, existsMethods, { onlyMissing: true });
+patchPrototypes(WHERE_QUERY_BUILDERS, notExistsMethods, { onlyMissing: true });
+patchPrototypes(WHERE_QUERY_BUILDERS, existsSqlMethods, { onlyMissing: true });
 
-// implementation
+// TypeORM's own select EXISTS methods keep handling a builder; a factory goes through ours
+for (const [name, method] of [['whereExists', 'where'], ['andWhereExists', 'andWhere'], ['orWhereExists', 'orWhere']] as const) {
+  const prototype = SelectQueryBuilder.prototype as unknown as Record<string, (subQuery: SubQuery) => unknown>;
+  const own = prototype[name];
 
-export function attachExists<QB extends WhereExpressionBuilder>(
-  builder: QB,
-  method: WhereMethods,
-  subQuery: SubQuery,
-  negate: boolean
-): QB {
-  const [condition, parameters] = withUniqueParameterNames(...getExistsCondition(subQuery));
-
-  return builder[method](negate ? `NOT ${condition}` : condition, parameters) as QB;
-}
-
-/**
- * TypeORM's EXISTS condition: the subquery selects 1, without ORDER BY, LIMIT and OFFSET. TypeORM also
- * drops GROUP BY, which leaves a HAVING to aggregate the whole subquery: the GROUP BY stays with one.
- */
-function getExistsCondition(subQuery: SubQuery): [string, ObjectLiteral] {
-  const query = subQuery
-    .clone()
-    .orderBy()
-    .offset(undefined)
-    .limit(undefined)
-    .skip(undefined)
-    .take(undefined)
-    .select('1')
-    .setOption('disable-global-order');
-
-  if (query.expressionMap.havings.length === 0) {
-    query.groupBy();
+  if (own !== existsMethods.prototype[name]) {
+    prototype[name] = function (this: SelectQueryBuilder<ObjectLiteral>, subQuery: SubQuery) {
+      return typeof subQuery === 'function' ? attachExists(this, method, subQuery, false) : own.call(this, subQuery);
+    };
   }
-
-  return [`EXISTS (${query.getQuery()})`, query.getParameters()];
 }

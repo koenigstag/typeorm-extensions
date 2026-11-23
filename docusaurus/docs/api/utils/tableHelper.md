@@ -12,7 +12,7 @@ sidebar_position: 1
 import { tableHelper } from 'typeorm-extensions/helpers';
 ```
 
-The names are the entity's property names, written into the SQL as they are: the helper has no entity metadata, so a column renamed with `@Column({ name: 'amount_cents' })` has to be named that way, `t.column('amount_cents' as never)`, or selected with a typed method, which maps it.
+The names are the entity's property names. Given the type only (`tableHelper<Payment>('p')`), the helper writes them into the SQL as they are, so a column renamed with `@Column({ name: 'amount_cents' }) amount` comes out as `"p"."amount"`, which doesn't exist. Given the entity class (`tableHelper(Payment, 'p')`), it writes the column each property is mapped to: `tableHelper(Payment, 'p').amount` is `"p"."amount_cents"`. The class form reads the `name` of `@Column` and the other column decorators on the class and its parents, the nearest declaration winning, once per class and without a `DataSource`. Every other column keeps its property name, as under TypeORM's default naming strategy; a custom naming strategy and the columns of embedded entities are not applied.
 
 `typeorm-extensions/helpers` has no side effects. The package root exports `tableHelper` too, but importing it installs every QueryBuilder extension.
 
@@ -22,11 +22,18 @@ The names are the entity's property names, written into the SQL as they are: the
 tableHelper<Entity>(
   alias?: string,
   options?: { useQuotes?: boolean; driver?: DatabaseType }
-)
+): TableHelper<Entity>
+
+tableHelper(
+  entity: EntityClass<Entity>,
+  alias?: string,
+  options?: { useQuotes?: boolean; driver?: DatabaseType }
+): TableHelper<Entity>
 ```
 
 ## Arguments
 
+- entity: `EntityClass<Entity>`: The entity class, abstract ones included. The helper takes the entity type from it and writes the database names of renamed columns.
 - alias?: string: Alias of the table in the query, e.g. `'user'` for `createQueryBuilder('user')`.
 - options.useQuotes?: boolean: Quote identifiers (`"user"."email"`). Default `true`; with `false` they are left as is (`user.email`).
 - options.driver?: DatabaseType: The database the SQL is for. MySQL and MariaDB quote identifiers with backticks (`` `user`.`email` ``); without it they get double quotes. Pass `dataSource.options.type`.
@@ -44,24 +51,69 @@ All examples use `const t = tableHelper<UserEntity>('user')` and `const image = 
 | `joinOn(column, expression)` | `t.joinOn('id', '= ' + image.column('userId'))` | `"user"."id" = "images"."userId"` |
 | `isNull(column)` | `t.isNull('deletedAt')` | `"user"."deletedAt" IS NULL` |
 | `isNotNull(column)` | `t.isNotNull('email')` | `"user"."email" IS NOT NULL` |
+| `isIn(column, values, param)` | `t.isIn('id', ids, 'ids')` | `"user"."id" IN (:...ids)`, `FALSE` without ids |
+| `isNotIn(column, values, param)` | `t.isNotIn('id', ids, 'ids')` | `"user"."id" NOT IN (:...ids)`, `TRUE` without ids |
+| `isAny(column, values, param, arrayType?)` | `t.isAny('id', ids, 'ids', 'int[]')` | `"user"."id" = ANY(CAST(:ids AS int[]))`, `FALSE` without ids |
+| `isNotAny(column, values, param, arrayType?)` | `t.isNotAny('id', ids, 'ids')` | `"user"."id" <> ALL(:ids)`, `TRUE` without ids |
 | `count(column?, options?)` | `t.count('id')` | `CAST(COUNT("user"."id") AS integer)` |
 | | `t.count()` | `CAST(COUNT(*) AS integer)` |
 | | `t.count('email', { distinct: true })` | `CAST(COUNT(DISTINCT "user"."email") AS integer)` |
-| `sum(column, options?)` | `image.sum('size')` | `COALESCE(SUM("images"."size"), 0)` |
-| `arrayAgg(column, options?)` | `image.arrayAgg('id')` | `COALESCE(array_agg("images"."id"), '{}')` |
-| `atTimeZone(value, zone)` | `t.atTimeZone('createdAt', 'Europe/Kyiv')` | `("user"."createdAt" AT TIME ZONE 'Europe/Kyiv')` |
-| `dateTrunc(unit, value, zone?)` | `t.dateTrunc('day', 'createdAt', 'Europe/Kyiv')` | `date_trunc('day', "user"."createdAt", 'Europe/Kyiv')` |
 | `cast(expression, type)` | `t.cast(t.column('id'), 'text')` | `CAST("user"."id" AS text)` |
-| `jsonColumn(column, operator, ...keys)` | `t.jsonColumn('metadata', '->>', 'role')` | `"user"."metadata" ->> 'role'` |
-| `jsonPath(column, operator, ...keys)` | `t.jsonPath('metadata', '->>', 'role')` | `->> 'role'` |
-| `jsonBuildObject(columns, options?)` | `image.jsonBuildObject(['id', 'url'])` | `json_build_object('id', "images"."id", 'url', "images"."url")` |
-| `jsonAgg(expression, options?)` | `image.jsonAgg(image.column('url'))` | `COALESCE(json_agg("images"."url"), CAST('[]' AS json))` |
+| `json(path)` | `t.json((r) => r.metadata.settings)` | `("user"."metadata" -> 'settings')` |
+| `jsonText(path)` | `t.jsonText((r) => r.metadata.settings.theme)` | `("user"."metadata" -> 'settings' ->> 'theme')` |
 
 Notes:
 - Without an alias, `column()` returns just the column (`"email"`). `join()` needs an alias, the helper's or its `alias` argument; without one it throws a `TypeError`.
 - `count()` casts the result to `integer`, so drivers that return counts as strings (e.g. `pg`) give a number. With `driver: 'mysql'` it casts `AS SIGNED`, since MySQL has no `AS integer`; that is a `BIGINT`, which TypeORM's MySQL driver returns as a string by default. Its options are described in [Counting](#counting).
 - `column()` returns a quoted expression, so `select(t.column('id'), 'id')` keeps its position in the select list, unlike `select('user.id')`, which TypeORM moves into entity column order. See [selectTyped › Column order](../typed/selectTyped.md#column-order).
 - `expression` in `where()` / `joinOn()` is inserted as is. Build the columns in it with `tableHelper` too, see [Composing helpers](#composing-helpers).
+
+## Columns as properties
+
+Each column is also a read-only property of the helper that gives what `column()` gives, with the same alias and options:
+
+```typescript
+const t = tableHelper<UserEntity>('user');
+
+t.email                   // "user"."email", as t.column('email')
+`${t.id} = ${image.userId}` // "user"."id" = "images"."userId"
+
+const cte = tableHelper<Record<'utm_id' | 'total', unknown>>('cte');
+cte.utm_id                // "cte"."utm_id"
+```
+
+- The members of the helper win: a column named like one of them (`alias`, `column`, `where`, `count`, `cast`, …) is reachable through `column()` only. For an entity with a `count` column, `t.count` is the method and `t.column('count')` the column.
+- An unknown name doesn't compile (`t.notAColumn`). The names are the keys of the entity type, as `column()` takes them, relations included.
+- Symbols and the keys that JavaScript and test tools read on any object (`then`, `toJSON`, `toString`, `valueOf`, `constructor`, `inspect`, `asymmetricMatch`, `$$typeof`, `nodeType`, and the other members of `Object.prototype`) are not columns: `await`, `JSON.stringify`, `String()`, `util.inspect` and Jest matchers treat the helper as a plain object.
+- `tableHelper<Entity>()` returns a `TableHelper<Entity>`, exported for code that keeps a helper in a variable or a field.
+
+## Value lists
+
+```typescript
+isIn(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string): string
+isNotIn(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string): string
+// PostgreSQL
+isAny(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string, arrayType?: string): string
+isNotAny(column: keyof Entity, values: readonly unknown[] | null | undefined, param: string, arrayType?: string): string
+```
+
+The conditions of [`whereIsIn` / `whereIsNotIn`](../where/whereIsIn.md) and [`whereIsAny` / `whereIsNotAny`](../where/whereIsAny.md) as strings, for SQL those methods don't reach: a join condition, a `CASE`, a `filter` of `count`, a raw query.
+
+- values: Read only to see whether there are any. For an empty list, `null` or `undefined` the condition is `FALSE`, `TRUE` for `isNotIn` / `isNotAny`, as the query builder methods write it: `IN ()` is a syntax error.
+- param: The name the caller binds the values under, written into the SQL as `:param` (`:...param` for `isIn` / `isNotIn`). Letters, digits and `_` only. The query builder methods bind under a generated name; here the caller binds, so it names the parameter, and two conditions in one query need two names.
+- arrayType?: `isAny` / `isNotAny` bind the array as one parameter, cast to this type when given (`CAST(:ids AS uuid[])`), as `whereIsAny` does. `isIn` / `isNotIn` expand it into one parameter per value, on every database.
+
+```typescript
+const image = tableHelper(ImageEntity, 'image');
+
+userRepository
+  .createQueryBuilder('user')
+  .leftJoin('user.images', 'image', image.isIn('status', statuses, 'statuses'), { statuses })
+  .addSelect(t.count(undefined, { filter: t.isAny('id', vipIds, 'vipIds', 'int[]') }), 'vips')
+  .setParameter('vipIds', vipIds);
+```
+
+They throw a `TypeError` for a `param` that isn't a parameter name, an `arrayType` that isn't a type name, and `values` that are neither an array nor `null` / `undefined`.
 
 ## Counting
 
@@ -108,39 +160,29 @@ With a `LEFT JOIN`, `COUNT(*)` also counts the row of a user without images. To 
 
 `count()` throws a `TypeError` for `distinct` without a column, for an unknown `syntax`, and for a second argument that is not an options object.
 
-## Sums
+## Sums, arrays, JSON and time zones
 
-```typescript
-sum(column: NumberColumn<Entity>, options?: { filter?: string; syntax?: 'case' | 'filter' }): string
-```
-
-`COALESCE(SUM(column), 0)`: 0, not `NULL`, for a group without rows or a `LEFT JOIN` without a match. Only a column whose property is a `number` or a `bigint` compiles: `t.sum('email')` is a type error. `filter` and `syntax` work as for `count`.
+The other SQL functions are in [`Sql`](./sql.md), over the helper's columns: `Sql.sum`, `Sql.arrayAgg`, `Sql.jsonAgg` / `Sql.jsonbAgg`, `Sql.jsonBuildObject`, `Sql.atTimeZone`, `Sql.dateTrunc` and more. They write the function and nothing else, so an aggregate over no rows is `NULL`: wrap it in `Sql.coalesce` for a default.
 
 ```typescript
 const order = tableHelper<OrderEntity>('order');
+const image = tableHelper<ImageEntity>('image');
 
-order.sum('amountCents', { filter: order.where('status', "= 'paid'") })
+Sql.coalesce(Sql.sum(order.amountCents, { filter: order.where('status', "= 'paid'") }), 0)
 // COALESCE(SUM(CASE WHEN "order"."status" = 'paid' THEN "order"."amountCents" END), 0)
+
+Sql.coalesce(
+  Sql.jsonAgg(Sql.jsonBuildObject({ imageId: image.id, src: image.url }), {
+    orderBy: `${image.createdAt} DESC`,
+    filter: image.isNotNull('id'),
+  }),
+  "CAST('[]' AS json)"
+)
+// the images of each group as a JSON array, [] for a group without rows
+
+Sql.dateTrunc('day', order.paidAt, { sql: Sql.coalesce(venue.timezone, "'UTC'") })
+// date_trunc('day', "order"."paidAt", COALESCE("venue"."timezone", 'UTC'))
 ```
-
-The result isn't cast: a sum outgrows `integer` sooner than a count. PostgreSQL sums integers into a `bigint` and MySQL into a `DECIMAL`, which the drivers return as strings; convert them, or select into a [`@CalculatedColumn`](../columns/calculatedColumn.md) of type `number`.
-
-## Arrays (PostgreSQL)
-
-```typescript
-arrayAgg(column: Column<Entity>, options?: { distinct?: boolean; orderBy?: Column | [Column, 'ASC' | 'DESC']; filter?: string }): string
-```
-
-The PostgreSQL array of a column over the rows of a group, `{}` for a group without rows:
-
-```typescript
-image.arrayAgg('id', { orderBy: ['id', 'DESC'], filter: image.isNotNull('id') })
-// COALESCE(array_agg("images"."id" ORDER BY "images"."id" DESC) FILTER (WHERE "images"."id" IS NOT NULL), '{}')
-```
-
-- **`filter`**: after a `LEFT JOIN` without a match, the array is `{NULL}` without it; filter on a non-null column of the joined table.
-- **`distinct`**: each value once. PostgreSQL then orders only by the aggregated column, so another `orderBy` throws a `TypeError`.
-- The driver returns a JavaScript array. MySQL and SQLite have no arrays: with their `driver` it throws a `TypeError`, use [`jsonAgg`](#json-objects-and-arrays) there.
 
 ## Composing helpers
 
@@ -213,12 +255,11 @@ const rows = await usersRepository
 
 ## JSONB
 
-`jsonColumn` returns the full accessor for a JSON/JSONB column; `jsonPath` returns only the operator part, for use in [whereTyped](../typed/whereTyped.md) conditions, where the column comes from the callback.
+`json` and `jsonText` read a value inside a JSON column, with the path written as a callback: `t.jsonText((r) => r.metadata.settings.theme)` is `("user"."metadata" -> 'settings' ->> 'theme')`. `json` gives the value as JSON (`->` on every key), `jsonText` as text (`->>` on the last key). They differ on a JSON `null`: `jsonText` gives SQL NULL, `json` a JSON `null` that `IS NOT NULL`. The keys are checked against the column's TypeScript type the same way as below, and any key goes below an untyped value (`unknown`, `any`, `object`, `Record<string, unknown>`). A key of digits (`r.metadata.items[0]`) is an array index, so an object key of digits can't be read this way. The result is in parentheses, so a cast or a comparison can follow it (`${t.jsonText((r) => r.paymentDetails.amount)}::int > 0`). With a `driver` it is written for that database: `JSON_EXTRACT` / `JSON_UNQUOTE` on MySQL, `->` / `->>` with a `$` path on SQLite 3.38+.
 
 Typed where methods go into JSON columns themselves (`user => user.metadata.settings.theme`, see [Paths into JSON columns](../typed/whereTyped.md#paths-into-json-columns)), so these helpers are for the places that take an expression: select, group by, order, untyped where.
 
-- `operator` is applied to the last key: `->>` returns text, `->` returns JSON. Keys before the last one always use `->`.
-- Keys are inferred from the column's TypeScript type (autocomplete up to 4 levels deep). For untyped JSON columns any strings are accepted.
+- Keys are checked against the column's TypeScript type, whether it is a type alias, an interface or a class, one key at a time to the end of the path. A union takes the keys of any of its members, so a discriminated union's variants can each be read. Dates and arrays end the path. For untyped JSON columns (`unknown`, `any`, `object`, `Record<string, unknown>`) any strings are accepted, at any depth below an `unknown` value.
 - Keys are escaped as SQL string literals (`o'brien` → `'o''brien'`, and on MySQL a backslash doubled, since it is an escape there), so a key can't break out of the literal.
 
 ```typescript
@@ -229,93 +270,10 @@ type UserMetadata = {
 
 const t = tableHelper<UserEntity>('user');
 
-t.jsonColumn('metadata', '->>', 'role')              // "user"."metadata" ->> 'role'
-t.jsonColumn('metadata', '->>', 'settings', 'theme') // "user"."metadata" -> 'settings' ->> 'theme'
-t.jsonColumn('metadata', '->', 'settings')           // "user"."metadata" -> 'settings'
-t.jsonPath('metadata', '->>', 'settings', 'theme')   // -> 'settings' ->> 'theme'
+t.jsonText((r) => r.metadata.role)           // ("user"."metadata" ->> 'role')
+t.jsonText((r) => r.metadata.settings.theme) // ("user"."metadata" -> 'settings' ->> 'theme')
+t.json((r) => r.metadata.settings)           // ("user"."metadata" -> 'settings')
 ```
-
-## JSON objects and arrays
-
-`jsonBuildObject` builds a JSON object from columns, `jsonAgg` aggregates an expression over the rows of a group into a JSON array. Together they return a row with its related rows nested, in one query:
-
-```typescript
-const image = tableHelper<ImageEntity>('image', { driver: 'postgres' });
-
-const users = await userRepository
-  .createQueryBuilder('user')
-  .select('user.id', 'id')
-  .addSelect(
-    image.jsonAgg(image.jsonBuildObject({ imageId: 'id', src: 'url' }), {
-      orderBy: ['createdAt', 'DESC'],
-      filter: image.isNotNull('id'),
-    }),
-    'images'
-  )
-  .leftJoin('user.images', 'image')
-  .groupBy('user.id')
-  .getRawMany();
-
-// [{ id: 1, images: [{ imageId: 2, src: '…' }, { imageId: 1, src: '…' }] }, { id: 3, images: [] }]
-```
-
-```sql
-COALESCE(
-  json_agg(json_build_object('imageId', "image"."id", 'src', "image"."url") ORDER BY "image"."createdAt" DESC)
-    FILTER (WHERE "image"."id" IS NOT NULL),
-  CAST('[]' AS json)
-)
-```
-
-- **Columns are checked against the entity type**: the columns of `jsonBuildObject`, as a list (keys are the column names) or as a `{ key: column }` map, and the column of `orderBy`. Keys are escaped as SQL string literals.
-- **`[]` for a group without rows**: `jsonAgg` wraps the aggregate in `COALESCE(…, [])`, since an aggregate over no rows is `NULL`.
-- **`filter`** aggregates only the matching rows. After a LEFT JOIN without a match the row has `NULL` columns, which would otherwise come out as `[{"imageId": null, "src": null}]`: filter on a non-null column of the joined table, `image.isNotNull('id')`.
-- **`orderBy`** orders the array by a column of the helper's table: `'createdAt'` or `['createdAt', 'DESC']`.
-- **`jsonb: true`** uses `jsonb_build_object` / `jsonb_agg` (PostgreSQL).
-
-The functions follow the helper's `driver` option:
-
-| Database | Object | Array | Notes |
-|---|---|---|---|
-| PostgreSQL, CockroachDB (default) | `json_build_object` / `jsonb_build_object` | `json_agg` / `jsonb_agg` | parsed by the driver |
-| MySQL / MariaDB | `JSON_OBJECT` | `JSON_ARRAYAGG` | no `orderBy`, `filter` or `jsonb`: they throw a `TypeError` |
-| SQLite | `json_object` | `json_group_array` | returned as text: `JSON.parse` it; `orderBy` needs SQLite 3.44+ |
-
-Another `driver` (`mssql`, `oracle`, …) throws a `TypeError`: those databases have JSON functions of their own.
-
-## Time zones (PostgreSQL)
-
-```typescript
-atTimeZone(value: Column | { sql: string }, timeZone: TimeZone): string
-dateTrunc(unit: DateTruncUnit, value: Column | { sql: string }, timeZone?: TimeZone): string
-
-type TimeZone = string | { column: Column; fallback?: string } | { sql: string };
-```
-
-- **`atTimeZone`** is `(value AT TIME ZONE zone)`: a `timestamptz` becomes the wall-clock `timestamp` of that zone, and a `timestamp` is read as wall-clock time there and becomes a `timestamptz`.
-- **`dateTrunc`** is `date_trunc('unit', value)`. With a zone it is the three-argument form (PostgreSQL 12+): a `timestamptz` is truncated at the boundaries of that zone, so `'day'` starts at the local midnight, and the result is a `timestamptz` again. The unit is checked: `microseconds` … `millennium`, as PostgreSQL names them.
-
-The zone is one of:
-
-- a name or an offset, `'Europe/Kyiv'`, `'UTC'`, `'+02:00'`, written as an **escaped** string literal. An offset is UTC+2 for `'+02:00'`, as in ISO 8601: PostgreSQL reads a bare `'+02:00'` as a POSIX zone, UTC−2, so it is written as `'<+0200>-02:00'`, the POSIX zone of UTC+2. Offsets stored in a `column` reach PostgreSQL as they are. The literal is escaped: a zone taken from a request can't close the literal, unlike `AT TIME ZONE '${timezone}'` in a template string;
-- a column of the helper's table, `{ column: 'timezone' }`, with `fallback` for rows where it is `NULL`: `COALESCE("venue"."timezone", 'UTC')`;
-- an SQL expression, `{ sql: venue.column('timezone') }`.
-
-```typescript
-const order = tableHelper<OrderEntity>('order');
-
-// revenue per local day of the venue
-query
-  .select(order.dateTrunc('day', 'paidAt', { sql: venue.column('timezone') }), 'day')
-  .addSelect(order.sum('amountCents'), 'amountCents')
-  .groupBy('day');
-
-// wall-clock time of a booking in its own zone
-booking.atTimeZone('startsAt', { column: 'timezone', fallback: 'UTC' })
-// ("booking"."startsAt" AT TIME ZONE COALESCE("booking"."timezone", 'UTC'))
-```
-
-With a `driver` other than PostgreSQL's (MySQL, SQLite, `mssql`, …) both throw a `TypeError`.
 
 ## Usage
 
@@ -330,7 +288,7 @@ const rows = await dataSource
   .select(user.column('id'), 'id')
   .addSelect(image.count('id'), 'imagesCount')
   .where(user.isNotNull('email'))
-  .andWhere(`${user.jsonColumn('metadata', '->>', 'role')} = :role`, { role: 'admin' })
+  .andWhere(`${user.jsonText((r) => r.metadata.role)} = :role`, { role: 'admin' })
   .groupBy(user.column('id'))
   .getRawMany();
 ```
@@ -338,8 +296,8 @@ const rows = await dataSource
 ```typescript
 // a JSON value in select and group by, which take expressions
 const rows = await query
-  .select(t.jsonColumn('metadata', '->>', 'role'), 'role')
+  .select(t.jsonText((r) => r.metadata.role), 'role')
   .addSelect(t.count('id'), 'users')
-  .groupBy(t.jsonColumn('metadata', '->>', 'role'))
+  .groupBy(t.jsonText((r) => r.metadata.role))
   .getRawMany();
 ```

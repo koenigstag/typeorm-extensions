@@ -105,6 +105,54 @@ jobs:
         run: npm run test -- --runInBand
         working-directory: ${{ env.TEST_WORKING_DIR }}
 
+  # the same suite on PostgreSQL, where the PostgreSQL-only Sql functions and typed JSON paths run
+  nest-test-postgres:
+    name: nest-test (postgres 17)
+    runs-on: ubuntu-latest
+    needs: nest-build
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_DRIVER: postgres
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 5432
+      DATABASE_USER: test
+      DATABASE_PASSWORD: test
+      DATABASE_NAME: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install nest dependencies
+        run: npm clean-install
+        working-directory: ${{ env.TEST_WORKING_DIR }}
+
+      # one database for all suites, and each test drops the schema
+      - name: Run tests
+        run: npm run test -- --runInBand
+        working-directory: ${{ env.TEST_WORKING_DIR }}
+
   # the peer range `^0.3.12 || ^1.0.0`: its lowest version and the latest 0.3.x and 1.x
   nest-test-typeorm:
     name: nest-test (typeorm ${{ matrix.typeorm }})
