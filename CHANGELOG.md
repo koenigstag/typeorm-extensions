@@ -12,6 +12,7 @@ Published for testing as `3.2.0-rc.1` under the `next` dist-tag: `npm install ty
 - **`firstPage: 0 | 1`**: pages counted from 0 (`page: 0` is the first page) or from 1, the default. The `page` a read returns counts the same way.
 - **`maxPage`**: the last page a read may ask for. A later page, or an offset past its first row, throws a **`PageOutOfRangeError`** (a `RangeError` with `page` and `maxPage`) before the query runs, so a client can't make the database skip a whole table.
 - **`setPaginationDefaults({ firstPage, defaultPageSize, maxPageSize, maxPage })`** and `getPaginationDefaults()` (from `typeorm-extensions/helpers`): the options every paginated read takes when its call doesn't give its own, so an application whose pages start at 0, or whose lists stop at 100 rows a page, says so once. An option given in the call still wins.
+- **`iterateWithCursor({ batchSize, orderBy })` and `iterateRawWithCursor`**: every row of a query in batches, an async iterator over the `getManyWithCursor` / `getRawManyWithCursor` pages, for work over a large set such as a sync or a backfill. Each batch costs the same however deep it is, and rows that leave the query while it runs (processed, deleted) don't make later batches skip rows, as they do with OFFSET. `batchSize` is read as given, whatever `setPaginationDefaults` says; a `batchSize` below 1 or not whole, or a key that is not a column, throws a `TypeError` at the call.
 
 ## [3.1.0] - 2026-11-23
 

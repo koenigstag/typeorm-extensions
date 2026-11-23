@@ -23,6 +23,25 @@ export type GetRawManyWithCursorOptions = IncludeOrderByOption & PageSizeOptions
   orderBy: RawCursorOrderParam[];
 };
 
+type BatchSizeOption = {
+  /** Rows per batch, a whole number of at least 1. `defaultPageSize` / `maxPageSize` of `setPaginationDefaults` don't apply to it. */
+  batchSize: number;
+};
+
+/** Options of `iterateWithCursor`: those of `getManyWithCursor`, with a `batchSize` in place of the page size. */
+export type IterateWithCursorOptions<Entity> = Omit<
+  GetManyWithCursorOptions<Entity>,
+  'includeOrderBy' | 'defaultPageSize' | 'maxPageSize'
+> &
+  BatchSizeOption;
+
+/** Options of `iterateRawWithCursor`: those of `getRawManyWithCursor`, with a `batchSize` in place of the page size. */
+export type IterateRawWithCursorOptions = Omit<
+  GetRawManyWithCursorOptions,
+  'includeOrderBy' | 'defaultPageSize' | 'maxPageSize'
+> &
+  BatchSizeOption;
+
 export interface ListWithCursor<Entity> {
   /** The entities of the page, or with `getRawManyWithCursor` its raw rows. */
   list: Entity[];

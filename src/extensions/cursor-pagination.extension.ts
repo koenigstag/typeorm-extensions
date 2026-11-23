@@ -6,6 +6,8 @@ import type { OrderDirection } from '../types/interfaces/ordering.interface';
 import type {
   GetManyWithCursorOptions,
   GetRawManyWithCursorOptions,
+  IterateRawWithCursorOptions,
+  IterateWithCursorOptions,
   ListWithCursor,
 } from '../types/extensions/cursor-pagination.types';
 import { normalizePageSize, setPageLimit } from '../utils/pagination.utils';
@@ -66,6 +68,30 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
       cursorFilter: CursorPaginationFilter | null | undefined,
       options: GetRawManyWithCursorOptions
     ): Promise<ListWithCursor<Row>>;
+
+    /**
+     * Reads every row of the query in batches, for work over a large set such as a sync or a backfill:
+     * `for await (const users of builder.iterateWithCursor({ batchSize: 500, orderBy: [{ field: 'id' }] }))`.
+     *
+     * Each batch is the `getManyWithCursor` page after the previous one, so a batch costs the same however
+     * deep it is, and rows that leave the query meanwhile (processed, deleted) don't make the next batches
+     * skip rows, as they do with OFFSET. Each batch is a query of its own: a row inserted before the last key
+     * read, or whose keys change, can be missed. The query is copied when the iteration starts, so changing
+     * the builder afterwards changes nothing; leaving the loop stops the queries. Throws a `TypeError` at
+     * once for a `batchSize` that is not a whole number of at least 1 or a key that is not a column.
+     */
+    iterateWithCursor<CursorEntity extends ObjectLiteral = Entity>(
+      this: SelectQueryBuilder<CursorEntity>,
+      options: IterateWithCursorOptions<CursorEntity>
+    ): AsyncGenerator<CursorEntity[], void, undefined>;
+
+    /**
+     * `iterateWithCursor` for raw rows (`getRawMany()`): every row of the query in batches of
+     * `getRawManyWithCursor` pages, ordered by SQL expressions or selection aliases.
+     */
+    iterateRawWithCursor<Row = ObjectLiteral>(
+      options: IterateRawWithCursorOptions
+    ): AsyncGenerator<Row[], void, undefined>;
   }
 }
 
@@ -86,6 +112,32 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       options: GetRawManyWithCursorOptions
     ): Promise<ListWithCursor<Row>> {
       return getRawManyWithCursor<Entity, Row>(this, cursorFilter, options);
+    },
+    iterateWithCursor<Entity extends ObjectLiteral>(
+      this: SelectQueryBuilder<Entity>,
+      options: IterateWithCursorOptions<Entity>
+    ): AsyncGenerator<Entity[], void, undefined> {
+      const { batchSize, ...pageOptions } = options ?? ({} as IterateWithCursorOptions<Entity>);
+      const pageSize = toBatchSize(batchSize, 'iterateWithCursor');
+      getCursorKeys(this, pageOptions.orderBy);
+      const query = this.clone();
+
+      return iterateBatches((cursor) =>
+        getManyWithCursor<Entity>(query, { cursor, pageSize }, { ...pageOptions, ...exactPageSize(pageSize) })
+      );
+    },
+    iterateRawWithCursor<Entity extends ObjectLiteral, Row>(
+      this: SelectQueryBuilder<Entity>,
+      options: IterateRawWithCursorOptions
+    ): AsyncGenerator<Row[], void, undefined> {
+      const { batchSize, ...pageOptions } = options ?? ({} as IterateRawWithCursorOptions);
+      const pageSize = toBatchSize(batchSize, 'iterateRawWithCursor');
+      getExpressionKeys(this, pageOptions.orderBy);
+      const query = this.clone();
+
+      return iterateBatches((cursor) =>
+        getRawManyWithCursor<Entity, Row>(query, { cursor, pageSize }, { ...pageOptions, ...exactPageSize(pageSize) })
+      );
     },
   },
 };
@@ -433,4 +485,33 @@ async function getRawManyWithCursor<Entity extends ObjectLiteral, Row>(
   });
 
   return { list, nextCursor: encodeCursor(fields, values), hasMore: true, pageSize, ...appliedOrderBy };
+}
+
+function toBatchSize(batchSize: unknown, method: string): number {
+  if (typeof batchSize !== 'number' || !Number.isInteger(batchSize) || batchSize < 1) {
+    throw new TypeError(`${method}: batchSize must be a whole number of at least 1, got ${String(batchSize)}`);
+  }
+
+  return batchSize;
+}
+
+// the batch size as given: neither the default nor the cap of setPaginationDefaults applies to it
+function exactPageSize(pageSize: number): { defaultPageSize: number; maxPageSize: number } {
+  return { defaultPageSize: pageSize, maxPageSize: pageSize };
+}
+
+async function* iterateBatches<Row>(
+  readPage: (cursor: string | null) => Promise<ListWithCursor<Row>>
+): AsyncGenerator<Row[], void, undefined> {
+  let cursor: string | null = null;
+
+  do {
+    const page: ListWithCursor<Row> = await readPage(cursor);
+
+    if (page.list.length) {
+      yield page.list;
+    }
+
+    cursor = page.nextCursor;
+  } while (cursor);
 }
