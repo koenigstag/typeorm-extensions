@@ -128,7 +128,7 @@ export default dataSource
   .update()
   .set({ status: 'closed' })
   .whereIsNotDistinctFromTyped((t) => t.ownerId, null)
-  .returningTyped((t) => [t.id, t.status]);
+  .returningTyped((t) => ({ id: t.id, status: t.status }));
 `),W("table-helper","tableHelper and JSONB paths",`
 import { tableHelper } from 'typeorm-extensions';
 import { dataSource, User } from 'playground';
@@ -139,7 +139,7 @@ const u = tableHelper<User>('user');
 export default dataSource
   .getRepository(User)
   .createQueryBuilder('user')
-  .select(u.jsonColumn('metadata', '->>', 'settings', 'theme'), 'theme')
+  .select(u.jsonText((r) => r.metadata.settings.theme), 'theme')
   .addSelect(u.count(), 'users')
   .where(u.isNotNull('metadata'))
   .groupBy('theme')
@@ -238,4 +238,4 @@ export const entities = [User, Image, Ticket, Article];
 
 /** The playground's data source: PostgreSQL in this page, with the entities above. */
 export declare const dataSource: DataSource;
-`),R=dA(Ke,T.code),S=window.matchMedia("(max-width: 996px)").matches,t=K.create(T.element,{model:R,theme:T.theme==="dark"?"vs-dark":"vs",automaticLayout:!0,minimap:{enabled:!1},wordWrap:S?"on":"off",fontSize:S?13:14,tabSize:2,scrollBeyondLastLine:!1,fixedOverflowWidgets:!0}),o=R.onDidChangeContent(()=>T.onChange?.(R.getValue()));t.addCommand(UE.CtrlCmd|ME.Enter,()=>T.onRunShortcut?.());let r=import("./runtime-PCQZ5IKC.js"),s=r.then(I=>I.getDataSource()).then(()=>{});async function e(){let L=await(await NE.getTypeScriptWorker())(R.uri),C=R.uri.toString(),[M,i,H]=await Promise.all([L.getSyntacticDiagnostics(C),L.getSemanticDiagnostics(C),L.getEmitOutput(C)]),U=[...M,...i].map(p=>{let P=R.getPositionAt(p.start??0);return{line:P.lineNumber,column:P.column,message:VA(p.messageText)}});return{js:H.outputFiles.find(p=>p.name.endsWith(".js"))?.text??"",diagnostics:U}}return{getCode:()=>R.getValue(),setCode:I=>{t.setModel(R),R.setValue(I)},setTheme:I=>K.setTheme(I==="dark"?"vs-dark":"vs"),showFile:I=>{t.setModel(I==="models"?E:R),t.updateOptions({readOnly:I==="models"})},ready:s,async run(){let[{js:I,diagnostics:L},C]=await Promise.all([e(),r]);return{...await C.run(I),diagnostics:L}},async highlightSql(I){let L=I;try{L=AT(I,{language:"postgresql",keywordCase:"upper"})}catch{}return K.colorize(L,"sql",{tabSize:2})},shareUrl(){let I=new URL(location.href);return I.hash=`code=${(0,PE.compressToEncodedURIComponent)(R.getValue())}`,I.toString()},dispose(){o.dispose(),t.dispose()}}}export{Fr as codeFromUrl,Yr as createPlayground,fe as examples};
+`),R=dA(Ke,T.code),S=window.matchMedia("(max-width: 996px)").matches,t=K.create(T.element,{model:R,theme:T.theme==="dark"?"vs-dark":"vs",automaticLayout:!0,minimap:{enabled:!1},wordWrap:S?"on":"off",fontSize:S?13:14,tabSize:2,scrollBeyondLastLine:!1,fixedOverflowWidgets:!0}),o=R.onDidChangeContent(()=>T.onChange?.(R.getValue()));t.addCommand(UE.CtrlCmd|ME.Enter,()=>T.onRunShortcut?.());let r=import("./runtime-I2U6OEA7.js"),s=r.then(I=>I.getDataSource()).then(()=>{});async function e(){let L=await(await NE.getTypeScriptWorker())(R.uri),C=R.uri.toString(),[M,i,H]=await Promise.all([L.getSyntacticDiagnostics(C),L.getSemanticDiagnostics(C),L.getEmitOutput(C)]),U=[...M,...i].map(p=>{let P=R.getPositionAt(p.start??0);return{line:P.lineNumber,column:P.column,message:VA(p.messageText)}});return{js:H.outputFiles.find(p=>p.name.endsWith(".js"))?.text??"",diagnostics:U}}return{getCode:()=>R.getValue(),setCode:I=>{t.setModel(R),R.setValue(I)},setTheme:I=>K.setTheme(I==="dark"?"vs-dark":"vs"),showFile:I=>{t.setModel(I==="models"?E:R),t.updateOptions({readOnly:I==="models"})},ready:s,async run(){let[{js:I,diagnostics:L},C]=await Promise.all([e(),r]);return{...await C.run(I),diagnostics:L}},async highlightSql(I){let L=I;try{L=AT(I,{language:"postgresql",keywordCase:"upper"})}catch{}return K.colorize(L,"sql",{tabSize:2})},shareUrl(){let I=new URL(location.href);return I.hash=`code=${(0,PE.compressToEncodedURIComponent)(R.getValue())}`,I.toString()},dispose(){o.dispose(),t.dispose()}}}export{Fr as codeFromUrl,Yr as createPlayground,fe as examples};
