@@ -82,3 +82,13 @@ query
 ## Databases
 
 Each part is in parentheses, `(A) UNION (B)`, so a part may have its own ORDER BY and LIMIT. SQLite takes no parentheses there, nor an ORDER BY inside a part, which a query of an entity with a default `orderBy` has: on SQLite a part with an ORDER BY, a LIMIT or an OFFSET is `SELECT * FROM (A)` instead, and the others stay bare. The recursive part of a CTE (`recursive: true`) can't be a subquery on SQLite, so it can't have an ORDER BY or a LIMIT there.
+
+## Parameters of a builder CTE under take / skip
+
+TypeORM hands the parameters of a CTE given as a builder (`addCommonTableExpression(builder, alias)`) to the query only while it writes the WITH clause. `getMany` / `getOne` with `take` or `skip` and a join write that SQL on a clone for their DISTINCT id query, then bind the original query's parameters, so a placeholder of the CTE stayed unbound and the query failed (`syntax error at or near ":"` on PostgreSQL). `common-table-expression.extension` adds the parameters of every builder CTE to `getParameters()`, over the query's own, as writing the WITH clause does. The package root installs it; with extensions imported one by one:
+
+```typescript
+import 'typeorm-extensions/dist/extensions/common-table-expression.extension';
+```
+
+`addCommonTableExpressionUnion` sets the parameters on the query itself, so it doesn't need this.
