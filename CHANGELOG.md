@@ -2,7 +2,7 @@
 
 ## [3.0.0] - Unreleased
 
-Published for testing as `3.0.0-rc.8` under the `next` dist-tag: `npm install typeorm-extensions@next`. The release candidates up to `2.2.0-rc.17` carry the 2.2.0 number; the release is 3.0.0 because `returningTyped` changed shape.
+Published for testing as `3.0.0-rc.9` under the `next` dist-tag: `npm install typeorm-extensions@next`. The release candidates up to `2.2.0-rc.17` carry the 2.2.0 number; the release is 3.0.0 because `returningTyped` changed shape.
 
 A major version. Every export of 2.1.0 is still there except `applyPaginationFilter`, `tableHelper`'s `jsonColumn` / `jsonPath` and the `JsonFieldRest` type, and `returningTyped` changed shape; a few calls that worked now throw or read differently. **Breaking Changes** lists all of it, and [Upgrading from 2.x](https://koenigstag.github.io/typeorm-extensions/docs/getting-started/upgrading-from-2) walks through it. It also carries the MIT license prepared for 2.1.1, which was never published.
 
