@@ -30,6 +30,7 @@ Code that builds a `ListWithTotals` or a `ListWithCursor` itself, such as a test
   - an order without a `field`;
   - `whereIsIn` / `whereIsAny` / `innerJoinUnnest` given a value that is neither a list nor one value, such as the object a query string makes of a long list;
   - `whereArrayContains`, `whereArrayContainedBy` and `whereArrayOverlaps` on a database other than PostgreSQL: MySQL read `&&` as a logical AND and returned the wrong rows.
+  - `whereSimilarTyped` (and `and…` / `or…`) and `addSimilarityScoreTyped` on a database other than PostgreSQL: there `%` is the modulo operator, so the query ran and matched no row. They throw even for a blank term. `whereSearchTyped` without the new `similar` option works on every database as before.
 - **Pool connections.** Without a query runner of its own, `getManyWithTotals` runs the count and the page at the same time and holds two pool connections for the call, where 2.x held one. Size the pool for it, or pass `disableTotalsCalculation` where a list needs no total.
 
 ## No action needed
