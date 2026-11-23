@@ -24,6 +24,9 @@ const UNQUOTED_IDENTIFIER_PATH = new RegExp(`^${UNQUOTED_IDENTIFIER}(?:\\.${UNQU
 /** `user.firstName`, `firstName`: unquoted identifiers joined by dots, nothing else. */
 export const isUnquotedIdentifierPath = (value: string): boolean => UNQUOTED_IDENTIFIER_PATH.test(value);
 
+/** `"user"."firstName"`, `user.id`: identifiers, quoted or not, joined by dots; not an expression. */
+export const isIdentifierPath = (value: string): boolean => IDENTIFIER_PATH.test(value);
+
 /** MySQL, MariaDB and Aurora MySQL: backtick identifiers, `<=>` null-safe comparison. */
 export const isMysqlLikeDriver = (driver?: DatabaseType): boolean =>
   driver === 'mysql' || driver === 'mariadb' || driver === 'aurora-mysql';

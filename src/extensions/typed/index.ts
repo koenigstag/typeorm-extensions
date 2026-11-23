@@ -21,5 +21,6 @@ export * from './typed-returning/typed-returning.extension';
 export * from './typed-on-conflict/typed-on-conflict.extension';
 export * from './typed-insert-select/typed-insert-select.extension';
 export * from './typed-order-by/typed-order-by-array-position.extension';
+export * from './typed-order-by/typed-order-by-similarity.extension';
 export * from './typed-calculated/typed-calculated-column.extension';
 export * from './typed-root.extension';

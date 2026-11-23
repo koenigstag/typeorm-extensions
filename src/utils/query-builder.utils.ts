@@ -15,7 +15,13 @@ import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import type { OrderType } from '../types/interfaces/ordering.interface';
 import { createKeyTooDeepError, getKeyHolder, KeyHolder, MAX_KEY_DEPTH } from './proxy-key.utils';
 import { isJsonColumn, JsonPathSqlOptions, toJsonPathSql } from './json-path.utils';
-import { getDriverType, isUnquotedIdentifierPath, quoteIdentifier, stringToSQLIdentifier } from './sql.utils';
+import {
+  getDriverType,
+  isIdentifierPath,
+  isUnquotedIdentifierPath,
+  quoteIdentifier,
+  stringToSQLIdentifier,
+} from './sql.utils';
 import { isCalculated } from './calculated-column.utils';
 
 /**
@@ -83,6 +89,7 @@ const DEFERRED_FIELD = '\uE002';
 const DEFERRED_UNQUOTED = '\uE004';
 const DEFERRED_KEY_END = '\uE003';
 const DEFERRED_KEY = /\uE000([^\uE000-\uE004]+)([\uE001\uE002\uE004])([^\uE000-\uE004]+)\uE003/g;
+const WHOLE_DEFERRED_KEY = /^\uE000[^\uE000-\uE004]+[\uE001\uE002\uE004][^\uE000-\uE004]+\uE003$/;
 const TWO_PART_FIELD = /^([A-Za-z_][\w$]*)\.([A-Za-z_][\w$]*)$/;
 
 // TypeORM's escape() wraps a name in quotes without doubling a quote inside it, so a typed key read from a request
@@ -130,6 +137,14 @@ function toDeferredKeySql(
   const columnName = column && !column.isVirtualProperty ? column.databaseName : name;
 
   return `${escape(aliasName)}.${escape(columnName)}`;
+}
+
+/**
+ * Whether a typed key is a plain column, `"user"."firstName"` or the placeholder of a column of an alias added later,
+ * rather than an expression such as a path into a JSON column.
+ */
+export function isColumnKey(key: string): boolean {
+  return isIdentifierPath(key) || WHOLE_DEFERRED_KEY.test(key);
 }
 
 /** Replaces placeholders of `deferColumnKey` in SQL built by `builder`, through the aliases it has by then. */
