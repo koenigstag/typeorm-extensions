@@ -1,7 +1,7 @@
 import './pagination.extension';
 import { ObjectLiteral } from 'typeorm';
 import { SelectQueryBuilder } from 'typeorm/query-builder/SelectQueryBuilder';
-import { PaginationFilter } from '../types/interfaces/pagination.interface';
+import { OffsetPaginationFilter, PaginationFilter } from '../types/interfaces/pagination.interface';
 import { getLimitAndOffset, paginateQuery, setPageLimit } from '../utils/pagination.utils';
 import { defaultUseTakeAndSkip } from '../constants';
 import type {
@@ -19,7 +19,7 @@ import { getDriverType, isMysqlLikeDriver } from '../utils/sql.utils';
 declare module 'typeorm/query-builder/SelectQueryBuilder' {
   interface SelectQueryBuilder<Entity> {
     getManyWithTotals(
-      paginationFilter: PaginationFilter,
+      paginationFilter: PaginationFilter | OffsetPaginationFilter,
       options?: GetManyWithTotalsOptions
     ): Promise<ListWithTotals<Entity>>;
 
@@ -30,7 +30,7 @@ declare module 'typeorm/query-builder/SelectQueryBuilder' {
      * `options.countExpression` counts with an expression of the query instead.
      */
     getRawManyWithTotals<Row = ObjectLiteral>(
-      paginationFilter: PaginationFilter,
+      paginationFilter: PaginationFilter | OffsetPaginationFilter,
       options?: GetRawManyWithTotalsOptions
     ): Promise<ListWithTotals<Row>>;
   }
@@ -42,14 +42,14 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
   prototype: {
     getManyWithTotals<Entity extends ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
-      paginationFilter: PaginationFilter,
+      paginationFilter: PaginationFilter | OffsetPaginationFilter,
       options?: GetManyWithTotalsOptions
     ): Promise<ListWithTotals<Entity>> {
       return getManyWithTotals<Entity>(this, paginationFilter, options);
     },
     getRawManyWithTotals<Entity extends ObjectLiteral, Row = ObjectLiteral>(
       this: SelectQueryBuilder<Entity>,
-      paginationFilter: PaginationFilter,
+      paginationFilter: PaginationFilter | OffsetPaginationFilter,
       options?: GetRawManyWithTotalsOptions
     ): Promise<ListWithTotals<Row>> {
       return getRawManyWithTotals<Entity, Row>(this, paginationFilter, options);
@@ -80,7 +80,7 @@ function canCountConcurrently<Entity extends ObjectLiteral>(
 
 function getManyWithTotals<Entity extends ObjectLiteral>(
   builder: SelectQueryBuilder<Entity>,
-  paginationFilter: PaginationFilter,
+  paginationFilter: PaginationFilter | OffsetPaginationFilter,
   options?: GetManyWithTotalsOptions & ApplyPaginationOptions
 ): Promise<ListWithTotals<Entity>> {
   return readWithTotals<Entity, Entity>(builder, paginationFilter, options, {
@@ -103,7 +103,7 @@ function cloneForCount<Entity extends ObjectLiteral>(query: SelectQueryBuilder<E
 
 function getRawManyWithTotals<Entity extends ObjectLiteral, Row>(
   builder: SelectQueryBuilder<Entity>,
-  paginationFilter: PaginationFilter,
+  paginationFilter: PaginationFilter | OffsetPaginationFilter,
   options?: GetRawManyWithTotalsOptions
 ): Promise<ListWithTotals<Row>> {
   const { countExpression, ...totalsOptions } = options ?? {};
@@ -128,7 +128,7 @@ type RowsReader<Entity extends ObjectLiteral, Row> = {
 
 async function readWithTotals<Entity extends ObjectLiteral, Row>(
   builder: SelectQueryBuilder<Entity>,
-  paginationFilter: PaginationFilter,
+  paginationFilter: PaginationFilter | OffsetPaginationFilter,
   options: (GetManyWithTotalsOptions & ApplyPaginationOptions) | undefined,
   read: RowsReader<Entity, Row>
 ): Promise<ListWithTotals<Row>> {

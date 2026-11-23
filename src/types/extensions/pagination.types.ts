@@ -8,7 +8,21 @@ export type PageSizeOptions = {
   maxPageSize?: number;
 };
 
-export type ApplyPaginationOptions = PageSizeOptions & {
+export type PageNumberOptions = {
+  /** The number of the first page: 1 (the default) or 0. The `page` a paginated read returns counts the same way. */
+  firstPage?: 0 | 1;
+  /**
+   * The last page a read may ask for, counted from `firstPage`. A later page, or an `offset` past its first row,
+   * throws a `PageOutOfRangeError` before the query runs, so a client can't make the database skip a whole
+   * table. No limit when not given, or not a whole number of at least `firstPage`.
+   */
+  maxPage?: number;
+};
+
+/** The options `setPaginationDefaults` sets for every paginated read whose call doesn't give its own. */
+export type PaginationDefaults = PageSizeOptions & PageNumberOptions;
+
+export type ApplyPaginationOptions = PaginationDefaults & {
   useTakeAndSkip?: boolean;
 };
 
