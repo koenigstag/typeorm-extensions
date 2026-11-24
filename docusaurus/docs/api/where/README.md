@@ -15,6 +15,7 @@ This category provides a set of extensions for `WHERE` conditions on `SelectQuer
 - [whereArrayContains / ContainedBy / Overlaps](./whereArray): add `@>`, `<@`, `&&` conditions on array columns (PostgreSQL).
 - [whereJsonContains / whereJsonHasKey](./whereJson): add `@>` and `?` conditions on JSON columns (PostgreSQL).
 - [whereIsDistinctFrom](./whereIsDistinctFrom): add null-safe `IS [NOT] DISTINCT FROM` conditions (any database).
+- [whereExpression](./whereExpression): compare an SQL expression (`coalesce(…)`, `lower(…)`, a date expression) through a find operator or an SQL condition (any database).
 - [applyPeriodFilter](./applyPeriodFilter): filter by a period `{ periodFrom, periodTo }` of a date / time column (any database).
 - [whereNotExists / whereExists](./whereNotExists): add `NOT EXISTS (subquery)` conditions, and `EXISTS` on update and delete queries, which TypeORM lacks (any database).
 

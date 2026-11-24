@@ -130,13 +130,14 @@ export function attachWhere<QB extends WhereExpressionBuilder>(
   field: string,
   conditions: string,
   params?: unknown,
-  options?: { addValue?: boolean }
+  options?: { addValue?: boolean; expression?: boolean }
 ): QB {
   let { addValue } = options || {};
 
   if (method && typeof field === 'string' && typeof conditions === 'string') {
     const fieldName = field;
-    field = toFieldSql(builder, field);
+    // an SQL expression is written as is, a field is quoted as an identifier
+    field = options?.expression ? field : toFieldSql(builder, field);
 
     const hasParams = typeof params !== 'undefined';
     // `addValue` defaults to `true` unless `conditions` already references one of the `params` keys

@@ -33,17 +33,56 @@ const isPredicateRenderer = (value: unknown): value is PredicateRenderer => {
 
 const ORM_PARAMETER = /:orm_param_\d+\b/g;
 
+// TypeORM 0.3.12 has no `or` FindOperatorType and doesn't render one
+const OR = 'or' as FindOperator<unknown>['type'];
+
+/** The operators `Not(…)`, `And(…)` or `Or(…)` combine; none for any other operator. */
+function childOperators(operator: FindOperator<unknown>): FindOperator<unknown>[] | undefined {
+  // `value` gives the value of a nested operator, `child` the operator itself
+  if (operator.type === 'not') {
+    return operator.child ? [operator.child] : undefined;
+  }
+
+  const value: unknown = operator.value;
+
+  if (operator.type === 'and' || operator.type === OR) {
+    return Array.isArray(value) && value.every(isFindOperator) ? value : undefined;
+  }
+
+  return undefined;
+}
+
+const holdsOr = (operator: FindOperator<unknown>): boolean =>
+  operator.type === OR || (childOperators(operator) ?? []).some(holdsOr);
+
 /**
  * The condition TypeORM's `find({ where })` writes for `operator` on `field`, with the operator's values set as
  * parameters of `builder`. TypeORM names them `orm_param_0`, `orm_param_1`… per builder, so a query that takes the
  * parameters of a subquery built on its own would get two `orm_param_0`: the operator is rendered on a builder of
- * its own and its values are set under unique names.
+ * its own and its values are set under unique names. `Or(…)`, and a `Not(…)` / `And(…)` holding one, is written
+ * here, the same on every TypeORM version: `(a OR b)`, `NOT(a OR b)`.
  */
 export function renderFindOperator(
   builder: WhereExpressionBuilder,
   field: string,
   operator: FindOperator<unknown>
 ): string {
+  if (holdsOr(operator)) {
+    const children = childOperators(operator) ?? [];
+    const render = (child: FindOperator<unknown>): string =>
+      child.type === OR ? `(${renderOrParts(builder, field, child)})` : renderFindOperator(builder, field, child);
+
+    if (operator.type === 'not') {
+      return `NOT(${children[0].type === OR ? renderOrParts(builder, field, children[0]) : render(children[0])})`;
+    }
+
+    if (operator.type === 'and') {
+      return children.map(render).join(' AND ');
+    }
+
+    return `(${renderOrParts(builder, field, operator)})`;
+  }
+
   const renderer = (builder as unknown as { connection?: { createQueryBuilder?: () => unknown } }).connection?.createQueryBuilder?.();
 
   if (!isPredicateRenderer(renderer)) {
@@ -67,8 +106,40 @@ export function renderFindOperator(
   return condition.replace(ORM_PARAMETER, (placeholder) => `:${names.get(placeholder.slice(1)) ?? placeholder.slice(1)}`);
 }
 
-/** The value a find operator compares with: the first one of a list, none for `IsNull()` or `Raw()`. */
+/** The operators of an `Or(…)` on `field`, joined by OR, without the parentheses around them. */
+function renderOrParts(builder: WhereExpressionBuilder, field: string, operator: FindOperator<unknown>): string {
+  const children = childOperators(operator) ?? [];
+
+  if (!children.length) {
+    throw new TypeError(`Or() on "${field}" has no operator to match: pass at least one`);
+  }
+
+  return children
+    .map((child) => (child.type === OR ? `(${renderOrParts(builder, field, child)})` : renderFindOperator(builder, field, child)))
+    .join(' OR ');
+}
+
+/**
+ * The value a find operator compares with: the first one of a list, none for `IsNull()` or `Raw()`, the first value
+ * one of its operators has for `Or(…)`.
+ */
 export function getFindOperatorValue(operator: FindOperator<unknown>): unknown {
+  if (operator.type === 'not' && operator.child?.type === OR) {
+    return getFindOperatorValue(operator.child);
+  }
+
+  if (operator.type === OR) {
+    for (const child of childOperators(operator) ?? []) {
+      const value = getFindOperatorValue(child);
+
+      if (value !== undefined) {
+        return value;
+      }
+    }
+
+    return undefined;
+  }
+
   if (!operator.useParameter) {
     return undefined;
   }
@@ -120,6 +191,20 @@ export function IsTrue(): FindOperator<boolean> {
  */
 export function IsFalse(): FindOperator<boolean> {
   return Raw((field) => `${field} IS FALSE`) as FindOperator<boolean>;
+}
+
+/**
+ * Matches when any of `operators` matches, `(op1 OR op2 …)` on the one column:
+ * `whereTyped((s) => s.endedAt, Or(IsNull(), MoreThan(now)))` → `("s"."endedAt" IS NULL OR "s"."endedAt" > :op_…)`.
+ * TypeORM's own `Or`, which TypeORM 0.3.12 lacks; the typed where methods and `whereExpression` write either one,
+ * on every TypeORM version. `Not(Or(…))` negates it. Throws a `TypeError` without an operator.
+ */
+export function Or<T>(...operators: FindOperator<T>[]): FindOperator<T> {
+  if (!operators.length || !operators.every(isFindOperator)) {
+    throw new TypeError('Or() takes one find operator or more');
+  }
+
+  return new FindOperator<T>(OR, operators as unknown as T, true, true);
 }
 
 /**
