@@ -9,7 +9,7 @@ import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extens
 import { postgresLikeDrivers, sqliteDrivers } from '../constants/database';
 import { disableStrictOrderInput, enableStrictOrderInput, InvalidOrderError } from 'typeorm-extensions/helpers';
 import { setupTest, createFakeUsers, createFakeImages, mysqlRun, nativeSql, sqlOf } from '../test-utils';
-import { ImageEntity, TicketEntity, UserEntity } from '../models';
+import { ImageEntity, PersonEntity, TicketEntity, UserEntity } from '../models';
 
 // what a query string hands over: text, one value for a list, an object for a list or an order
 setupTest('query-string inputs', undefined, (context) => {
@@ -129,6 +129,10 @@ setupTest('query-string inputs', undefined, (context) => {
         });
         expect(errorOf(() => users().applyOrder({ field: 'id', nulls: '' as 'first' }))).toBeInstanceOf(InvalidOrderError);
         expect(() => users().applyOrder({ field: 'firstName', tableAlias: 'user', nulls: 'last', isReversed: 'maybe' as never })).not.toThrow();
+        // a dotted field is an embedded column's path or nothing: quoted as one name, it names no column
+        expect(errorOf(() => users().applyOrder({ field: 'user.firstName' }))).toMatchObject({ part: 'field', value: 'user.firstName' });
+        expect(errorOf(() => users().applyOrder({ field: 'firstName', tableAlias: 'user.profile' }))).toMatchObject({ part: 'tableAlias' });
+        expect(() => context.dataSource.getRepository(PersonEntity).createQueryBuilder('p').applyOrder({ field: 'address.city', tableAlias: 'p' })).not.toThrow();
       } finally {
         disableStrictOrderInput();
       }

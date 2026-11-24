@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.2] - 2026-11-24
+
+### Bug Fixes
+
+- **`input: 'page' | 'offset' | 'any'`** on `applyPagination`, `getLimitAndOffset`, `getManyWithTotals` and `getRawManyWithTotals`, and in `setPaginationDefaults`: what a read takes from its filter. Since 3.2.0 a filter without `page` and `pageSize` is read by its `offset` / `limit`, so a request filter carrying a `limit` its list doesn't declare paged by it, past the `pageSize` its validation caps. With `input: 'page'` a read takes only `page` / `pageSize`, as before 3.2.0; with `'offset'` only `offset` / `limit`. `'any'`, the default, reads as 3.2.0 does. An application whose filters come from requests sets `setPaginationDefaults({ input: 'page' })` and passes `{ input: 'offset' }` where it pages by offset.
+- **Strict order input refuses a dotted name it can't order by.** With `enableStrictOrderInput`, a `field` with dots that is not an embedded column's path (`user.firstName`, `posItem.name`), or a `tableAlias` with dots (`a.b`), throws an `InvalidOrderError`. Both passed the check and were then quoted as names the database doesn't have, so the query failed when it ran instead of being refused as a bad order. An embedded column's path (`address.city`) still orders by its column.
+
 ## [3.2.0] - 2026-11-24
 
 Tested as the release candidates `3.2.0-rc.0` and `3.2.0-rc.1`.

@@ -1,6 +1,6 @@
 import { isNil } from './common.utils';
 import { toSqlNullsOrder } from './order.utils';
-import { isUnquotedIdentifierPath } from './sql.utils';
+import { isUnquotedIdentifier, isUnquotedIdentifierPath } from './sql.utils';
 
 /** The part of an order `applyOrder` could not take. */
 export type InvalidOrderPart = 'order' | 'field' | 'tableAlias' | 'alias' | 'nulls';
@@ -28,9 +28,9 @@ export class InvalidOrderError extends TypeError {
 let strict = false;
 
 /**
- * Makes every `applyOrder` / `applyOrderFilter` reject, with an `InvalidOrderError`, an order whose `field` or
- * `tableAlias` is not a name (`firstName`, `user.firstName`) or whose `nulls` is not one it reads
- * (`first`, `last`, `NULLS FIRST`, `NULLS LAST`, in any case).
+ * Makes every `applyOrder` / `applyOrderFilter` reject, with an `InvalidOrderError`, an order whose `field` is
+ * not a name (`firstName`) or the path of an embedded column (`address.city`), whose `tableAlias` is not one
+ * name, or whose `nulls` is not one it reads (`first`, `last`, `NULLS FIRST`, `NULLS LAST`, in any case).
  *
  * Off by default: an order is then taken as given, its field and table alias quoted as one identifier each and
  * an unknown `nulls` left out. Turn it on once, where the extensions are loaded, when orders come from requests:
@@ -57,7 +57,7 @@ export function assertStrictOrderInput(field: string, tableAlias: unknown, nulls
     throw new InvalidOrderError(`applyOrder takes a column name as the field, got "${field}"`, 'field', field);
   }
 
-  if (!isNil(tableAlias) && (typeof tableAlias !== 'string' || !isUnquotedIdentifierPath(tableAlias))) {
+  if (!isNil(tableAlias) && (typeof tableAlias !== 'string' || !isUnquotedIdentifier(tableAlias))) {
     throw new InvalidOrderError(`applyOrder takes a name as the table alias, got "${String(tableAlias)}"`, 'tableAlias', tableAlias);
   }
 
@@ -66,6 +66,20 @@ export function assertStrictOrderInput(field: string, tableAlias: unknown, nulls
       `applyOrder takes first, last, NULLS FIRST or NULLS LAST as nulls, got "${String(nulls)}"`,
       'nulls',
       nulls
+    );
+  }
+}
+
+/**
+ * With `enableStrictOrderInput`: throws an `InvalidOrderError` for a `field` with dots that is no embedded column's
+ * path, which the order would quote as one name the database doesn't have.
+ */
+export function assertStrictOrderPath(field: string, isColumnPath: boolean): void {
+  if (strict && !isColumnPath && field.includes('.')) {
+    throw new InvalidOrderError(
+      `applyOrder takes a column name or an embedded column's path as the field, got "${field}"`,
+      'field',
+      field
     );
   }
 }

@@ -19,8 +19,21 @@ export type PageNumberOptions = {
   maxPage?: number;
 };
 
+/** What a paginated read takes from its filter: a page, an offset, or whichever the filter gives. */
+export type PaginationInput = 'page' | 'offset' | 'any';
+
+export type PaginationInputOptions = {
+  /**
+   * `'page'` reads only `page` / `pageSize`, `'offset'` only `offset` / `limit`. `'any'`, the default, reads a page
+   * when the filter gives `page` or `pageSize`, and its `offset` / `limit` otherwise. Make `'page'` the default when
+   * filters come from requests that may carry fields their lists don't declare: a stray `limit` then changes
+   * neither the page nor its size.
+   */
+  input?: PaginationInput;
+};
+
 /** The options `setPaginationDefaults` sets for every paginated read whose call doesn't give its own. */
-export type PaginationDefaults = PageSizeOptions & PageNumberOptions;
+export type PaginationDefaults = PageSizeOptions & PageNumberOptions & PaginationInputOptions;
 
 export type ApplyPaginationOptions = PaginationDefaults & {
   useTakeAndSkip?: boolean;

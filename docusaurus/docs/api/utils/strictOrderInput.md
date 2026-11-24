@@ -6,7 +6,7 @@ sidebar_position: 4
 
 ## Description
 
-An opt-in check of every order `applyOrder` and `applyOrderFilter` take. With it on, an order whose `field` or `tableAlias` is not a name (`firstName`, `user.firstName`), or whose `nulls` is not `first`, `last`, `NULLS FIRST` or `NULLS LAST` (in any case), throws an `InvalidOrderError` before the query is built.
+An opt-in check of every order `applyOrder` and `applyOrderFilter` take. With it on, an order whose `field` is not a name (`firstName`) or the path of an embedded column (`address.city`), whose `tableAlias` is not one name, or whose `nulls` is not `first`, `last`, `NULLS FIRST` or `NULLS LAST` (in any case), throws an `InvalidOrderError` before the query is built.
 
 Off by default, an order is taken as given: its field and table alias are quoted as one identifier each, so nothing in them reaches the SQL as code, and an unknown `nulls` is left out. A field that names no column then fails in the database, when the query runs. When orders come from a request, turn the check on once, where the extensions are loaded: every caller gets it, including one written later that would not know to validate the order first, and the error can be answered as a bad request in one place.
 
