@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### New Features
+
+- **`whereExpression` / `andWhereExpression` / `orWhereExpression`**: a condition on an SQL expression rather than a column (`coalesce(…)`, `lower(…)`, `AT TIME ZONE … ::date`, arithmetic), written as is and compared through a TypeORM find operator, as `whereTyped` compares a column, or through an SQL condition with its value. A find operator's values get unique parameter names, so a condition on `coalesce(a, b)` no longer has to name its parameter by hand. On `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` and in `Brackets`. An empty expression, or a condition that is neither, throws a `TypeError` instead of being left out.
+- **`Or(…operators)`** (also from `typeorm-extensions/helpers`): a column matches when any of the operators matches, `(a OR b)`, in one `whereTyped` call instead of `Brackets`. TypeORM 0.3.12 has no `Or`; the typed where methods and `whereExpression` write this one, and TypeORM's own where the version has it, the same way on every version. `Not(Or(…))` is `NOT(a OR b)`, and `Or` nests and goes inside `And(…)`. A JSON path compared through an `Or` is cast to the type of the first value it holds.
+
 ## [3.2.2] - 2026-11-24
 
 ### Bug Fixes

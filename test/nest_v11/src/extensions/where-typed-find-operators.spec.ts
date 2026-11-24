@@ -1,7 +1,8 @@
-import { Any, Brackets, Equal, In, IsNull, LessThan, MoreThanOrEqual, Not } from 'typeorm';
+import * as typeorm from 'typeorm';
+import { And, Any, Brackets, Equal, FindOperator, In, IsNull, LessThan, MoreThan, MoreThanOrEqual, Not } from 'typeorm';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
 import 'typeorm-extensions/extensions/where-exists.extension';
-import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from 'typeorm-extensions/utils/find-operator.utils';
+import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue, Or } from 'typeorm-extensions/utils/find-operator.utils';
 import 'typeorm-extensions/extensions/typed/typed-root.extension';
 import { setupTest, createFakeUsers, nativeSql, sqlOf } from '../test-utils';
 import { mysqlLikeDrivers, postgresLikeDrivers } from '../constants/database';
@@ -73,6 +74,61 @@ setupTest('whereTyped with TypeORM find operators', undefined, (context) => {
     expect(await flagIds(flags().whereTyped((q) => q.f.flag, Not(IsFalse())))).toEqual([1, 3]);
     expect(await flagIds(flags().whereTyped((q) => q.f.flag, Not(Equal(true))))).toEqual([2]);
     expect(sqlOf(flags().whereTyped((q) => q.f.flag, Not(IsTrue())))).toMatch(/WHERE NOT\("f"\."flag" IS TRUE\)/);
+  });
+
+  it('SHOULD match any of the operators through Or, and none of them through Not(Or)', async () => {
+    await seed();
+
+    const either = users().whereTyped((u) => u.firstName, Or(Equal('Alice'), Equal('Dave')));
+
+    expect(sqlOf(either)).toMatch(/WHERE \("user"\."firstName" = :op_\w+ OR "user"\."firstName" = :op_\w+\)/);
+    expect(Object.values(either.getParameters())).toEqual(['Alice', 'Dave']);
+    expect(await ids(either)).toEqual([1, 4]);
+
+    const neither = users().whereTyped((u) => u.firstName, Not(Or(Equal('Alice'), Equal('Dave'))));
+
+    expect(sqlOf(neither)).toMatch(/WHERE NOT\("user"\."firstName" = :op_\w+ OR "user"\."firstName" = :op_\w+\)/);
+    expect(await ids(neither)).toEqual([2, 3]);
+
+    expect(await ids(users().whereTyped((u) => u.id, Or(LessThan(2), MoreThan(3))))).toEqual([1, 4]);
+    expect(await ids(users().whereTyped((u) => u.firstName, Or(Equal('Bob'), Or(Equal('Carol'), IsIn(['Dave'])))))).toEqual([2, 3, 4]);
+    expect(await ids(users().whereTyped((u) => u.id, And(MoreThan(1), Or(LessThan(3), MoreThan(3)))))).toEqual([2, 4]);
+    expect(await ids(users().whereTyped((u) => u.id, Or(Equal(3))))).toEqual([3]);
+    expect(() => Or()).toThrow(TypeError);
+  });
+
+  it('SHOULD keep NULL rows with Or(IsNull(), …), which a plain comparison drops', async () => {
+    type Ends = { e: { id: number; endedAt: number | null } };
+
+    const ends = () =>
+      context.dataSource
+        .createQueryBuilder()
+        .addCommonTableExpression('SELECT 1 AS id, 5 AS "endedAt" UNION ALL SELECT 2, 15 UNION ALL SELECT 3, NULL', 'e')
+        .select(nativeSql('"e"."id"'), 'id')
+        .from('e', 'e')
+        .orderBy(nativeSql('"e"."id"'))
+        .typed<Ends>();
+    const endIds = async (query: ReturnType<typeof ends>) =>
+      (await query.getRawMany<{ id: number | string }>()).map((row) => Number(row.id));
+
+    expect(await endIds(ends().whereTyped((q) => q.e.endedAt, MoreThan(10)))).toEqual([2]);
+    expect(await endIds(ends().whereTyped((q) => q.e.endedAt, Or(IsNull(), MoreThan(10))))).toEqual([2, 3]);
+    expect(await endIds(ends().whereTyped((q) => q.e.endedAt, Not(Or(IsNull(), MoreThan(10)))))).toEqual([1]);
+  });
+
+  it("SHOULD write TypeORM's own Or the same way, where the TypeORM version has one", async () => {
+    const nativeOr = (typeorm as unknown as { Or?: <T>(...values: FindOperator<T>[]) => FindOperator<T> }).Or;
+
+    if (!nativeOr) {
+      return;
+    }
+
+    await seed();
+
+    const query = users().whereTyped((u) => u.firstName, nativeOr(Equal('Alice'), Equal('Dave')));
+
+    expect(sqlOf(query)).toMatch(/WHERE \("user"\."firstName" = :op_\w+ OR "user"\."firstName" = :op_\w+\)/);
+    expect(await ids(query)).toEqual([1, 4]);
   });
 
   it('SHOULD bind the list of Any as one array parameter', async () => {

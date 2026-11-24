@@ -4,7 +4,7 @@
 export * from './utils/table.utils';
 export * from './decorators/generated-column.decorator';
 export { escapeLikePattern } from './utils/search.utils';
-export { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from './utils/find-operator.utils';
+export { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue, Or } from './utils/find-operator.utils';
 export { Sql } from './utils/sql-functions.utils';
 export type {
   SqlAggregateOptions,
