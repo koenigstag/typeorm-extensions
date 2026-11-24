@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.2.2] - Unreleased
+## [3.2.2] - 2026-11-24
 
 ### Bug Fixes
 
