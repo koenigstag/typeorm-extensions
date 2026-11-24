@@ -1,9 +1,9 @@
 import type { ObjectLiteral, SelectQueryBuilder } from "typeorm";
 import { defaultPageSize, defaultUseTakeAndSkip } from "../constants";
-import type { ApplyPaginationOptions, PageSizeOptions, PaginationDefaults } from "../types/extensions/pagination.types";
+import type { ApplyPaginationOptions, PageSizeOptions, PaginationDefaults, PaginationInput } from "../types/extensions/pagination.types";
 import type { OffsetPaginationFilter, PaginationFilter } from "../types/interfaces/pagination.interface";
 
-export type { PageSizeOptions, PaginationDefaults };
+export type { PageSizeOptions, PaginationDefaults, PaginationInput };
 
 /**
  * A page past `maxPage`, or an offset past its first row. A `RangeError`, so an application can answer it as a
@@ -74,12 +74,21 @@ export const setPageLimit = <Entity extends ObjectLiteral>(
   useTakeAndSkip: boolean
 ): SelectQueryBuilder<Entity> => (useTakeAndSkip ? builder.take(limit) : builder.limit(limit));
 
+// which one `input: 'any'` reads: a page when the filter gives page or pageSize, its offset / limit otherwise
+const readsOffsetOf = (filter: PaginationFilter & OffsetPaginationFilter, input: PaginationInput | undefined): boolean => {
+  if (input === 'page' || input === 'offset') {
+    return input === 'offset';
+  }
+
+  return isNil(filter.page) && isNil(filter.pageSize) && (!isNil(filter.offset) || !isNil(filter.limit));
+};
+
 /**
  * The `limit` and `offset` to read. A filter with `page` or `pageSize` gives a page: the first one and the
  * default page size when it doesn't say (or says something that is not a number). A filter with neither gives
- * `offset` and `limit`: from the first row (a negative offset too) and the default page size. Also returns the
- * page read, counted from `firstPage` (for an offset, the page it falls in), and the page size. Throws a
- * `PageOutOfRangeError` past `maxPage`.
+ * `offset` and `limit`: from the first row (a negative offset too) and the default page size. `input` reads one
+ * of the two whatever the filter gives. Also returns the page read, counted from `firstPage` (for an offset, the
+ * page it falls in), and the page size. Throws a `PageOutOfRangeError` past `maxPage`.
  */
 export const getLimitAndOffset = (
   paginationFilter: PaginationFilter | OffsetPaginationFilter | null | undefined,
@@ -87,7 +96,7 @@ export const getLimitAndOffset = (
 ) => {
   const filter = (paginationFilter ?? {}) as PaginationFilter & OffsetPaginationFilter;
   const firstPage = resolveOption(options, 'firstPage') === 0 ? 0 : 1;
-  const readsOffset = isNil(filter.page) && isNil(filter.pageSize) && (!isNil(filter.offset) || !isNil(filter.limit));
+  const readsOffset = readsOffsetOf(filter, resolveOption(options, 'input'));
   const limit = normalizePageSize(readsOffset ? filter.limit : filter.pageSize, options);
   // a page past the last representable offset is just as empty
   const offset = readsOffset
