@@ -36,8 +36,8 @@ Like TypeORM's `where`, `whereTyped` replaces previously set WHERE conditions; u
 The condition may be one of TypeORM's find operators instead of SQL, written as `find({ where })` writes it, its values bound as parameters. It takes no `params`. The parameters get unique names (`:op_…`), not TypeORM's `orm_param_0`, `orm_param_1`… which each builder numbers from 0: a query can take the parameters of a subquery built on its own (`.setParameters(sub.getParameters())`) without the two overwriting each other.
 
 ```typescript
-import { Any, Equal, IsNull, MoreThanOrEqual, Not } from 'typeorm';
-import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
+import { Any, Equal, IsNull, MoreThan, MoreThanOrEqual, Not } from 'typeorm';
+import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue, Or } from 'typeorm-extensions';
 
 query
   .whereTyped((o) => o.deletedAt, IsNull())                         // "o"."deletedAt" IS NULL
@@ -50,7 +50,8 @@ query
   .andWhereTyped((o) => o.isArchived, Not(IsTrue()))                // NOT("o"."isArchived" IS TRUE): IS NOT TRUE, NULL too
   .andWhereTyped((o) => o.id, Any(orderIds))                        // "o"."id" = ANY(:op_p5n7h): one array parameter
   .andWhereTyped((o) => o.note, IsDistinctFrom(note))               // "o"."note" IS DISTINCT FROM :isDistinctFrom_1
-  .andWhereTyped((o) => o.userId, EqualColumn(users.id));           // "o"."userId" = "users"."id"
+  .andWhereTyped((o) => o.userId, EqualColumn(users.id))            // "o"."userId" = "users"."id"
+  .andWhereTyped((o) => o.shippedAt, Or(IsNull(), MoreThan(since))); // ("o"."shippedAt" IS NULL OR "o"."shippedAt" > :op_…)
 ```
 
 - **Checked values.** The value of `Equal`, `Not`, `MoreThan`, `MoreThanOrEqual`, `LessThan`, `LessThanOrEqual`, `Between`, `Like`, `ILike` and `Any` is checked against the column's type, without `strictParams`: `Equal('successful')` on an enum column fails type-check. TypeORM types `In()`, `IsNull()`, `Raw()` and the `Array…` operators as `FindOperator<any>`, so they fit any column: use **`IsIn([…])`**, the same operator with its values typed, and `Not(IsIn([…]))` (`IsIn(['successful'])` on an enum column fails type-check). With an explicit type argument (`whereTyped<Joins>(…)`) TypeScript can't infer the column, and nothing is checked: set the root with [`typed<Root>()`](./typedRoot.md) instead.
@@ -59,6 +60,7 @@ query
 - **`Any([…])`**, TypeORM's, binds the list as one array parameter, `= ANY(:param)`, where `IsIn` binds a parameter per value: for long lists, past the database's limit of bound parameters. Its values are checked like `IsIn`'s; an empty list matches no row. PostgreSQL.
 - **`IsDistinctFrom(value)`** is `IS DISTINCT FROM`: unlike `Not(Equal(…))`, it matches a NULL column too, and `IsDistinctFrom(null)` matches the rows that aren't NULL. `Not(IsDistinctFrom(value))` is an `=` that matches NULL to NULL. The value may be `null` for any column. PostgreSQL and SQLite 3.39+; on MySQL / MariaDB use [`whereIsDistinctFrom`](../where/whereIsDistinctFrom.md), which writes `<=>`.
 - **`EqualColumn(sql)`** compares the column with another column or an SQL expression, written as is; `Not(EqualColumn(…))` negates it.
+- **`Or(…operators)`** matches when any of the operators matches the column: `(a OR b)`, one condition instead of `Brackets` with `orWhereTyped` inside. `Not(Or(…))` is `NOT(a OR b)`; `Or` nests, and goes inside TypeORM's `And(…)`. TypeORM 0.3.12 has no `Or` of its own; the typed where methods and [whereExpression](../where/whereExpression.md) write this one, and TypeORM's where the version has it, the same way. Its values are checked like the operators it holds, unless one of them is `FindOperator<any>` (`IsNull()`, `In()`, `Raw()`): then the whole `Or` fits any column, as those operators do.
 - An empty `IsIn([])` / `In([])` matches no row (`0=1`), as in `find()`; an empty `Not(IsIn([]))` matches every row. Like SQL `NOT IN`, `Not(IsIn(…))` never matches a row whose column is NULL.
 
 ## Paths into JSON columns

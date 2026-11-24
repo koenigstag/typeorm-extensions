@@ -65,6 +65,7 @@ npm install typeorm-extensions
 
 **Filters and ordering** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/where/))
 - `whereIsIn` / `whereIsNotIn` that handle empty arrays, `whereIsAny`, null-safe `whereIsDistinctFrom`
+- `whereExpression`: a find operator or a condition on an SQL expression (`coalesce(…)`, `lower(…)`, a date expression), and `Or(…)` on one column for every TypeORM version
 - case-insensitive search with escaped wildcards, `applyPeriodFilter` in a time zone
 - `applyOrder` from a client's order filter, `orderByArrayPosition`; `enableStrictOrderInput` refuses an order whose names or `nulls` it does not recognise
 

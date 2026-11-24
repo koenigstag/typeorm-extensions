@@ -1,5 +1,5 @@
-import { Any, Equal, ILike, In, IsNull, LessThan, MoreThanOrEqual, Not, SelectQueryBuilder } from 'typeorm';
-import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue } from 'typeorm-extensions';
+import { Any, Equal, ILike, In, IsNull, LessThan, MoreThan, MoreThanOrEqual, Not, SelectQueryBuilder, UpdateQueryBuilder } from 'typeorm';
+import { EqualColumn, IsDistinctFrom, IsFalse, IsIn, IsTrue, Or } from 'typeorm-extensions';
 
 enum OrderStatus {
   Successful = 'successful',
@@ -111,3 +111,32 @@ orders.whereTyped((o) => o.status, IsDistinctFrom('failed'));
 
 // @ts-expect-error a string for a number column
 orders.orWhereTyped((o) => o.total, Not(IsDistinctFrom('1')));
+
+orders
+  .whereTyped((o) => o.paidAt, Or(IsNull(), MoreThan(new Date())))
+  .andWhereTyped((o) => o.status, Not(Or(Equal(OrderStatus.Failed), IsIn([OrderStatus.Successful]))))
+  .orWhereTyped((o) => o.total, Or(LessThan(10), Or(Equal(50), MoreThan(100))));
+
+// @ts-expect-error a string literal is not a member of the column's enum
+orders.whereTyped((o) => o.status, Or(Equal(OrderStatus.Failed), Equal('successful')));
+
+// @ts-expect-error a string for a number column
+orders.andWhereTyped((o) => o.total, Or(LessThan(10), MoreThan('100')));
+
+// IsNull() is FindOperator<any>, as in TypeORM: an Or holding it isn't checked
+orders.andWhereTyped((o) => o.total, Or(IsNull(), MoreThan('100')));
+
+declare const updates: UpdateQueryBuilder<Order>;
+declare const coalescedPaidAt: string;
+
+orders
+  .whereExpression(coalescedPaidAt, LessThan(new Date()))
+  .andWhereExpression('lower("o"."note")', Equal('gift'))
+  .orWhereExpression('"o"."total" * 2', Or(IsNull(), MoreThan(100)))
+  .andWhereExpression('lower("o"."note")', '= :note', { note: 'gift' })
+  .andWhereExpression('"o"."total" + 1', '>', 3, { addValue: true });
+
+updates.whereExpression('lower("note")', IsIn(['gift'])).andWhereExpression('"total" * 2', 'IS NOT NULL');
+
+// @ts-expect-error the condition is a find operator or SQL
+orders.whereExpression(coalescedPaidAt, 3);
