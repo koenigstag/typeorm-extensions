@@ -20,7 +20,7 @@ import {
   isUnquotedIdentifierPath,
 } from '../utils/sql.utils';
 import { isCalculatedColumn, selectCalculatedForOrder } from '../utils/calculated-column.utils';
-import { assertStrictOrderInput, InvalidOrderError } from '../utils/order-input.utils';
+import { assertStrictOrderInput, assertStrictOrderPath, InvalidOrderError } from '../utils/order-input.utils';
 
 /** An order filter, or the orders themselves: one order, or a list of them. */
 export type OrderFilterInput<OrderEntity> =
@@ -139,6 +139,8 @@ function getOrderOption<OrderEntity extends ObjectLiteral>(
   // TypeORM maps an unquoted `alias.property` to the column itself; anything else must name the
   // column: `@Column({ name: 'created_at' }) createdAt` is ordered by "created_at", not "createdAt"
   const databaseName = getColumnDatabaseName(builder, alias, fieldName);
+
+  assertStrictOrderPath(fieldName, databaseName !== undefined);
 
   if (useQuotes === false) {
     // written into the SQL as is, so only names get through: a field from a request may be anything

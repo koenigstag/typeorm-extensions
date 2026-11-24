@@ -48,4 +48,4 @@ export {
   PageOutOfRangeError,
   setPaginationDefaults,
 } from './utils/pagination.utils';
-export type { PageSizeOptions, PaginationDefaults } from './utils/pagination.utils';
+export type { PageSizeOptions, PaginationDefaults, PaginationInput } from './utils/pagination.utils';

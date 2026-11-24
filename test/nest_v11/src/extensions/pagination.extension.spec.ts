@@ -267,6 +267,35 @@ describe('pagination.getLimitAndOffset.offsetAndLimit', () => {
   });
 });
 
+describe('pagination.getLimitAndOffset.input', () => {
+  afterEach(() => setPaginationDefaults({}));
+
+  // a request filter can carry fields its list doesn't declare
+  const stray = { offset: 40, limit: 5000 } as never;
+
+  it("SHOULD read only page and pageSize with input 'page', so a stray limit changes neither the page nor its size", () => {
+    expect(getLimitAndOffset(stray, { input: 'page' })).toEqual({ limit: 10, offset: 0, page: 1, pageSize: 10 });
+    expect(getLimitAndOffset({ page: 2, limit: 5000 } as never, { input: 'page', defaultPageSize: 20 })).toMatchObject({ limit: 20, offset: 20 });
+  });
+
+  it("SHOULD read only offset and limit with input 'offset'", () => {
+    expect(getLimitAndOffset({ offset: 40, limit: 20, page: 9, pageSize: 3 } as never, { input: 'offset' })).toMatchObject({
+      limit: 20,
+      offset: 40,
+      page: 3,
+    });
+    expect(getLimitAndOffset({ page: 9 } as never, { input: 'offset', defaultPageSize: 25 })).toMatchObject({ limit: 25, offset: 0 });
+  });
+
+  it('SHOULD take input from setPaginationDefaults, and let the call override it', () => {
+    setPaginationDefaults({ input: 'page' });
+
+    expect(getLimitAndOffset(stray)).toMatchObject({ limit: 10, offset: 0 });
+    expect(getLimitAndOffset({ offset: 40, limit: 20 }, { input: 'offset' })).toMatchObject({ limit: 20, offset: 40 });
+    expect(getLimitAndOffset(stray, { input: 'any' })).toMatchObject({ limit: 5000, offset: 40 });
+  });
+});
+
 describe('pagination.getLimitAndOffset.firstPage', () => {
   afterEach(() => setPaginationDefaults({}));
 

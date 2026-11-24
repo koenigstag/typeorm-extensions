@@ -20,6 +20,10 @@ const IDENTIFIER_PATH_SEGMENT = new RegExp(`${IDENTIFIER}|\\*`, 'gu');
 const SINGLE_DOUBLE_QUOTED_IDENTIFIER = new RegExp(`^${DOUBLE_QUOTED_IDENTIFIER}$`, 'u');
 const SINGLE_BACK_QUOTED_IDENTIFIER = new RegExp(`^${BACK_QUOTED_IDENTIFIER}$`, 'u');
 const UNQUOTED_IDENTIFIER_PATH = new RegExp(`^${UNQUOTED_IDENTIFIER}(?:\\.${UNQUOTED_IDENTIFIER})*$`, 'u');
+const SINGLE_UNQUOTED_IDENTIFIER = new RegExp(`^${UNQUOTED_IDENTIFIER}$`, 'u');
+
+/** `firstName`: one unquoted identifier, nothing else. */
+export const isUnquotedIdentifier = (value: string): boolean => SINGLE_UNQUOTED_IDENTIFIER.test(value);
 
 /** `user.firstName`, `firstName`: unquoted identifiers joined by dots, nothing else. */
 export const isUnquotedIdentifierPath = (value: string): boolean => UNQUOTED_IDENTIFIER_PATH.test(value);
