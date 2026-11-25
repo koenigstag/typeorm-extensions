@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.3.1] - 2026-11-25
+
+### Bug Fixes
+
+- **A loaded `@CalculatedColumn` value no longer counts as a change on `save`.** `save` compared the property with the reloaded row, where a calculated property is always undefined, so a loaded value (a count, a flag) marked it changed. On TypeORM 0.3.12 saving an entity with no other change then ran an UPDATE with nothing to SET and threw `UpdateValuesMissingError`; on later versions the property was only compared for nothing. A `transformer` of its own still converts the selected value; its `to` is no longer called.
+
 ## [3.3.0] - 2026-11-24
 
 ### New Features
