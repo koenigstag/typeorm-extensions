@@ -6,6 +6,7 @@ import 'typeorm-extensions/extensions/typed/typed-order-by/typed-order-by.extens
 import 'typeorm-extensions/extensions/typed/typed-calculated/typed-calculated-column.extension';
 import 'typeorm-extensions/extensions/typed/typed-root.extension';
 import 'typeorm-extensions/extensions/typed/typed-distinct/typed-distinct.extension';
+import { UpdateQueryBuilder } from 'typeorm';
 import { selectExpression } from 'typeorm-extensions/helpers';
 import { setupTest, createFakeUsers, createFakeImages, nativeSql } from '../test-utils';
 import { ImageEntity, UserEntity } from '../models';
@@ -110,6 +111,32 @@ setupTest('CalculatedColumn', undefined, (context) => {
     const raw = await users().select('user.id', 'id').addSelect(count, 'count').getRawMany<{ count: unknown }>();
     expect(found.map(({ imagesCountTransformed }) => imagesCountTransformed?.value)).toEqual(raw.map(({ count }) => count));
     expect(raw.map(({ count }) => Number(count))).toEqual([2, 2, 0]);
+  });
+
+  // TypeORM 0.3.12 runs an UPDATE with nothing to SET when only a non-updatable property differs
+  it('SHOULD not count a loaded calculated value as a change when the entity is saved back', async () => {
+    await seed();
+
+    const count = nativeSql('(SELECT COUNT(*) FROM "images" "counted" WHERE "counted"."userId" = "user"."id")');
+    const [loaded] = await users()
+      .addSelectCalculated(count, 'imagesCount')
+      .addSelectCalculated(count, 'imagesCountTransformed')
+      .addSelectCalculated(nativeSql(`'image-x'`), 'latestImageUrl')
+      .getMany();
+    const update = jest.spyOn(UpdateQueryBuilder.prototype, 'execute');
+
+    try {
+      await context.dataSource.getRepository(UserEntity).save(loaded);
+      expect(update).not.toHaveBeenCalled();
+
+      await context.dataSource.getRepository(UserEntity).save({ ...loaded, firstName: 'Renamed' });
+      expect(update).toHaveBeenCalledTimes(1);
+    } finally {
+      update.mockRestore();
+    }
+
+    const [saved] = await users().getMany();
+    expect(saved.firstName).toBe('Renamed');
   });
 
   it('SHOULD fill the property of a joined entity, by its alias', async () => {
