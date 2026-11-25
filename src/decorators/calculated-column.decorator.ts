@@ -55,7 +55,7 @@ export function CalculatedColumn(
 
     const ownConversion = ownConversions.get(typeof type === 'string' ? type.toLowerCase() : type);
     // a transformer of its own replaces the conversion and takes the value as the database returned it
-    const conversion = options.transformer === undefined ? ownConversion : undefined;
+    const readers = [options.transformer ?? ownConversion ?? identity].flat();
 
     // the mode of TypeORM's @VirtualColumn: not a column of the table, never inserted or updated;
     // with no `query` and `select: false` TypeORM never selects it by itself
@@ -70,7 +70,9 @@ export function CalculatedColumn(
         select: false,
         insert: false,
         update: false,
-        transformer: conversion ?? options.transformer,
+        // `save` compares each property's `to` value with the reloaded row, where a calculated one is
+        // undefined: anything else marks it changed, and TypeORM 0.3.12 then runs an UPDATE with nothing to SET
+        transformer: readers.map((reader) => ({ from: (value: unknown) => reader.from(value), to: () => undefined })),
       },
     });
   };
@@ -102,6 +104,7 @@ function toBoolean(value: unknown): unknown {
   return Boolean(value);
 }
 
+const identity: ValueTransformer = { from: (value) => value, to: (value) => value };
 const numberConversion: ValueTransformer = { from: toNumber, to: (value) => value };
 const booleanConversion: ValueTransformer = { from: toBoolean, to: (value) => value };
 
