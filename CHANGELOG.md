@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [3.4.0] - 2026-11-26
 
 ### New Features
 
