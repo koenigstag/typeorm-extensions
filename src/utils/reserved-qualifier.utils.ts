@@ -1,3 +1,24 @@
+import {
+  COLON,
+  DASH,
+  DOLLAR,
+  DOT,
+  DOUBLE_QUOTE,
+  isDigit,
+  isIdentifierPart,
+  isIdentifierStart,
+  isSpace,
+  QUOTE,
+  skipBlockComment,
+  skipDollar,
+  skipLineComment,
+  skipQuotedIdentifier,
+  skipString,
+  SLASH,
+  snippetAt,
+  STAR,
+} from './sql-lexer.utils';
+
 /** A reserved word that qualifies a name without quotes, as in `order."userId"`. */
 export interface ReservedQualifier {
   /** The word as the SQL has it: `order`, `ORDER`. */
@@ -62,115 +83,6 @@ export function toReservedWordSet(words: readonly string[]): ReadonlySet<string>
   return set;
 }
 
-const TAB = 9;
-const CARRIAGE_RETURN = 13;
-const LINE_FEED = 10;
-const SPACE = 32;
-const DOUBLE_QUOTE = 34;
-const DOLLAR = 36;
-const QUOTE = 39;
-const STAR = 42;
-const DASH = 45;
-const DOT = 46;
-const SLASH = 47;
-const COLON = 58;
-const BACKSLASH = 92;
-
-const isSpace = (code: number): boolean => code === SPACE || (code >= TAB && code <= CARRIAGE_RETURN);
-
-const isDigit = (code: number): boolean => code >= 48 && code <= 57;
-
-// as PostgreSQL reads identifiers: letters, `_` and every non-ASCII character; then digits and `$` too
-const isIdentifierStart = (code: number): boolean =>
-  (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || code === 95 || code >= 128;
-
-const isIdentifierPart = (code: number): boolean => isIdentifierStart(code) || isDigit(code) || code === DOLLAR;
-
-/** Index after the string literal whose opening quote is at `start`; `E'…'` strings take backslash escapes. */
-function skipString(sql: string, start: number, backslashEscapes: boolean): number {
-  for (let i = start + 1; i < sql.length; i++) {
-    const code = sql.charCodeAt(i);
-
-    if (backslashEscapes && code === BACKSLASH) {
-      i++;
-    } else if (code === QUOTE) {
-      if (sql.charCodeAt(i + 1) !== QUOTE) {
-        return i + 1;
-      }
-
-      i++;
-    }
-  }
-
-  return sql.length;
-}
-
-function skipQuotedIdentifier(sql: string, start: number): number {
-  for (let i = start + 1; i < sql.length; i++) {
-    if (sql.charCodeAt(i) === DOUBLE_QUOTE) {
-      if (sql.charCodeAt(i + 1) !== DOUBLE_QUOTE) {
-        return i + 1;
-      }
-
-      i++;
-    }
-  }
-
-  return sql.length;
-}
-
-function skipLineComment(sql: string, start: number): number {
-  for (let i = start + 2; i < sql.length; i++) {
-    const code = sql.charCodeAt(i);
-
-    if (code === LINE_FEED || code === CARRIAGE_RETURN) {
-      return i;
-    }
-  }
-
-  return sql.length;
-}
-
-// PostgreSQL nests block comments: `/* a /* b */ c */` is one comment
-function skipBlockComment(sql: string, start: number): number {
-  let depth = 0;
-  let i = start;
-
-  while (i < sql.length) {
-    const code = sql.charCodeAt(i);
-    const next = sql.charCodeAt(i + 1);
-
-    if (code === SLASH && next === STAR) {
-      depth++;
-      i += 2;
-    } else if (code === STAR && next === SLASH) {
-      depth--;
-      i += 2;
-
-      if (depth === 0) {
-        return i;
-      }
-    } else {
-      i++;
-    }
-  }
-
-  return sql.length;
-}
-
-/** Index after the opening tag of a dollar-quoted string at `start` (`$$`, `$tag$`); -1 for a parameter (`$1`). */
-function dollarTagEnd(sql: string, start: number): number {
-  let i = start + 1;
-
-  if (isIdentifierStart(sql.charCodeAt(i))) {
-    do {
-      i++;
-    } while (isIdentifierStart(sql.charCodeAt(i)) || isDigit(sql.charCodeAt(i)));
-  }
-
-  return sql.charCodeAt(i) === DOLLAR ? i + 1 : -1;
-}
-
 /**
  * Whether the word from `start` to `end` qualifies a name: a dot follows it, after optional whitespace, and not a
  * number (`THEN .5`); and it isn't itself a name after a dot (`public.order.id`), next to a quoted name or an
@@ -196,32 +108,6 @@ function isQualifier(sql: string, start: number, end: number, previous: number):
   );
 }
 
-const SNIPPET_CONTEXT = 30;
-
-// cut at whitespace, not inside a word, when the context has some
-function snippetAt(sql: string, start: number, end: number): string {
-  let from = Math.max(0, start - SNIPPET_CONTEXT);
-  let to = Math.min(sql.length, end + SNIPPET_CONTEXT);
-
-  if (from > 0) {
-    const space = sql.slice(from, start).search(/\s/);
-
-    if (space !== -1) {
-      from += space + 1;
-    }
-  }
-
-  if (to < sql.length) {
-    const space = sql.slice(end, to).search(/\s\S*$/);
-
-    if (space !== -1) {
-      to = end + space;
-    }
-  }
-
-  return `${from > 0 ? '…' : ''}${sql.slice(from, to).replace(/\s+/g, ' ')}${to < sql.length ? '…' : ''}`;
-}
-
 /** `findBareReservedQualifiers` with the words as a set of lower-case words (`toReservedWordSet`). */
 export function scanReservedQualifiers(sql: string, words: ReadonlySet<string>): ReservedQualifier[] {
   const found: ReservedQualifier[] = [];
@@ -243,21 +129,10 @@ export function scanReservedQualifiers(sql: string, words: ReadonlySet<string>):
       i = skipString(sql, i, false);
       previous = code;
     } else if (code === DOUBLE_QUOTE) {
-      i = skipQuotedIdentifier(sql, i);
+      i = skipQuotedIdentifier(sql, i, DOUBLE_QUOTE);
       previous = code;
     } else if (code === DOLLAR) {
-      const tagEnd = dollarTagEnd(sql, i);
-
-      if (tagEnd === -1) {
-        do {
-          i++;
-        } while (isDigit(sql.charCodeAt(i)));
-      } else {
-        const close = sql.indexOf(sql.slice(i, tagEnd), tagEnd);
-
-        i = close === -1 ? length : close + (tagEnd - i);
-      }
-
+      i = skipDollar(sql, i);
       previous = code;
     } else if (isIdentifierPart(code)) {
       const start = i;
