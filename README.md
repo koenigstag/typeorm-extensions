@@ -76,6 +76,7 @@ npm install typeorm-extensions
 **SQL helpers** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/utils/tableHelper/))
 - `tableHelper`: quoted column references, conditions, counts, sums, JSON objects and paths, time zones. Given the entity class it writes the database name of a renamed column
 - the reserved qualifier guard: catches SQL like `order."userId"` before PostgreSQL rejects it
+- the unbound parameter guard: catches a `:name` parameter that has no value before the database rejects the query
 
 **Columns** ([docs](https://koenigstag.github.io/typeorm-extensions/docs/api/columns/generatedColumn/))
 - `@CalculatedColumn` with `addSelectCalculated` / `orderByTyped`: a value each query computes
