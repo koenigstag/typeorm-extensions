@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.4.0] - 2026-11-26
+
+### New Features
+
+- **`enableUnboundParameterGuard`** (also from `typeorm-extensions/helpers`): an opt-in check of the SQL every query builder runs for a `:name` or `:...name` parameter without a value, which TypeORM leaves in the SQL as written and the database rejects with a syntax error that doesn't name it. The query throws or rejects with an `UnboundParameterError` naming the parameter before it runs, or, with `mode: 'warn'`, runs and is reported to `onViolation`. The SQL is read as the database reads it: casts (`::text`), literals, quoted names, comments, Oracle's `:1` and PostgreSQL slice bounds (`tags[1:n]`) are not parameters. `findUnboundParameters(sql, driver)` is the check on its own.
+
 ## [3.3.1] - 2026-11-25
 
 ### Bug Fixes
