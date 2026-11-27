@@ -3,9 +3,10 @@ import 'typeorm-extensions/extensions/get-many-with-totals.extension';
 import 'typeorm-extensions/extensions/period-filter.extension';
 import 'typeorm-extensions/extensions/calculated-column.extension';
 import 'typeorm-extensions/extensions/typed/typed-where/typed-where.extension';
+import 'typeorm-extensions/extensions/typed/typed-where/typed-where-is-in.extension';
 import 'typeorm-extensions/extensions/union.extension';
 import 'typeorm-extensions/extensions/where-exists.extension';
-import { Entity, PrimaryColumn } from 'typeorm';
+import { Entity, Equal, PrimaryColumn } from 'typeorm';
 import { InvalidCursorError } from 'typeorm-extensions/extensions/cursor-pagination.extension';
 import { postgresLikeDrivers } from '../constants/database';
 import { dateColumn } from '../constants/columns';
@@ -78,6 +79,35 @@ setupTest('query shapes', undefined, (context) => {
       const [a, , c] = await seedUsers(3);
 
       expect(await walk(() => users().where('user.id = :a OR user.id = :c', { a, c }), [{ field: 'id' }])).toEqual([a, c]);
+    });
+  });
+
+  describe('a typed condition added before the builder becomes an UPDATE or DELETE', () => {
+    it('SHOULD delete by a typed condition written before .delete()', async () => {
+      const [a, b, c] = await seedUsers(3);
+
+      const deleted = await users().whereIsInTyped((q) => q.id, [a, b]).delete().execute();
+
+      expect(deleted.affected ?? 2).toBe(2);
+      expect(sortedIds(await context.dataSource.getRepository(UserEntity).find())).toEqual([c]);
+    });
+
+    it('SHOULD update by a typed condition written before .update()', async () => {
+      const [a, b] = await seedUsers(2);
+
+      await users().whereTyped((q) => q.id, Equal(a)).update().set({ firstName: 'Renamed' }).execute();
+
+      const byId = await context.dataSource.getRepository(UserEntity).find();
+      expect(byId.find((user) => user.id === a)?.firstName).toBe('Renamed');
+      expect(byId.find((user) => user.id === b)?.firstName).not.toBe('Renamed');
+    });
+
+    it('SHOULD keep the alias of a typed condition on the select it was written on', async () => {
+      const [a] = await seedUsers(2);
+      const query = users().whereTyped((q) => q.id, Equal(a));
+
+      expect(query.getQuery()).toContain(`${query.escape('user')}.${query.escape('id')}`);
+      expect(sortedIds(await query.getMany())).toEqual([a]);
     });
   });
 

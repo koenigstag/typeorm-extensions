@@ -5,7 +5,7 @@ import {
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import type { TypedLowerOptions } from '../../../types/extensions/search.types';
 import type { WhereMethods } from '../../../types/extensions/where.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedConditionKey } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { createUniqueParameterName } from '../../../utils/sql.utils';
 import type { TypedRoot } from '../../../types/modules/typed-root.types';
@@ -118,7 +118,7 @@ const createWhereLowerEqualsTypedMethod = (method: WhereMethods) =>
     }
 
     const methodName = `${method}LowerEqualsTyped`;
-    const column = getTypedSingleColumnKey<Type>(this, where, methodName);
+    const column = getTypedConditionKey<Type>(this, where, methodName);
     const normalize = getNormalize(options, methodName);
 
     if (value === null || value === undefined) {
@@ -145,7 +145,7 @@ const createWhereIsInLowerTypedMethod = (method: WhereMethods) =>
     }
 
     const methodName = `${method}IsInLowerTyped`;
-    const column = getTypedSingleColumnKey<Type>(this, where, methodName);
+    const column = getTypedConditionKey<Type>(this, where, methodName);
     const normalize = getNormalize(options, methodName);
 
     if (values !== null && values !== undefined && !Array.isArray(values)) {
