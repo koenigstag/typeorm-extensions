@@ -10,7 +10,7 @@ import type {
   TypedSearchOptions,
 } from '../../../types/extensions/search.types';
 import type { WhereMethods } from '../../../types/extensions/where.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedConditionKey } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { createUniqueParameterName, getDriverType } from '../../../utils/sql.utils';
 import {
@@ -142,7 +142,7 @@ const createWhereILikeTypedMethod = (method: WhereMethods) =>
 
     const methodName = `${method}ILikeTyped`;
     // resolve the column first: a wrong selector throws even for a blank value
-    const column = getTypedSingleColumnKey<Type>(this, where, methodName);
+    const column = getTypedConditionKey<Type>(this, where, methodName);
     const term = toSearchTerm(value, methodName);
 
     if (term === undefined) {

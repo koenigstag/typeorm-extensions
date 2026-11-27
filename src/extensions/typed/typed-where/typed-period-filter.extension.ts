@@ -4,7 +4,7 @@ import {
   SelectQueryBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedSingleColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedConditionKey } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { attachPeriodFilter } from '../../../utils/period.utils';
 import type { PeriodFilter } from '../../../types/interfaces/period.interface';
@@ -60,7 +60,7 @@ const extension: { prototype: Partial<SelectQueryBuilder<ObjectLiteral>> } = {
       periodFilter: PeriodFilter | null | undefined,
       options?: ApplyPeriodOptions
     ): SelectQueryBuilder<Entity> {
-      const column = getTypedSingleColumnKey<Type>(this, selection, 'applyPeriodFilterTyped', { asTimestamp: true });
+      const column = getTypedConditionKey<Type>(this, selection, 'applyPeriodFilterTyped', { asTimestamp: true });
 
       return attachPeriodFilter(this, column, periodFilter, options);
     },

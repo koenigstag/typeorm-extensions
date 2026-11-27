@@ -5,7 +5,7 @@ import {
   WhereExpressionBuilder,
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
-import { getTypedSingleColumnKey, isTypedJsonPath } from '../../../utils/query-builder.utils';
+import { getTypedConditionKey, isTypedJsonPath } from '../../../utils/query-builder.utils';
 import { createUniqueParameterName } from '../../../utils/sql.utils';
 import type { WhereMethods } from '../../../types/extensions';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
@@ -215,7 +215,7 @@ function attachWhereJsonArray<Type extends ObjectLiteral, QB extends WhereExpres
     throw new TypeError(`${methodName}: arrayType is for array columns, not for an array inside a JSON column`);
   }
 
-  const jsonArray = `CAST(${getTypedSingleColumnKey<Type>(builder, where, methodName, { accessor: 'json' })} AS jsonb)`;
+  const jsonArray = `CAST(${getTypedConditionKey<Type>(builder, where, methodName, { accessor: 'json' })} AS jsonb)`;
   const paramName = createUniqueParameterName(whereMethod);
   // a string or an object at the path isn't an array, but <@ and ?| would match it
   const onArray = (condition: string) => `(jsonb_typeof(${jsonArray}) = 'array' AND ${condition})`;
