@@ -9,7 +9,7 @@ import type {
   TypedSimilarOptions,
 } from '../../../types/extensions/search.types';
 import type { WhereMethods } from '../../../types/extensions/where.types';
-import { getTypedSingleColumnKey, isColumnKey } from '../../../utils/query-builder.utils';
+import { getTypedConditionKey, isColumnKey } from '../../../utils/query-builder.utils';
 import { patchPrototype, patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { createUniqueParameterName } from '../../../utils/sql.utils';
 import {
@@ -122,7 +122,7 @@ const createWhereSimilarTypedMethod = (method: WhereMethods) =>
 
     const methodName = `${method}SimilarTyped`;
     assertTrigramDriver(this, methodName);
-    const column = getTypedSingleColumnKey<Type>(this, where, methodName);
+    const column = getTypedConditionKey<Type>(this, where, methodName);
     const match = toTrigramMatch(options, methodName);
     const value = toSearchTerm(term, methodName);
     const minLength = options?.minLength ?? 1;

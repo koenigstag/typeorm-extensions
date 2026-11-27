@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 import { DeepUnwrapArray, ProxyColumnValueType } from '../../../types/modules/proxy-callback.types';
 import { TypedWhereCondition, TypedWhereConditionArgs, TypeOrDefault, UnsetType } from '../../../types/modules/typed-params.types';
-import { getTypedSingleColumnKey, isTypedJsonPath, toFieldSql } from '../../../utils/query-builder.utils';
+import { getTypedConditionKey, isTypedJsonPath, toFieldSql } from '../../../utils/query-builder.utils';
 import { patchPrototypes, WHERE_QUERY_BUILDERS } from '../../../utils/prototype.utils';
 import { WhereMethods } from '../../../types/extensions';
 import { TypedWhereOptions } from '../../../types/extensions/typed-where.types';
@@ -140,7 +140,7 @@ function attachTypedWhere<
 
   if (typeof where === 'function' && isFindOperator(conditions)) {
     const value = getFindOperatorValue(conditions);
-    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
+    const key = getTypedConditionKey<Type>(builder, where, `${method}Typed`, { value });
 
     return addCondition(builder, method)(renderFindOperator(builder, toFieldSql(builder, key), conditions));
   }
@@ -154,7 +154,7 @@ function attachTypedWhere<
     // several columns have no single meaning (AND? OR?), and `where…` kept only the last one
     // a path into a JSON column is cast to the type of the value it is compared with
     const value = getComparedValue(params);
-    const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, { value });
+    const key = getTypedConditionKey<Type>(builder, where, `${method}Typed`, { value });
 
     return attachWhere<QB>(builder, method, key, conditions, params, {
       addValue,

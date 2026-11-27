@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **A typed condition written before `.delete()`, `.update()`, `.softDelete()` or `.restore()` no longer keeps the select alias.** A column of the main alias was qualified when the condition was added, so `createQueryBuilder('user').whereIsInTyped((q) => q.id, ids).delete()` ran `DELETE FROM "users" WHERE "user"."id" IN (…)`, which the database rejects (`missing FROM-clause entry for table "user"`): an UPDATE or DELETE has no alias. The typed where methods now leave the alias of a main-alias column to the moment the SQL is built, so it is `"user"."id"` on a select and `"id"` on an UPDATE or DELETE. Conditions on joined aliases, select, order by, group by and having are written as before.
+
 ## [3.4.0] - 2026-11-26
 
 ### New Features

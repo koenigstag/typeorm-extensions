@@ -1,7 +1,7 @@
 import { ObjectLiteral, WhereExpressionBuilder } from 'typeorm';
 import type { KeyProxyCallback } from '../types/modules/proxy-callback.types';
 import type { JsonPathSqlOptions } from './json-path.utils';
-import { getTypedSingleColumnKey } from './query-builder.utils';
+import { getTypedConditionKey } from './query-builder.utils';
 
 /**
  * Calls the untyped where `method` with the single column a typed callback picks, followed by `args`, as the typed
@@ -23,7 +23,7 @@ export function attachTypedColumnWhere<
     return builder;
   }
 
-  const key = getTypedSingleColumnKey<Type>(builder, where, `${method}Typed`, jsonOptions);
+  const key = getTypedConditionKey<Type>(builder, where, `${method}Typed`, jsonOptions);
 
   return (builder as unknown as Record<string, (field: string, ...rest: Args) => QB>)[method](key, ...args);
 }

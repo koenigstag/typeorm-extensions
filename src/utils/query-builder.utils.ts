@@ -87,9 +87,10 @@ const DEFERRED_KEY_START = '\uE000';
 const DEFERRED_PROPERTY = '\uE001';
 const DEFERRED_FIELD = '\uE002';
 const DEFERRED_UNQUOTED = '\uE004';
+const DEFERRED_COLUMN = '\uE005';
 const DEFERRED_KEY_END = '\uE003';
-const DEFERRED_KEY = /\uE000([^\uE000-\uE004]+)([\uE001\uE002\uE004])([^\uE000-\uE004]+)\uE003/g;
-const WHOLE_DEFERRED_KEY = /^\uE000[^\uE000-\uE004]+[\uE001\uE002\uE004][^\uE000-\uE004]+\uE003$/;
+const DEFERRED_KEY = /\uE000([^\uE000-\uE005]+)([\uE001\uE002\uE004\uE005])([^\uE000-\uE005]+)\uE003/g;
+const WHOLE_DEFERRED_KEY = /^\uE000[^\uE000-\uE005]+[\uE001\uE002\uE004\uE005][^\uE000-\uE005]+\uE003$/;
 const TWO_PART_FIELD = /^([A-Za-z_][\w$]*)\.([A-Za-z_][\w$]*)$/;
 
 // TypeORM's escape() wraps a name in quotes without doubling a quote inside it, so a typed key read from a request
@@ -115,14 +116,18 @@ function deferColumnKey(aliasName: string, separator: string, name: string): str
  * - an unquoted one (select, order, group by, distinct without `useQuotes`): `alias.property` on an alias with an
  *   entity, which TypeORM maps and reads as a column of the entity; quoted on an alias without one (a subquery, a
  *   CTE), as on an alias known at the call, and on an alias the query never has, which only raw SQL adds (a LATERAL
- *   subquery in the condition of a raw join): TypeORM can't map it, and PostgreSQL would fold it to lower case.
+ *   subquery in the condition of a raw join): TypeORM can't map it, and PostgreSQL would fold it to lower case;
+ * - a column of the main alias (`deferMainAliasColumn`): the database column, qualified with the alias.
+ *
+ * `qualify: false` gives the column alone, for the main alias of an UPDATE / DELETE, which has none in its SQL.
  */
 function toDeferredKeySql(
   alias: Alias | undefined,
   aliasName: string,
   separator: string,
   name: string,
-  escape: (identifier: string) => string
+  escape: (identifier: string) => string,
+  qualify = true
 ): string {
   const metadata = metadataOf(alias);
 
@@ -133,10 +138,23 @@ function toDeferredKeySql(
   }
 
   const column =
-    metadata && (separator === DEFERRED_FIELD ? findColumn(metadata, name) : metadata.findColumnWithPropertyPath(name));
+    separator === DEFERRED_COLUMN
+      ? undefined
+      : metadata &&
+        (separator === DEFERRED_FIELD ? findColumn(metadata, name) : metadata.findColumnWithPropertyPath(name));
   const columnName = column && !column.isVirtualProperty ? column.databaseName : name;
 
-  return `${escape(aliasName)}.${escape(columnName)}`;
+  return qualify ? `${escape(aliasName)}.${escape(columnName)}` : escape(columnName);
+}
+
+/**
+ * Placeholder for a column of the main alias, `"user"."first_name"`, in a condition. Written at the call, the alias
+ * would stay in the condition when the builder becomes an UPDATE / DELETE afterwards
+ * (`.createQueryBuilder('user').whereTyped(…).delete()`), whose SQL has no alias: `missing FROM-clause entry`.
+ * Resolved when the SQL is built, it is the column alone there (`resolveDeferredKeys`).
+ */
+function deferMainAliasColumn(aliasName: string, columnName: string): string {
+  return deferColumnKey(aliasName, DEFERRED_COLUMN, columnName);
 }
 
 /**
@@ -155,9 +173,20 @@ export function resolveDeferredKeys(builder: WhereExpressionBuilder, statement: 
 
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
   const escape = safeEscape((identifier) => queryBuilder.escape(identifier), getDriverType(builder));
+  // UPDATE / DELETE write their table without an alias
+  const unqualifiedAlias = isAliasPrefixingEnabled(queryBuilder)
+    ? undefined
+    : queryBuilder.expressionMap?.mainAlias?.name;
 
   return statement.replace(DEFERRED_KEY, (_match, aliasName: string, separator: string, name: string) =>
-    toDeferredKeySql(findQueryAlias(queryBuilder, aliasName), aliasName, separator, name, escape)
+    toDeferredKeySql(
+      findQueryAlias(queryBuilder, aliasName),
+      aliasName,
+      separator,
+      name,
+      escape,
+      separator === DEFERRED_UNQUOTED || aliasName !== unqualifiedAlias
+    )
   );
 }
 
@@ -492,7 +521,8 @@ function resolveTypedKeyPath(
 function toQuotedColumnKey(
   queryBuilder: QueryBuilder<ObjectLiteral>,
   { aliasName, propertyPath, metadata, column, jsonPath }: ResolvedTypedKey,
-  jsonOptions?: JsonPathSqlOptions
+  jsonOptions?: JsonPathSqlOptions,
+  deferMainAlias = false
 ): string {
   if (aliasName !== undefined && !metadata && !findQueryAlias(queryBuilder, aliasName)) {
     return deferColumnKey(aliasName, DEFERRED_PROPERTY, propertyPath);
@@ -504,7 +534,12 @@ function toQuotedColumnKey(
     getDriverType(queryBuilder as unknown as WhereExpressionBuilder)
   );
 
-  const columnSql = aliasName === undefined ? escape(columnName) : `${escape(aliasName)}.${escape(columnName)}`;
+  const columnSql =
+    aliasName === undefined
+      ? escape(columnName)
+      : deferMainAlias && aliasName === queryBuilder.expressionMap?.mainAlias?.name
+        ? deferMainAliasColumn(aliasName, columnName)
+        : `${escape(aliasName)}.${escape(columnName)}`;
 
   if (!column || !jsonPath) {
     return columnSql;
@@ -526,12 +561,13 @@ function toQuotedColumnKey(
 export function getTypedColumnKey<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
   callback: KeyProxyCallback<Type>,
-  jsonOptions?: JsonPathSqlOptions
+  jsonOptions?: JsonPathSqlOptions,
+  deferMainAlias = false
 ): string | string[] {
   const queryBuilder = builder as unknown as QueryBuilder<ObjectLiteral>;
 
   const toKey = (keyHolder: KeyHolder): string =>
-    toQuotedColumnKey(queryBuilder, resolveTypedKey(queryBuilder, keyHolder.getKeys()), jsonOptions);
+    toQuotedColumnKey(queryBuilder, resolveTypedKey(queryBuilder, keyHolder.getKeys()), jsonOptions, deferMainAlias);
 
   // the depth is checked against the query's metadata, where a JSON column may be deeper
   const keyHolder = getKeyHolder<Type>(callback, true);
@@ -561,9 +597,10 @@ export function getTypedSingleColumnKey<Type extends ObjectLiteral>(
   builder: WhereExpressionBuilder,
   callback: KeyProxyCallback<Type>,
   methodName: string,
-  jsonOptions?: JsonPathSqlOptions
+  jsonOptions?: JsonPathSqlOptions,
+  deferMainAlias = false
 ): string {
-  const key = getTypedColumnKey<Type>(builder, callback, jsonOptions);
+  const key = getTypedColumnKey<Type>(builder, callback, jsonOptions, deferMainAlias);
 
   if (Array.isArray(key)) {
     throw new TypeError(
@@ -572,6 +609,19 @@ export function getTypedSingleColumnKey<Type extends ObjectLiteral>(
   }
 
   return key;
+}
+
+/**
+ * `getTypedSingleColumnKey` for a WHERE condition: a column of the main alias gets its alias when the SQL is built,
+ * so a condition added before `.delete()` / `.update()` / `.softDelete()` / `.restore()` is the column alone there.
+ */
+export function getTypedConditionKey<Type extends ObjectLiteral>(
+  builder: WhereExpressionBuilder,
+  callback: KeyProxyCallback<Type>,
+  methodName: string,
+  jsonOptions?: JsonPathSqlOptions
+): string {
+  return getTypedSingleColumnKey<Type>(builder, callback, methodName, jsonOptions, true);
 }
 
 /**
